@@ -1,0 +1,6 @@
+curl --location 'https://openapi.akool.com/api/open/v3/getToken' \
+--header 'Content-Type: application/json' \
+--data '{
+  "clientId": "your-client-id",
+  "clientSecret": "your-client-secret"
+}'
