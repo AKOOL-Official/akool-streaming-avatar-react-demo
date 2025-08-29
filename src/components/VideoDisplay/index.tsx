@@ -1,20 +1,27 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ILocalVideoTrack } from 'agora-rtc-sdk-ng';
 import { useAgora } from '../../contexts/AgoraContext';
+import { useLiveKit } from '../../contexts/LiveKitContext';
+import { VideoTrack, StreamProviderType } from '../../types/streamingProvider';
+import { useMediaStrategy } from '../../strategies';
 import './styles.css';
 
 interface VideoDisplayProps {
   isJoined: boolean;
   avatarVideoUrl: string;
-  localVideoTrack: ILocalVideoTrack | null;
+  localVideoTrack: VideoTrack | null;
   cameraEnabled: boolean;
+  streamType: StreamProviderType;
 }
 
-const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, localVideoTrack, cameraEnabled }) => {
+const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, localVideoTrack, cameraEnabled, streamType }) => {
   const localVideoRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { isAvatarSpeaking } = useAgora();
+  const { client } = useAgora();
+  const { room } = useLiveKit();
+  
+  const mediaStrategy = useMediaStrategy(streamType, client, room);
 
   // State for dragging, resizing, and view switching
   const [isDragging, setIsDragging] = useState(false);
@@ -26,6 +33,23 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
 
   const isImageUrl = (url: string) => {
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  };
+
+  // Helper functions for unified video track handling using strategy pattern
+  const playVideoTrack = (track: VideoTrack, element: HTMLElement) => {
+    try {
+      mediaStrategy.video.playVideoTrack(track, element);
+    } catch (error) {
+      console.error('Failed to play video track:', error);
+    }
+  };
+
+  const stopVideoTrack = (track: VideoTrack) => {
+    try {
+      mediaStrategy.video.stopVideoPlayback(track);
+    } catch (error) {
+      console.error('Failed to stop video track:', error);
+    }
   };
 
   // Drag handlers
@@ -145,7 +169,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     if (localVideoTrack && cameraEnabled) {
       try {
         // Always stop the track first to avoid conflicts
-        localVideoTrack.stop();
+        stopVideoTrack(localVideoTrack);
 
         // Add a small delay to ensure the stop operation completes
         setTimeout(() => {
@@ -153,13 +177,13 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
             if (!isViewSwitched) {
               // Normal mode, local video in overlay
               if (localVideoRef.current) {
-                localVideoTrack.play(localVideoRef.current);
+                playVideoTrack(localVideoTrack, localVideoRef.current);
               }
             } else {
               // When switched, local video goes to a main video element
               const mainLocalVideo = document.getElementById('main-local-video');
               if (mainLocalVideo) {
-                localVideoTrack.play(mainLocalVideo);
+                playVideoTrack(localVideoTrack, mainLocalVideo);
               }
             }
           } catch (error) {
@@ -175,7 +199,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     return () => {
       if (localVideoTrack) {
         try {
-          localVideoTrack.stop();
+          stopVideoTrack(localVideoTrack);
         } catch (error) {
           console.error('Failed to stop local video track in cleanup:', error);
         }
@@ -187,7 +211,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   useEffect(() => {
     if (!cameraEnabled && localVideoTrack) {
       try {
-        localVideoTrack.stop();
+        stopVideoTrack(localVideoTrack);
       } catch (error) {
         console.error('Failed to stop video track when camera disabled:', error);
       }

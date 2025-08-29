@@ -1,9 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import AgoraRTC, { ILocalVideoTrack, ICameraVideoTrack } from 'agora-rtc-sdk-ng';
+import { useAgora } from '../contexts/AgoraContext';
+import { useLiveKit } from '../contexts/LiveKitContext';
+import { StreamProviderType, VideoTrack } from '../types/streamingProvider';
+import { useMediaStrategy } from '../strategies';
 
-interface UseVideoCameraReturn {
+interface UseUnifiedVideoCameraReturn {
   cameraEnabled: boolean;
-  localVideoTrack: ILocalVideoTrack | null;
+  localVideoTrack: VideoTrack | null;
   cameraError: string | null;
   enableCamera: () => Promise<void>;
   disableCamera: () => Promise<void>;
@@ -11,11 +14,15 @@ interface UseVideoCameraReturn {
   cleanup: () => Promise<void>;
 }
 
-export const useVideoCamera = (): UseVideoCameraReturn => {
+export const useUnifiedVideoCamera = (streamType: StreamProviderType): UseUnifiedVideoCameraReturn => {
+  const { client } = useAgora();
+  const { room } = useLiveKit();
   const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [localVideoTrack, setLocalVideoTrack] = useState<ILocalVideoTrack | null>(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState<VideoTrack | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoTrackRef = useRef<ICameraVideoTrack | null>(null);
+  const videoTrackRef = useRef<VideoTrack | null>(null);
+  
+  const mediaStrategy = useMediaStrategy(streamType, client, room);
 
   const enableCamera = useCallback(async () => {
     try {
@@ -23,26 +30,26 @@ export const useVideoCamera = (): UseVideoCameraReturn => {
 
       // Check if we already have a track
       if (videoTrackRef.current) {
-        await videoTrackRef.current.setEnabled(true);
+        await mediaStrategy.video.enableVideoTrack(videoTrackRef.current);
         setLocalVideoTrack(videoTrackRef.current);
         setCameraEnabled(true);
         return;
       }
 
-      // Create new camera video track
-      const cameraTrack = await AgoraRTC.createCameraVideoTrack({
-        encoderConfig: {
-          width: 320,
-          height: 240,
-          frameRate: 15,
-          bitrateMin: 200,
-          bitrateMax: 500,
-        },
-      });
+      // Create new camera video track - this should work even when not connected
+      const videoTrack = await mediaStrategy.video.createVideoTrack();
 
-      videoTrackRef.current = cameraTrack;
-      setLocalVideoTrack(cameraTrack);
+      // Store the track and update state immediately for local preview
+      videoTrackRef.current = videoTrack;
+      setLocalVideoTrack(videoTrack);
       setCameraEnabled(true);
+      
+      // Try to enable the track (this might publish if connected)
+      try {
+        await mediaStrategy.video.enableVideoTrack(videoTrack);
+      } catch (enableError) {
+        // Non-critical error for local preview
+      }
     } catch (error) {
       console.error('Failed to enable camera:', error);
 
@@ -61,15 +68,12 @@ export const useVideoCamera = (): UseVideoCameraReturn => {
       setCameraEnabled(false);
       setLocalVideoTrack(null);
     }
-  }, []);
+  }, [mediaStrategy]);
 
   const disableCamera = useCallback(async () => {
     try {
       if (videoTrackRef.current) {
-        // Stop the track first to release the device
-        videoTrackRef.current.stop();
-        // Then disable it
-        await videoTrackRef.current.setEnabled(false);
+        await mediaStrategy.video.disableVideoTrack(videoTrackRef.current);
       }
 
       setCameraEnabled(false);
@@ -78,7 +82,7 @@ export const useVideoCamera = (): UseVideoCameraReturn => {
     } catch (error) {
       console.error('Failed to disable camera:', error);
     }
-  }, []);
+  }, [mediaStrategy]);
 
   const toggleCamera = useCallback(async () => {
     if (cameraEnabled) {
@@ -92,10 +96,8 @@ export const useVideoCamera = (): UseVideoCameraReturn => {
   const cleanup = useCallback(async () => {
     try {
       if (videoTrackRef.current) {
-        // Stop the track first
-        videoTrackRef.current.stop();
-        // Close the track to release the device
-        videoTrackRef.current.close();
+        mediaStrategy.video.stopVideoTrack(videoTrackRef.current);
+        mediaStrategy.video.closeVideoTrack(videoTrackRef.current);
         videoTrackRef.current = null;
       }
       setLocalVideoTrack(null);
@@ -104,7 +106,10 @@ export const useVideoCamera = (): UseVideoCameraReturn => {
     } catch (error) {
       console.error('Failed to cleanup camera track:', error);
     }
-  }, []);
+  }, [mediaStrategy]);
+
+  // Note: We don't auto-cleanup camera when connection is lost
+  // since camera can be used for local preview even without connection
 
   // Cleanup on unmount
   useEffect(() => {

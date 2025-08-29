@@ -10,16 +10,14 @@ import ChatInterface from './components/ChatInterface';
 import { useUnifiedStreamingContext } from './contexts/UnifiedStreamingContext';
 import { useAgora } from './contexts/AgoraContext';
 import { useLiveKit } from './contexts/LiveKitContext';
-import { useAudioControls } from './hooks/useAudioControls';
+import { useUnifiedAudioControls } from './hooks/useUnifiedAudioControls';
 import { useUnifiedStreaming } from './hooks/useUnifiedStreaming';
-import { useVideoCamera } from './hooks/useVideoCamera';
+import { useUnifiedVideoCamera } from './hooks/useUnifiedVideoCamera';
 
 function App() {
   const { streamType, setStreamType } = useUnifiedStreamingContext();
   const { client } = useAgora();
   const { room } = useLiveKit();
-  const { micEnabled, setMicEnabled, toggleMic, cleanup: cleanupAudio } = useAudioControls();
-
   const [modeType, setModeType] = useState(Number(import.meta.env.VITE_MODE_TYPE) || 2);
   const [language, setLanguage] = useState(import.meta.env.VITE_LANGUAGE || 'en');
   const [voiceId, setVoiceId] = useState(import.meta.env.VITE_VOICE_ID || '');
@@ -47,7 +45,8 @@ function App() {
     }
   }, [openapiHost, openapiToken]);
 
-  const { cameraEnabled, localVideoTrack, cameraError, toggleCamera, cleanup: cleanupCamera } = useVideoCamera();
+  // Initialize camera hook first as its localVideoTrack is needed by streaming
+  const { cameraEnabled, localVideoTrack, cameraError, toggleCamera, cleanup: cleanupCamera } = useUnifiedVideoCamera(streamType);
 
   const {
     isJoined,
@@ -72,6 +71,9 @@ function App() {
     localVideoTrack,
     systemMessageCallbackRef.current || undefined,
   );
+
+  // Initialize audio controls 
+  const { micEnabled, setMicEnabled, toggleMic, cleanup: cleanupAudio } = useUnifiedAudioControls(streamType);
 
   // Auto-cleanup media devices when streaming stops
   useEffect(() => {
@@ -133,6 +135,7 @@ function App() {
           avatarVideoUrl={avatarVideoUrl}
           localVideoTrack={localVideoTrack}
           cameraEnabled={cameraEnabled}
+          streamType={streamType}
         />
         <ChatInterface
           client={streamType === 'agora' ? client : null}

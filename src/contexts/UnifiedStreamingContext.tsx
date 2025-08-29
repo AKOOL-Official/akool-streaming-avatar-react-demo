@@ -17,7 +17,7 @@ interface UnifiedStreamingProviderProps {
 
 export const UnifiedStreamingProvider: React.FC<UnifiedStreamingProviderProps> = ({
   children,
-  initialStreamType = 'agora',
+  initialStreamType = (import.meta.env.VITE_STREAM_TYPE as StreamProviderType) || 'agora',
 }) => {
   const [streamType, setStreamType] = React.useState<StreamProviderType>(initialStreamType);
 
