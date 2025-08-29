@@ -1,9 +1,26 @@
-export type Credentials = {
+export type AgoraCredentials = {
   agora_uid: number;
   agora_app_id: string;
   agora_channel: string;
   agora_token: string;
 };
+
+export type LivekitCredentials = {
+  livekit_url: string;
+  livekit_room_name: string;
+  livekit_token: string;
+  livekit_server_identity: string;
+  livekit_livekit_identity: string;
+};
+
+export type TRTCCredentials = {
+  trtc_app_id: string;
+  trtc_room_id: string;
+  trtc_user_id: string;
+  trtc_user_sig: string;
+};
+
+export type Credentials = AgoraCredentials | LivekitCredentials | TRTCCredentials;
 
 export type Session = {
   _id: string;
@@ -50,6 +67,7 @@ export type Knowledge = {
 };
 
 export type SessionOptions = {
+  stream_type: 'agora' | 'livekit' | 'trtc';
   avatar_id: string;
   duration: number;
   knowledge_id?: string;

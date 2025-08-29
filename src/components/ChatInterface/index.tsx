@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RTCClient, interruptResponse } from '../../agoraHelper';
+import { Room } from 'livekit-client';
+import { RTCClient } from '../../agoraHelper';
+import { StreamProviderType } from '../../types/streamingProvider';
 import {
   useMessageState,
   SystemEventType,
@@ -9,10 +11,12 @@ import {
   Message,
 } from '../../hooks/useMessageState';
 import { useAgora } from '../../contexts/AgoraContext';
+import { useLiveKit } from '../../contexts/LiveKitContext';
 import './styles.css';
 
 interface ChatInterfaceProps {
-  client: RTCClient;
+  client: RTCClient | null;
+  room: Room | null;
   connected: boolean;
   micEnabled: boolean;
   setMicEnabled: (enabled: boolean) => void;
@@ -20,6 +24,9 @@ interface ChatInterfaceProps {
   cameraEnabled: boolean;
   toggleCamera: () => Promise<void>;
   cameraError?: string | null;
+  streamType: StreamProviderType;
+  sendMessage: (messageId: string, content: string) => Promise<void>;
+  sendInterrupt: () => Promise<void>;
   onSystemEvent?: (type: UserTriggeredEventType, message: string) => void;
   onSystemMessageCallback?: (
     callback: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void,
@@ -28,6 +35,7 @@ interface ChatInterfaceProps {
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
   client,
+  room: _room,
   connected,
   micEnabled,
   setMicEnabled,
@@ -35,11 +43,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   cameraEnabled,
   toggleCamera,
   cameraError,
+  streamType,
+  sendMessage,
+  sendInterrupt,
   onSystemMessageCallback,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { setIsAvatarSpeaking } = useAgora();
+  const { setIsAvatarSpeaking: setAgoraAvatarSpeaking } = useAgora();
+  const { setIsAvatarSpeaking: setLiveKitAvatarSpeaking } = useLiveKit();
   const [hasAvatarStartedSpeaking, setHasAvatarStartedSpeaking] = useState(false);
+
+  // Helper function to set avatar speaking state for current provider
+  const setIsAvatarSpeaking = useCallback(
+    (speaking: boolean) => {
+      if (streamType === 'agora') {
+        setAgoraAvatarSpeaking(speaking);
+      } else if (streamType === 'livekit') {
+        setLiveKitAvatarSpeaking(speaking);
+      }
+    },
+    [streamType, setAgoraAvatarSpeaking, setLiveKitAvatarSpeaking],
+  );
 
   // Add state for resizable height
   const [chatHeight, setChatHeight] = useState(400);
@@ -85,7 +109,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     messages,
     inputMessage,
     setInputMessage,
-    sendMessage,
+    sendMessage: sendMessageHook,
     addMessage,
     addChatMessage,
     addSystemMessage,
@@ -95,6 +119,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   } = useMessageState({
     client,
     connected,
+    sendMessage,
   });
 
   // Handle mouse down on resize handle
@@ -240,9 +265,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     [setIsAvatarSpeaking, addChatMessage, addSystemMessage, addMessage, hasAvatarStartedSpeaking, messages],
   );
 
-  // Set up stream message listener
+  // Set up stream message listener (only for Agora)
   useEffect(() => {
-    if (connected) {
+    if (connected && client && streamType === 'agora') {
       // Store the handler reference so we can remove only this specific listener
       const messageHandler = handleStreamMessage;
       client.on('stream-message', messageHandler);
@@ -251,7 +276,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         client.off('stream-message', messageHandler);
       };
     }
-  }, [client, connected, handleStreamMessage]);
+  }, [client, connected, streamType, handleStreamMessage]);
 
   // Reset avatar speaking state when connection is established
   useEffect(() => {
@@ -391,10 +416,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               className={!connected ? 'disabled' : ''}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyUp={(e) => e.key === 'Enter' && sendMessage()}
+              onKeyUp={(e) => e.key === 'Enter' && sendMessageHook()}
             />
             <button
-              onClick={sendMessage}
+              onClick={sendMessageHook}
               disabled={!connected}
               className={`icon-button ${!connected ? 'disabled' : ''}`}
               title="Send message"
@@ -402,12 +427,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <span className="material-icons">send</span>
             </button>
             <button
-              onClick={() => {
-                // Add system message for interrupt
-                addSystemMessage(`interrupt_${Date.now()}`, '🛑 User interrupted response', SystemEventType.INTERRUPT);
-                interruptResponse(client, (cmd) => {
-                  console.log(`Interrupt command sent: ${cmd}`);
-                });
+              onClick={async () => {
+                try {
+                  // Add system message for interrupt
+                  addSystemMessage(
+                    `interrupt_${Date.now()}`,
+                    '🛑 User interrupted response',
+                    SystemEventType.INTERRUPT,
+                  );
+                  await sendInterrupt();
+                  console.log('Interrupt command sent successfully');
+                } catch (error) {
+                  console.error('Failed to send interrupt:', error);
+                }
               }}
               disabled={!connected}
               className={`icon-button ${!connected ? 'disabled' : ''}`}

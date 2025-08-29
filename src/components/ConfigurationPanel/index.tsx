@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ApiService, Language, Voice, Avatar } from '../../apiService';
+import { StreamProviderType } from '../../types/streamingProvider';
 import AvatarSelector from '../AvatarSelector';
 import VoiceSelector from '../VoiceSelector';
 import JsonEditorModal from '../JsonEditorModal';
@@ -11,6 +12,8 @@ interface ConfigurationPanelProps {
   setOpenapiHost: (host: string) => void;
   openapiToken: string;
   setOpenapiToken: (token: string) => void;
+  streamType: StreamProviderType;
+  setStreamType: (type: StreamProviderType) => void;
   sessionDuration: number;
   setSessionDuration: (duration: number) => void;
   modeType: number;
@@ -33,6 +36,7 @@ interface ConfigurationPanelProps {
   startStreaming: () => Promise<void>;
   closeStreaming: () => Promise<void>;
   setAvatarVideoUrl: (url: string) => void;
+  currentProvider: StreamProviderType | null;
 }
 
 export default function ConfigurationPanel({
@@ -41,6 +45,8 @@ export default function ConfigurationPanel({
   setOpenapiHost,
   openapiToken,
   setOpenapiToken,
+  streamType,
+  setStreamType,
   sessionDuration,
   setSessionDuration,
   modeType,
@@ -63,6 +69,7 @@ export default function ConfigurationPanel({
   startStreaming,
   closeStreaming,
   setAvatarVideoUrl,
+  currentProvider,
 }: ConfigurationPanelProps) {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -136,6 +143,22 @@ export default function ConfigurationPanel({
           <label>
             Token:
             <input defaultValue={openapiToken} onChange={(e) => setOpenapiToken(e.target.value)} disabled={isJoined} />
+          </label>
+        </div>
+        <div>
+          <label>
+            Streaming Provider:
+            <select
+              value={streamType}
+              onChange={(e) => setStreamType(e.target.value as StreamProviderType)}
+              disabled={isJoined}
+            >
+              <option value="agora">Agora RTC</option>
+              <option value="livekit">LiveKit</option>
+              <option value="trtc" disabled>
+                TRTC (Coming Soon)
+              </option>
+            </select>
           </label>
         </div>
       </div>

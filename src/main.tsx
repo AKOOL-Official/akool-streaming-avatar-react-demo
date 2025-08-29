@@ -2,12 +2,12 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { AgoraProvider } from './contexts/AgoraContext';
+import { UnifiedStreamingProvider } from './contexts/UnifiedStreamingContext';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AgoraProvider>
+    <UnifiedStreamingProvider>
       <App />
-    </AgoraProvider>
+    </UnifiedStreamingProvider>
   </React.StrictMode>,
 );

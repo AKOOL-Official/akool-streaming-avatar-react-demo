@@ -1,0 +1,161 @@
+import React, { createContext, useContext, ReactNode, useState, useCallback, useMemo, useRef } from 'react';
+import { Room, RoomOptions, Track } from 'livekit-client';
+
+// Create the context with default value
+interface LiveKitContextType {
+  room: Room;
+  isAvatarSpeaking: boolean;
+  setIsAvatarSpeaking: (speaking: boolean) => void;
+  isConnected: boolean;
+  setIsConnected: (connected: boolean) => void;
+}
+
+const LiveKitContext = createContext<LiveKitContextType | undefined>(undefined);
+
+// Create a provider component
+interface LiveKitProviderProps {
+  children: ReactNode;
+  roomOptions?: RoomOptions;
+}
+
+export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, roomOptions = {} }) => {
+  // Initialize the LiveKit room - use useMemo to ensure it's only created once
+  const room: Room = useMemo(() => {
+    const defaultOptions: RoomOptions = {
+      // Enable adaptive stream for better performance
+      adaptiveStream: true,
+      // Enable dynacast for improved scalability
+      dynacast: true,
+      // Publish defaults
+      publishDefaults: {
+        audioTrack: false,
+        videoTrack: false,
+      },
+      ...roomOptions,
+    };
+
+    return new Room(defaultOptions);
+  }, []); // Empty dependency array ensures it's only created once
+
+  // State for avatar speaking status
+  const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Track connection state changes
+  const connectionStateRef = useRef(false);
+
+  const handleSetIsAvatarSpeaking = useCallback((speaking: boolean) => {
+    setIsAvatarSpeaking(speaking);
+  }, []);
+
+  const handleSetIsConnected = useCallback((connected: boolean) => {
+    if (connectionStateRef.current !== connected) {
+      connectionStateRef.current = connected;
+      setIsConnected(connected);
+    }
+  }, []);
+
+  // Set up room event listeners
+  React.useEffect(() => {
+    const handleRoomConnected = () => {
+      console.log('LiveKit room connected');
+      handleSetIsConnected(true);
+    };
+
+    const handleRoomDisconnected = () => {
+      console.log('LiveKit room disconnected');
+      handleSetIsConnected(false);
+    };
+
+    const handleRoomReconnecting = () => {
+      console.log('LiveKit room reconnecting...');
+    };
+
+    const handleRoomReconnected = () => {
+      console.log('LiveKit room reconnected');
+      handleSetIsConnected(true);
+    };
+
+    const handleParticipantConnected = (participant: any) => {
+      console.log('Participant connected:', participant.identity);
+    };
+
+    const handleParticipantDisconnected = (participant: any) => {
+      console.log('Participant disconnected:', participant.identity);
+    };
+
+    const handleTrackSubscribed = (track: Track, participant: any) => {
+      console.log('Track subscribed:', track.kind, 'from', participant.identity);
+
+      if (track.kind === Track.Kind.Video) {
+        // Auto-attach video track to remote-video element
+        const videoElement = document.getElementById('remote-video');
+        if (videoElement) {
+          track.attach(videoElement);
+        }
+      } else if (track.kind === Track.Kind.Audio) {
+        // Auto-play audio tracks
+        track.attach();
+      }
+    };
+
+    const handleTrackUnsubscribed = (track: Track, participant: any) => {
+      console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
+      track.detach();
+    };
+
+    // Add event listeners
+    room.on('connected', handleRoomConnected);
+    room.on('disconnected', handleRoomDisconnected);
+    room.on('reconnecting', handleRoomReconnecting);
+    room.on('reconnected', handleRoomReconnected);
+    room.on('participantConnected', handleParticipantConnected);
+    room.on('participantDisconnected', handleParticipantDisconnected);
+    room.on('trackSubscribed', handleTrackSubscribed);
+    room.on('trackUnsubscribed', handleTrackUnsubscribed);
+
+    // Cleanup function
+    return () => {
+      room.off('connected', handleRoomConnected);
+      room.off('disconnected', handleRoomDisconnected);
+      room.off('reconnecting', handleRoomReconnecting);
+      room.off('reconnected', handleRoomReconnected);
+      room.off('participantConnected', handleParticipantConnected);
+      room.off('participantDisconnected', handleParticipantDisconnected);
+      room.off('trackSubscribed', handleTrackSubscribed);
+      room.off('trackUnsubscribed', handleTrackUnsubscribed);
+    };
+  }, [room, handleSetIsConnected]);
+
+  // Cleanup when component unmounts
+  React.useEffect(() => {
+    return () => {
+      if (room.state === 'connected') {
+        room.disconnect();
+      }
+    };
+  }, [room]);
+
+  return (
+    <LiveKitContext.Provider
+      value={{
+        room,
+        isAvatarSpeaking,
+        setIsAvatarSpeaking: handleSetIsAvatarSpeaking,
+        isConnected,
+        setIsConnected: handleSetIsConnected,
+      }}
+    >
+      {children}
+    </LiveKitContext.Provider>
+  );
+};
+
+// Create a custom hook to use the context
+export const useLiveKit = (): LiveKitContextType => {
+  const context = useContext(LiveKitContext);
+  if (context === undefined) {
+    throw new Error('useLiveKit must be used within a LiveKitProvider');
+  }
+  return context;
+};

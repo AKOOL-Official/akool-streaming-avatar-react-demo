@@ -1,18 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { ApiService } from './apiService';
+// StreamProviderType will be used when we add provider-specific logic
 
 import ConfigurationPanel from './components/ConfigurationPanel';
 import NetworkQualityDisplay from './components/NetworkQuality';
 import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
+import { useUnifiedStreamingContext } from './contexts/UnifiedStreamingContext';
 import { useAgora } from './contexts/AgoraContext';
+import { useLiveKit } from './contexts/LiveKitContext';
 import { useAudioControls } from './hooks/useAudioControls';
-import { useStreaming } from './hooks/useStreaming';
+import { useUnifiedStreaming } from './hooks/useUnifiedStreaming';
 import { useVideoCamera } from './hooks/useVideoCamera';
 
 function App() {
+  const { streamType, setStreamType } = useUnifiedStreamingContext();
   const { client } = useAgora();
+  const { room } = useLiveKit();
   const { micEnabled, setMicEnabled, toggleMic, cleanup: cleanupAudio } = useAudioControls();
 
   const [modeType, setModeType] = useState(Number(import.meta.env.VITE_MODE_TYPE) || 2);
@@ -44,7 +49,17 @@ function App() {
 
   const { cameraEnabled, localVideoTrack, cameraError, toggleCamera, cleanup: cleanupCamera } = useVideoCamera();
 
-  const { isJoined, connected, remoteStats, startStreaming, closeStreaming } = useStreaming(
+  const {
+    isJoined,
+    connected,
+    remoteStats,
+    startStreaming,
+    closeStreaming,
+    currentProvider,
+    sendMessage,
+    sendInterrupt,
+  } = useUnifiedStreaming(
+    streamType,
     avatarId,
     knowledgeId,
     sessionDuration,
@@ -87,6 +102,8 @@ function App() {
         setOpenapiHost={setOpenapiHost}
         openapiToken={openapiToken}
         setOpenapiToken={setOpenapiToken}
+        streamType={streamType}
+        setStreamType={setStreamType}
         sessionDuration={sessionDuration}
         setSessionDuration={setSessionDuration}
         modeType={modeType}
@@ -110,6 +127,7 @@ function App() {
         closeStreaming={closeStreaming}
         api={api}
         setAvatarVideoUrl={setAvatarVideoUrl}
+        currentProvider={currentProvider}
       />
       <div className="right-side">
         <VideoDisplay
@@ -119,7 +137,8 @@ function App() {
           cameraEnabled={cameraEnabled}
         />
         <ChatInterface
-          client={client}
+          client={streamType === 'agora' ? client : null}
+          room={streamType === 'livekit' ? room : null}
           connected={connected}
           micEnabled={micEnabled}
           setMicEnabled={setMicEnabled}
@@ -127,6 +146,9 @@ function App() {
           cameraEnabled={cameraEnabled}
           toggleCamera={toggleCamera}
           cameraError={cameraError}
+          streamType={streamType}
+          sendMessage={sendMessage}
+          sendInterrupt={sendInterrupt}
           onSystemMessageCallback={(callback) => {
             systemMessageCallbackRef.current = callback;
           }}

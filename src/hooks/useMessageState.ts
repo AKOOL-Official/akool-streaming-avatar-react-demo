@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import { RTCClient } from '../agoraHelper';
-import { sendMessageToAvatar } from '../agoraHelper';
 
 // System event types enum
 export enum SystemEventType {
@@ -54,8 +53,9 @@ export interface Message {
 }
 
 interface UseMessageStateProps {
-  client: RTCClient;
+  client?: RTCClient | null;
   connected: boolean;
+  sendMessage?: (messageId: string, content: string) => Promise<void>;
   onStreamMessage?: (uid: number, body: Uint8Array) => void;
 }
 
@@ -112,15 +112,16 @@ const shouldShowTimeSeparator = (currentMessage: Message, previousMessage: Messa
 export const useMessageState = ({
   client,
   connected,
+  sendMessage: sendMessageProp,
   onStreamMessage,
 }: UseMessageStateProps): UseMessageStateReturn => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Set up stream message listener
+  // Set up stream message listener (only for Agora)
   useEffect(() => {
-    if (connected && onStreamMessage) {
+    if (connected && onStreamMessage && client) {
       // Store the handler reference so we can remove only this specific listener
       const messageHandler = onStreamMessage;
       client.on('stream-message', messageHandler);
@@ -132,7 +133,7 @@ export const useMessageState = ({
   }, [client, connected, onStreamMessage]);
 
   const sendMessage = useCallback(async () => {
-    if (!inputMessage.trim() || !connected || sending) return;
+    if (!inputMessage.trim() || !connected || sending || !sendMessageProp) return;
 
     setSending(true);
     const messageId = Date.now().toString();
@@ -150,7 +151,7 @@ export const useMessageState = ({
     setInputMessage('');
 
     try {
-      await sendMessageToAvatar(client, messageId, inputMessage);
+      await sendMessageProp(messageId, inputMessage);
     } catch (error) {
       console.error('Failed to send message:', error);
       // Optionally remove the message from state if sending failed
@@ -158,7 +159,7 @@ export const useMessageState = ({
     } finally {
       setSending(false);
     }
-  }, [client, connected, inputMessage, sending]);
+  }, [sendMessageProp, connected, inputMessage, sending]);
 
   const addMessage = useCallback(
     (
