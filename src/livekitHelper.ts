@@ -1,18 +1,18 @@
 import { Room } from 'livekit-client';
-import { Metadata, CommandPayload, ChatPayload, StreamMessage } from './types/streamingProvider';
+import {
+  Metadata,
+  CommandPayload,
+  ChatPayload,
+  StreamMessage,
+  MessageType,
+  CommandType,
+} from './types/streamingProvider';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function log(...args: any[]) {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}]`, ...args);
 }
-
-// Message topics for LiveKit text streams
-export const MESSAGE_TOPICS = {
-  AVATAR_COMMAND: 'avatar-command',
-  CHAT_MESSAGE: 'chat-message',
-  SYSTEM_MESSAGE: 'system-message',
-} as const;
 
 // Helper function to check if room is ready to send messages
 export function isRoomReady(room: Room): boolean {
@@ -22,7 +22,7 @@ export function isRoomReady(room: Room): boolean {
 export async function setAvatarParams(
   room: Room,
   meta: Metadata,
-  onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
+  onCommandSend?: (cmd: CommandType, data?: Record<string, unknown>) => void,
 ) {
   // Check if room is connected before sending message
   if (!isRoomReady(room)) {
@@ -38,10 +38,10 @@ export async function setAvatarParams(
 
   const message: StreamMessage = {
     v: 2,
-    type: 'command',
+    type: MessageType.COMMAND,
     mid: `msg-${Date.now()}`,
     pld: {
-      cmd: 'set-params',
+      cmd: CommandType.SET_PARAMS,
       data: cleanedMeta,
     },
   };
@@ -50,11 +50,11 @@ export async function setAvatarParams(
   log(`setAvatarParams, size=${jsondata.length}, data=${jsondata}`);
 
   // Notify about command being sent
-  onCommandSend?.('set-params', cleanedMeta);
+  onCommandSend?.(CommandType.SET_PARAMS, cleanedMeta);
 
   try {
     await room.localParticipant.sendText(jsondata, {
-      topic: MESSAGE_TOPICS.AVATAR_COMMAND,
+      topic: MessageType.COMMAND,
     });
   } catch (error) {
     console.error('Failed to send avatar params:', error);
@@ -64,7 +64,7 @@ export async function setAvatarParams(
 
 export async function interruptResponse(
   room: Room,
-  onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
+  onCommandSend?: (cmd: CommandType, data?: Record<string, unknown>) => void,
 ) {
   // Check if room is connected before sending message
   if (!isRoomReady(room)) {
@@ -77,10 +77,10 @@ export async function interruptResponse(
 
   const message: StreamMessage = {
     v: 2,
-    type: 'command',
+    type: MessageType.COMMAND,
     mid: `msg-${Date.now()}`,
     pld: {
-      cmd: 'interrupt',
+      cmd: CommandType.INTERRUPT,
     },
   };
 
@@ -88,11 +88,11 @@ export async function interruptResponse(
   log(`interruptResponse, size=${jsondata.length}, data=${jsondata}`);
 
   // Notify about command being sent
-  onCommandSend?.('interrupt');
+  onCommandSend?.(CommandType.INTERRUPT);
 
   try {
     await room.localParticipant.sendText(jsondata, {
-      topic: MESSAGE_TOPICS.AVATAR_COMMAND,
+      topic: MessageType.COMMAND,
     });
   } catch (error) {
     console.error('Failed to send interrupt command:', error);
@@ -117,7 +117,7 @@ export async function sendMessageToAvatar(room: Room, messageId: string, content
 
   const message: StreamMessage = {
     v: 2,
-    type: 'chat',
+    type: MessageType.CHAT,
     mid: messageId,
     pld: {
       text: content,
@@ -130,7 +130,7 @@ export async function sendMessageToAvatar(room: Room, messageId: string, content
   try {
     // LiveKit automatically handles chunking for large messages
     await room.localParticipant.sendText(jsondata, {
-      topic: MESSAGE_TOPICS.CHAT_MESSAGE,
+      topic: MessageType.CHAT,
     });
   } catch (error: unknown) {
     throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -155,7 +155,7 @@ export async function sendStreamingMessageToAvatar(
 
   try {
     const streamWriter = await room.localParticipant.streamText({
-      topic: MESSAGE_TOPICS.CHAT_MESSAGE,
+      topic: MessageType.CHAT,
       attributes: { messageId }, // Include messageId in attributes
     });
 
@@ -181,12 +181,12 @@ export function registerMessageHandlers(
 ) {
   // Register handler for avatar commands
   if (handlers.onAvatarCommand) {
-    room.registerTextStreamHandler(MESSAGE_TOPICS.AVATAR_COMMAND, async (reader, participantInfo) => {
+    room.registerTextStreamHandler(MessageType.COMMAND, async (reader, participantInfo) => {
       try {
         const messageText = await reader.readAll();
         const streamMessage = JSON.parse(messageText) as StreamMessage;
 
-        if (streamMessage.type === 'command') {
+        if (streamMessage.type === MessageType.COMMAND) {
           handlers.onAvatarCommand?.(streamMessage.pld as CommandPayload, participantInfo);
         }
       } catch (error) {
@@ -197,7 +197,7 @@ export function registerMessageHandlers(
 
   // Register handler for chat messages
   if (handlers.onChatMessage) {
-    room.registerTextStreamHandler(MESSAGE_TOPICS.CHAT_MESSAGE, async (reader, participantInfo) => {
+    room.registerTextStreamHandler(MessageType.CHAT, async (reader, participantInfo) => {
       try {
         // Check if this is a streaming message or complete message
         const info = reader.info;
@@ -207,7 +207,7 @@ export function registerMessageHandlers(
           const messageText = await reader.readAll();
           const streamMessage = JSON.parse(messageText) as StreamMessage;
 
-          if (streamMessage.type === 'chat') {
+          if (streamMessage.type === MessageType.CHAT) {
             handlers.onChatMessage?.(streamMessage.pld as ChatPayload, participantInfo);
           }
         } else {
@@ -221,7 +221,7 @@ export function registerMessageHandlers(
           // Process complete streamed message
           try {
             const streamMessage = JSON.parse(fullMessage) as StreamMessage;
-            if (streamMessage.type === 'chat') {
+            if (streamMessage.type === MessageType.CHAT) {
               handlers.onChatMessage?.(streamMessage.pld as ChatPayload, participantInfo);
             }
           } catch {
@@ -237,7 +237,7 @@ export function registerMessageHandlers(
 
   // Register handler for system messages
   if (handlers.onSystemMessage) {
-    room.registerTextStreamHandler(MESSAGE_TOPICS.SYSTEM_MESSAGE, async (reader, participantInfo) => {
+    room.registerTextStreamHandler(MessageType.COMMAND, async (reader, participantInfo) => {
       try {
         const messageText = await reader.readAll();
         handlers.onSystemMessage?.(messageText, participantInfo);
@@ -249,7 +249,7 @@ export function registerMessageHandlers(
 }
 
 // Helper function to unregister all message handlers
-export function unregisterMessageHandlers(room: Room) {
+export function unregisterMessageHandlers(_room: Room) {
   // LiveKit will automatically clean up handlers when room disconnects,
   // but we can explicitly remove them if needed
   try {

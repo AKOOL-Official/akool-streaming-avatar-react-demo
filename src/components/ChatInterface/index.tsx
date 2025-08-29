@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Room } from 'livekit-client';
 import { RTCClient } from '../../agoraHelper';
-import { StreamProviderType } from '../../types/streamingProvider';
+import { CommandType, StreamProviderType } from '../../types/streamingProvider';
 import {
   useMessageState,
   SystemEventType,
@@ -243,10 +243,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             // This is a command being sent
             const { data } = pld;
             const dataStr = data ? ` with data: ${JSON.stringify(data)}` : '';
-            const systemType = cmd === 'interrupt' ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS;
-            const messageText = cmd === 'set-params' && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
+            const systemType = cmd === CommandType.INTERRUPT ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS;
+            const messageText = cmd === CommandType.SET_PARAMS && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
 
-            const metadata = cmd === 'set-params' && data ? { fullParams: data } : undefined;
+            const metadata = cmd === CommandType.SET_PARAMS && data ? { fullParams: data } : undefined;
             console.log('Creating set-params message:', {
               cmd,
               data,

@@ -40,19 +40,41 @@ export interface Metadata {
   vparams?: Record<string, unknown>; // voice params
 }
 
+export enum CommandType {
+  SET_PARAMS = 'set-params',
+  INTERRUPT = 'interrupt',
+  SET_ACTION = 'set-action',
+}
+
 export interface CommandPayload {
-  cmd: string;
+  cmd: CommandType;
   data?: Metadata;
 }
+
+export type CommandResponsePayload = {
+  cmd: CommandType;
+  code: number;
+  msg?: string;
+};
 
 export interface ChatPayload {
   text: string;
   meta?: Metadata;
 }
 
+export type ChatResponsePayload = {
+  text: string;
+  from: 'bot' | 'user';
+};
+
+export enum MessageType {
+  COMMAND = 'command',
+  CHAT = 'chat',
+}
+
 export interface StreamMessage {
   v: number;
-  type: string;
+  type: MessageType;
   mid: string;
   idx?: number;
   fin?: boolean;

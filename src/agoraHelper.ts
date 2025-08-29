@@ -1,4 +1,5 @@
 import { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
+import { CommandType, MessageType, Metadata, StreamMessage } from './types/streamingProvider';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function log(...args: any[]) {
@@ -15,49 +16,10 @@ export function isClientReady(client: RTCClient): boolean {
   return client.connectionState === 'CONNECTED' && client.uid !== undefined;
 }
 
-export interface Metadata {
-  vid?: string; // voice id
-  vurl?: string; // voice url
-  lang?: string; // language
-  mode?: number; // mode
-  bgurl?: string; // background url
-  vparams?: Record<string, unknown>; // voice params
-}
-
-export type CommandPayload = {
-  cmd: string;
-  data?: Metadata;
-};
-
-export type CommandResponsePayload = {
-  cmd: string;
-  code: number;
-  msg?: string;
-};
-
-export type ChatPayload = {
-  text: string;
-  meta?: Metadata;
-};
-
-export type ChatResponsePayload = {
-  text: string;
-  from: 'bot' | 'user';
-};
-
-export type StreamMessage = {
-  v: number;
-  type: string;
-  mid: string;
-  idx?: number;
-  fin?: boolean;
-  pld: CommandPayload | ChatPayload;
-};
-
 export async function setAvatarParams(
   client: RTCClient,
   meta: Metadata,
-  onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
+  onCommandSend?: (cmd: CommandType, data?: Record<string, unknown>) => void,
 ) {
   // Check if client is joined before sending stream message
   if (!isClientReady(client)) {
@@ -73,10 +35,10 @@ export async function setAvatarParams(
 
   const message: StreamMessage = {
     v: 2,
-    type: 'command',
+    type: MessageType.COMMAND,
     mid: `msg-${Date.now()}`,
     pld: {
-      cmd: 'set-params',
+      cmd: CommandType.SET_PARAMS,
       data: cleanedMeta,
     },
   };
@@ -84,14 +46,14 @@ export async function setAvatarParams(
   log(`setAvatarParams, size=${jsondata.length}, data=${jsondata}`);
 
   // Notify about command being sent
-  onCommandSend?.('set-params', cleanedMeta);
+  onCommandSend?.(CommandType.SET_PARAMS, cleanedMeta);
 
   return client.sendStreamMessage(jsondata, false);
 }
 
 export async function interruptResponse(
   client: RTCClient,
-  onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
+  onCommandSend?: (cmd: CommandType, data?: Record<string, unknown>) => void,
 ) {
   // Check if client is joined before sending stream message
   if (!isClientReady(client)) {
@@ -104,17 +66,17 @@ export async function interruptResponse(
 
   const message: StreamMessage = {
     v: 2,
-    type: 'command',
+    type: MessageType.COMMAND,
     mid: `msg-${Date.now()}`,
     pld: {
-      cmd: 'interrupt',
+      cmd: CommandType.INTERRUPT,
     },
   };
   const jsondata = JSON.stringify(message);
   log(`interuptResponse, size=${jsondata.length}, data=${jsondata}`);
 
   // Notify about command being sent
-  onCommandSend?.('interrupt');
+  onCommandSend?.(CommandType.INTERRUPT);
 
   return client.sendStreamMessage(jsondata, false);
 }
@@ -137,7 +99,7 @@ export async function sendMessageToAvatar(client: RTCClient, messageId: string, 
   const encodeMessage = (text: string, idx: number, fin: boolean): Uint8Array => {
     const message: StreamMessage = {
       v: 2,
-      type: 'chat',
+      type: MessageType.CHAT,
       mid: messageId,
       idx,
       fin,

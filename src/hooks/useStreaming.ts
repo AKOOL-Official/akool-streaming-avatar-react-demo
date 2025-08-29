@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { IAgoraRTCRemoteUser, NetworkQuality, ILocalVideoTrack } from 'agora-rtc-sdk-ng';
 import { UID } from 'agora-rtc-sdk-ng/esm';
 import { Session, ApiService, Credentials } from '../apiService';
-import { setAvatarParams, log, StreamMessage, CommandResponsePayload } from '../agoraHelper';
+import { setAvatarParams, log } from '../agoraHelper';
+import { StreamMessage, CommandResponsePayload } from '../types/streamingProvider';
 import { NetworkStats } from '../components/NetworkQuality';
 import { useAgora } from '../contexts/AgoraContext';
 

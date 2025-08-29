@@ -10,6 +10,10 @@ import {
   CommandPayload,
   Metadata,
   NetworkQuality as CommonNetworkQuality,
+  StreamMessage,
+  CommandResponsePayload,
+  MessageType,
+  CommandType,
 } from '../types/streamingProvider';
 import { AgoraCredentials, Credentials } from '../apiService';
 import { NetworkStats } from '../components/NetworkQuality';
@@ -19,8 +23,6 @@ import {
   interruptResponse,
   sendMessageToAvatar,
   log,
-  StreamMessage,
-  CommandResponsePayload,
 } from '../agoraHelper';
 
 export class AgoraStreamingProvider implements StreamingProvider {
@@ -157,7 +159,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
     }
   }
 
-  public async subscribeToRemoteVideo(containerId: string): Promise<void> {
+  public async subscribeToRemoteVideo(_containerId: string): Promise<void> {
     // Agora handles this through the user-published event
     // This is a no-op for Agora as subscription is handled automatically
     log('Remote video subscription handled by Agora events');
@@ -177,9 +179,9 @@ export class AgoraStreamingProvider implements StreamingProvider {
     command: CommandPayload,
     onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
   ): Promise<void> {
-    if (command.cmd === 'set-params' && command.data) {
+    if (command.cmd === CommandType.SET_PARAMS && command.data) {
       await this.setAvatarParams(command.data, onCommandSend);
-    } else if (command.cmd === 'interrupt') {
+    } else if (command.cmd === CommandType.INTERRUPT) {
       await this.interruptResponse(onCommandSend);
     } else {
       throw new Error(`Unsupported command: ${command.cmd}`);
@@ -345,11 +347,11 @@ export class AgoraStreamingProvider implements StreamingProvider {
         return;
       }
 
-      if (type === 'command') {
+      if (type === MessageType.COMMAND) {
         const { cmd, code, msg: cmdMsg } = pld as CommandResponsePayload;
         log(`cmd-response, cmd=${cmd}, code=${code}, msg=${cmdMsg}`);
         // Handle command responses if needed
-      } else if (type === 'chat') {
+      } else if (type === MessageType.CHAT) {
         this.handlers?.onStreamMessage?.(msg, {
           uid,
           identity: uid.toString(),

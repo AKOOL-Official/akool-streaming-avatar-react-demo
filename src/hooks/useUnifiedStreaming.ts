@@ -11,6 +11,7 @@ import { getStreamingProviderFactory } from '../providers/StreamingProviderFacto
 import { useAgora } from '../contexts/AgoraContext';
 import { useLiveKit } from '../contexts/LiveKitContext';
 import { log } from '../agoraHelper';
+import { AgoraStreamingProvider } from '../providers/AgoraProvider';
 
 interface UnifiedStreamingState extends StreamingState {
   session: Session | null;
@@ -252,7 +253,7 @@ export const useUnifiedStreaming = (
 
       // Enable message handling for providers that support it
       if (streamType === 'agora' && 'connectToChat' in providerRef.current) {
-        await (providerRef.current as any).connectToChat();
+        await (providerRef.current as unknown as AgoraStreamingProvider).connectToChat();
       }
 
       // Sync provider state after connection
@@ -282,7 +283,7 @@ export const useUnifiedStreaming = (
       if (providerRef.current) {
         // Disable message handling for providers that support it
         if (streamType === 'agora' && 'disconnectFromChat' in providerRef.current) {
-          await (providerRef.current as any).disconnectFromChat();
+          await (providerRef.current as unknown as AgoraStreamingProvider).disconnectFromChat();
         }
 
         await providerRef.current.disconnect();
