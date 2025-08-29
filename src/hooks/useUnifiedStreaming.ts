@@ -146,6 +146,17 @@ export const useUnifiedStreaming = (
         return;
       }
 
+      // Add a small delay to ensure room is fully stable after connection
+      if (!initialParamsSentRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms for room to stabilize
+        
+        // Double-check connection state after delay
+        if (!providerRef.current || !state.isJoined || !state.connected) {
+          log('Connection lost during avatar params delay, skipping params update');
+          return;
+        }
+      }
+
       const metadata: Metadata = {
         vid: voiceId,
         vurl: voiceUrl,
@@ -177,6 +188,8 @@ export const useUnifiedStreaming = (
           log('Avatar params updated:', cleanedMeta);
         } catch (error) {
           console.error('Failed to update avatar params:', error);
+          // Reset the flag so we can retry on next connection
+          initialParamsSentRef.current = false;
         }
       }
     };

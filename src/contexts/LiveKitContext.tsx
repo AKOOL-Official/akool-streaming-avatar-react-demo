@@ -29,8 +29,9 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
       ...roomOptions,
     };
 
+    console.log('LiveKitContext: Creating new Room instance');
     return new Room(defaultOptions);
-  }, [roomOptions]); // Include roomOptions in dependency array
+  }, [JSON.stringify(roomOptions)]); // Use JSON.stringify to prevent recreation on object reference changes
 
   // State for avatar speaking status
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
@@ -122,14 +123,19 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
     };
   }, [room, handleSetIsConnected]);
 
-  // Cleanup when component unmounts
+  // Cleanup when component unmounts - use ref to avoid dependency issues
+  const roomRef = React.useRef(room);
+  roomRef.current = room;
+  
   React.useEffect(() => {
     return () => {
-      if (room.state === 'connected') {
-        room.disconnect();
+      // Use ref to access current room without triggering effect on room changes
+      if (roomRef.current.state === 'connected') {
+        console.log('LiveKitContext: Disconnecting room on cleanup');
+        roomRef.current.disconnect();
       }
     };
-  }, [room]);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   return (
     <LiveKitContext.Provider

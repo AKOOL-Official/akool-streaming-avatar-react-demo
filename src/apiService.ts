@@ -10,7 +10,7 @@ export type LivekitCredentials = {
   livekit_room_name: string;
   livekit_token: string;
   livekit_server_identity: string;
-  livekit_livekit_identity: string;
+  livekit_client_identity: string;
 };
 
 export type TRTCCredentials = {

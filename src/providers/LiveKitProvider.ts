@@ -162,12 +162,23 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       throw new Error('Invalid credentials for LiveKit provider');
     }
 
+    // Disconnect if already connected to prevent conflicts
+    if (this.room.state === 'connected') {
+      log('LiveKit room already connected, disconnecting first...');
+      await this.disconnect();
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
     this.handlers = handlers;
 
     try {
       await this.room.connect(credentials.livekit_url, credentials.livekit_token, {
         autoSubscribe: true,
       });
+
+      // Wait for connection to be fully established before proceeding
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Register message handlers
       this.registerMessageHandlers();
@@ -186,7 +197,7 @@ export class LiveKitStreamingProvider implements StreamingProvider {
 
   public async disconnect(): Promise<void> {
     try {
-      if (this.room.state === 'connected') {
+      if (this.room.state === 'connected' || this.room.state === 'connecting') {
         await this.room.disconnect();
       }
       this.updateState({
@@ -199,7 +210,8 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       log('LiveKit disconnected successfully');
     } catch (error) {
       log('Failed to disconnect from LiveKit:', error);
-      throw error;
+      // Don't throw during cleanup - log and continue
+      console.error('LiveKit disconnect error (non-critical during cleanup):', error);
     }
   }
 

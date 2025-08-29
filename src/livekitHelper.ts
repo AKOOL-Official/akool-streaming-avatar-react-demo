@@ -16,7 +16,9 @@ export function log(...args: any[]) {
 
 // Helper function to check if room is ready to send messages
 export function isRoomReady(room: Room): boolean {
-  return room.state === 'connected' && room.localParticipant.identity !== undefined;
+  return room.state === 'connected' && 
+         room.localParticipant.identity !== undefined &&
+         room.localParticipant.identity !== '';
 }
 
 export async function setAvatarParams(
@@ -24,13 +26,26 @@ export async function setAvatarParams(
   meta: Metadata,
   onCommandSend?: (cmd: CommandType, data?: Record<string, unknown>) => void,
 ) {
-  // Check if room is connected before sending message
-  if (!isRoomReady(room)) {
-    console.warn('Cannot send message: room not ready', {
-      roomState: room.state,
-      identity: room.localParticipant.identity,
-    });
-    return;
+  // Wait for room to be fully ready with retry logic
+  const maxRetries = 5;
+  const retryDelay = 200; // 200ms between retries
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (isRoomReady(room)) {
+      break;
+    }
+    
+    if (attempt === maxRetries - 1) {
+      console.warn('Cannot send message: room not ready after retries', {
+        roomState: room.state,
+        identity: room.localParticipant.identity,
+        attempt: attempt + 1,
+      });
+      return;
+    }
+    
+    // Wait before next retry
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
 
   // Remove empty or undefined values from meta
@@ -66,13 +81,26 @@ export async function interruptResponse(
   room: Room,
   onCommandSend?: (cmd: CommandType, data?: Record<string, unknown>) => void,
 ) {
-  // Check if room is connected before sending message
-  if (!isRoomReady(room)) {
-    console.warn('Cannot send message: room not ready', {
-      roomState: room.state,
-      identity: room.localParticipant.identity,
-    });
-    return;
+  // Wait for room to be fully ready with retry logic
+  const maxRetries = 5;
+  const retryDelay = 200; // 200ms between retries
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (isRoomReady(room)) {
+      break;
+    }
+    
+    if (attempt === maxRetries - 1) {
+      console.warn('Cannot send interrupt: room not ready after retries', {
+        roomState: room.state,
+        identity: room.localParticipant.identity,
+        attempt: attempt + 1,
+      });
+      return;
+    }
+    
+    // Wait before next retry
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
 
   const message: StreamMessage = {
@@ -101,13 +129,26 @@ export async function interruptResponse(
 }
 
 export async function sendMessageToAvatar(room: Room, messageId: string, content: string) {
-  // Check if room is connected before sending message
-  if (!isRoomReady(room)) {
-    console.warn('Cannot send message: room not ready', {
-      roomState: room.state,
-      identity: room.localParticipant.identity,
-    });
-    throw new Error('Room not connected');
+  // Wait for room to be fully ready with retry logic
+  const maxRetries = 3; // Fewer retries for chat messages
+  const retryDelay = 100; // Shorter delay for chat
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (isRoomReady(room)) {
+      break;
+    }
+    
+    if (attempt === maxRetries - 1) {
+      console.warn('Cannot send chat message: room not ready after retries', {
+        roomState: room.state,
+        identity: room.localParticipant.identity,
+        attempt: attempt + 1,
+      });
+      throw new Error('Room not connected');
+    }
+    
+    // Wait before next retry
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
 
   // Validate inputs
@@ -143,12 +184,26 @@ export async function sendStreamingMessageToAvatar(
   messageId: string,
   contentStream: AsyncIterable<string>,
 ) {
-  if (!isRoomReady(room)) {
-    console.warn('Cannot send streaming message: room not ready', {
-      roomState: room.state,
-      identity: room.localParticipant.identity,
-    });
-    throw new Error('Room not connected');
+  // Wait for room to be fully ready with retry logic
+  const maxRetries = 3; // Fewer retries for streaming messages
+  const retryDelay = 100; // Shorter delay for streaming
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (isRoomReady(room)) {
+      break;
+    }
+    
+    if (attempt === maxRetries - 1) {
+      console.warn('Cannot send streaming message: room not ready after retries', {
+        roomState: room.state,
+        identity: room.localParticipant.identity,
+        attempt: attempt + 1,
+      });
+      throw new Error('Room not connected');
+    }
+    
+    // Wait before next retry
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
 
   log(`sendStreamingMessageToAvatar, messageId=${messageId}`);
@@ -179,83 +234,99 @@ export function registerMessageHandlers(
     onSystemMessage?: (message: string, from: { identity: string }) => void;
   },
 ) {
-  // Register handler for avatar commands
-  if (handlers.onAvatarCommand) {
-    room.registerTextStreamHandler(MessageType.COMMAND, async (reader, participantInfo) => {
-      try {
-        const messageText = await reader.readAll();
-        const streamMessage = JSON.parse(messageText) as StreamMessage;
-
-        if (streamMessage.type === MessageType.COMMAND) {
-          handlers.onAvatarCommand?.(streamMessage.pld as CommandPayload, participantInfo);
+  // Register unified handler for all command messages (avatar commands and system messages)
+  if (handlers.onAvatarCommand || handlers.onSystemMessage) {
+    try {
+      room.registerTextStreamHandler(MessageType.COMMAND, async (reader, participantInfo) => {
+        try {
+          const messageText = await reader.readAll();
+          
+          // Try to parse as JSON first (structured command)
+          try {
+            const streamMessage = JSON.parse(messageText) as StreamMessage;
+            if (streamMessage.type === MessageType.COMMAND) {
+              handlers.onAvatarCommand?.(streamMessage.pld as CommandPayload, participantInfo);
+            }
+          } catch {
+            // If JSON parsing fails, treat as plain text system message
+            handlers.onSystemMessage?.(messageText, participantInfo);
+          }
+        } catch (error) {
+          console.error('Failed to parse command message:', error);
         }
-      } catch (error) {
-        console.error('Failed to parse avatar command:', error);
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('already been set')) {
+        log('Command handler already registered, skipping...');
+      } else {
+        throw error; // Re-throw if it's a different error
       }
-    });
+    }
   }
 
   // Register handler for chat messages
   if (handlers.onChatMessage) {
-    room.registerTextStreamHandler(MessageType.CHAT, async (reader, participantInfo) => {
-      try {
-        // Check if this is a streaming message or complete message
-        const info = reader.info;
+    try {
+      room.registerTextStreamHandler(MessageType.CHAT, async (reader, participantInfo) => {
+        try {
+          // Check if this is a streaming message or complete message
+          const info = reader.info;
 
-        if (info.size !== undefined) {
-          // Complete message - read all at once
-          const messageText = await reader.readAll();
-          const streamMessage = JSON.parse(messageText) as StreamMessage;
+          if (info.size !== undefined) {
+            // Complete message - read all at once
+            const messageText = await reader.readAll();
+            const streamMessage = JSON.parse(messageText) as StreamMessage;
 
-          if (streamMessage.type === MessageType.CHAT) {
-            handlers.onChatMessage?.(streamMessage.pld as ChatPayload, participantInfo);
-          }
-        } else {
-          // Streaming message - read incrementally
-          let fullMessage = '';
-          for await (const chunk of reader) {
-            fullMessage += chunk;
-            // You could emit partial updates here if needed
-          }
-
-          // Process complete streamed message
-          try {
-            const streamMessage = JSON.parse(fullMessage) as StreamMessage;
             if (streamMessage.type === MessageType.CHAT) {
               handlers.onChatMessage?.(streamMessage.pld as ChatPayload, participantInfo);
             }
-          } catch {
-            // If not JSON, treat as plain text
-            handlers.onChatMessage?.({ text: fullMessage }, participantInfo);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to parse chat message:', error);
-      }
-    });
-  }
+          } else {
+            // Streaming message - read incrementally
+            let fullMessage = '';
+            for await (const chunk of reader) {
+              fullMessage += chunk;
+              // You could emit partial updates here if needed
+            }
 
-  // Register handler for system messages
-  if (handlers.onSystemMessage) {
-    room.registerTextStreamHandler(MessageType.COMMAND, async (reader, participantInfo) => {
-      try {
-        const messageText = await reader.readAll();
-        handlers.onSystemMessage?.(messageText, participantInfo);
-      } catch (error) {
-        console.error('Failed to parse system message:', error);
+            // Process complete streamed message
+            try {
+              const streamMessage = JSON.parse(fullMessage) as StreamMessage;
+              if (streamMessage.type === MessageType.CHAT) {
+                handlers.onChatMessage?.(streamMessage.pld as ChatPayload, participantInfo);
+              }
+            } catch {
+              // If not JSON, treat as plain text
+              handlers.onChatMessage?.({ text: fullMessage }, participantInfo);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse chat message:', error);
+        }
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('already been set')) {
+        log('Chat handler already registered, skipping...');
+      } else {
+        throw error; // Re-throw if it's a different error
       }
-    });
+    }
   }
 }
 
 // Helper function to unregister all message handlers
-export function unregisterMessageHandlers(_room: Room) {
+export function unregisterMessageHandlers(room: Room) {
   // LiveKit will automatically clean up handlers when room disconnects,
   // but we can explicitly remove them if needed
   try {
     // Note: LiveKit doesn't provide a direct way to unregister specific handlers,
-    // so we rely on room cleanup
+    // so we rely on room cleanup. The handlers will be cleaned up when the room disconnects.
     log('Message handlers will be cleaned up on room disconnect');
+    
+    // If the room is still connected, we can't unregister individual handlers,
+    // but we can note that they should be cleaned up on next connect
+    if (room.state === 'connected' || room.state === 'connecting') {
+      log('Room is still active, handlers will persist until disconnect');
+    }
   } catch (error) {
     console.error('Failed to unregister message handlers:', error);
   }
