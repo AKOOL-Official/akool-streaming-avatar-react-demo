@@ -111,7 +111,7 @@ export const useUnifiedStreaming = (
 
     // No periodic sync - only sync when provider changes
     // This prevents continuous state updates that trigger avatar params
-  }, [providerRef.current, syncProviderState]);
+  }, [syncProviderState]);
 
   // Handle video track publishing/unpublishing
   useEffect(() => {
@@ -245,9 +245,30 @@ export const useUnifiedStreaming = (
         onException: (error) => {
           console.error('Provider exception:', error);
         },
-        onTokenExpired: () => {
+        onTokenExpired: async () => {
           alert('Session expired');
-          closeStreaming();
+          // Handle session expiration by disconnecting directly
+          try {
+            if (providerRef.current) {
+              if (streamType === 'agora' && 'disconnectFromChat' in providerRef.current) {
+                await (providerRef.current as unknown as AgoraStreamingProvider).disconnectFromChat();
+              }
+              await providerRef.current.disconnect();
+            }
+            if (state.session && api) {
+              await api.closeSession(state.session._id);
+            }
+            updateState({
+              isJoined: false,
+              connected: false,
+              session: null,
+              participants: [],
+              remoteStats: null,
+              networkQuality: null,
+            });
+          } catch (error) {
+            console.error('Failed to handle token expiration:', error);
+          }
         },
       });
 
@@ -276,6 +297,7 @@ export const useUnifiedStreaming = (
     voiceParams,
     onSystemMessage,
     syncProviderState,
+    state.session,
   ]);
 
   const closeStreaming = useCallback(async () => {

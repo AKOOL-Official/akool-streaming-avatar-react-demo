@@ -36,7 +36,6 @@ interface ConfigurationPanelProps {
   startStreaming: () => Promise<void>;
   closeStreaming: () => Promise<void>;
   setAvatarVideoUrl: (url: string) => void;
-  currentProvider: StreamProviderType | null;
 }
 
 export default function ConfigurationPanel({
@@ -69,7 +68,6 @@ export default function ConfigurationPanel({
   startStreaming,
   closeStreaming,
   setAvatarVideoUrl,
-  currentProvider,
 }: ConfigurationPanelProps) {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);

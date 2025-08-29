@@ -61,14 +61,15 @@ const NetworkQualityDisplay = ({ stats }: NetworkQualityProps) => {
 
   useEffect(() => {
     const now = Date.now();
-    const newDataPoint = {
-      timestamp: now,
-      video: stats.video.end2EndDelay || 0,
-      audio: stats.audio.end2EndDelay || 0,
-      index: latencyData.length + 1,
-    };
 
     setLatencyData((prevData) => {
+      const newDataPoint = {
+        timestamp: now,
+        video: stats.video.end2EndDelay || 0,
+        audio: stats.audio.end2EndDelay || 0,
+        index: prevData.length + 1,
+      };
+
       const timeWindowMs = TIME_WINDOW * 1000;
       const oneWindowAgo = now - timeWindowMs;
       const filteredData = [...prevData, newDataPoint]

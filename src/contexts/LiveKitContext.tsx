@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback, useMemo, useRef } from 'react';
-import { Room, RoomOptions, Track } from 'livekit-client';
+import { Room, RoomOptions, Track, RemoteParticipant, RemoteTrack, RemoteTrackPublication } from 'livekit-client';
 
 // Create the context with default value
 interface LiveKitContextType {
@@ -26,16 +26,11 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
       adaptiveStream: true,
       // Enable dynacast for improved scalability
       dynacast: true,
-      // Publish defaults
-      publishDefaults: {
-        audioTrack: false,
-        videoTrack: false,
-      },
       ...roomOptions,
     };
 
     return new Room(defaultOptions);
-  }, []); // Empty dependency array ensures it's only created once
+  }, [roomOptions]); // Include roomOptions in dependency array
 
   // State for avatar speaking status
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
@@ -76,20 +71,20 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
       handleSetIsConnected(true);
     };
 
-    const handleParticipantConnected = (participant: any) => {
+    const handleParticipantConnected = (participant: RemoteParticipant) => {
       console.log('Participant connected:', participant.identity);
     };
 
-    const handleParticipantDisconnected = (participant: any) => {
+    const handleParticipantDisconnected = (participant: RemoteParticipant) => {
       console.log('Participant disconnected:', participant.identity);
     };
 
-    const handleTrackSubscribed = (track: Track, participant: any) => {
+    const handleTrackSubscribed = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
       console.log('Track subscribed:', track.kind, 'from', participant.identity);
 
       if (track.kind === Track.Kind.Video) {
         // Auto-attach video track to remote-video element
-        const videoElement = document.getElementById('remote-video');
+        const videoElement = document.getElementById('remote-video') as HTMLVideoElement;
         if (videoElement) {
           track.attach(videoElement);
         }
@@ -99,7 +94,7 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
       }
     };
 
-    const handleTrackUnsubscribed = (track: Track, participant: any) => {
+    const handleTrackUnsubscribed = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
       console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
       track.detach();
     };
@@ -152,6 +147,7 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
 };
 
 // Create a custom hook to use the context
+// eslint-disable-next-line react-refresh/only-export-components
 export const useLiveKit = (): LiveKitContextType => {
   const context = useContext(LiveKitContext);
   if (context === undefined) {

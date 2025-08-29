@@ -37,6 +37,7 @@ export const UnifiedStreamingProvider: React.FC<UnifiedStreamingProviderProps> =
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useUnifiedStreamingContext = (): UnifiedStreamingContextType => {
   const context = useContext(UnifiedStreamingContext);
   if (context === undefined) {
@@ -46,6 +47,7 @@ export const useUnifiedStreamingContext = (): UnifiedStreamingContextType => {
 };
 
 // Hook to get the current streaming type with a setter
+// eslint-disable-next-line react-refresh/only-export-components
 export const useStreamingType = () => {
   const { streamType, setStreamType } = useUnifiedStreamingContext();
   return [streamType, setStreamType] as const;

@@ -55,7 +55,6 @@ function App() {
     remoteStats,
     startStreaming,
     closeStreaming,
-    currentProvider,
     sendMessage,
     sendInterrupt,
   } = useUnifiedStreaming(
@@ -127,7 +126,6 @@ function App() {
         closeStreaming={closeStreaming}
         api={api}
         setAvatarVideoUrl={setAvatarVideoUrl}
-        currentProvider={currentProvider}
       />
       <div className="right-side">
         <VideoDisplay
