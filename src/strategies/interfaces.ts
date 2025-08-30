@@ -15,7 +15,7 @@ export interface AudioStrategy {
   closeAudioTrack(track: AudioTrack): void;
 }
 
-// Video strategy interface  
+// Video strategy interface
 export interface VideoStrategy {
   isConnected(): boolean;
   createVideoTrack(): Promise<VideoTrack>;

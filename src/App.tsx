@@ -13,6 +13,7 @@ import { useLiveKit } from './contexts/LiveKitContext';
 import { useUnifiedAudioControls } from './hooks/useUnifiedAudioControls';
 import { useUnifiedStreaming } from './hooks/useUnifiedStreaming';
 import { useUnifiedVideoCamera } from './hooks/useUnifiedVideoCamera';
+import { ChatResponsePayload } from './types/streamingProvider';
 
 function App() {
   const { streamType, setStreamType } = useUnifiedStreamingContext();
@@ -41,7 +42,13 @@ function App() {
 
   // Ref to store the stream message callback for LiveKit
   const streamMessageCallbackRef = useRef<
-    ((message: string, from: { uid: string | number; identity: string }, messageData?: import('./types/streamingProvider').ChatResponsePayload) => void) | null
+    | ((
+        message: string,
+        from: { uid: string | number; identity: string },
+        messageData?: ChatResponsePayload,
+        messageId?: string,
+      ) => void)
+    | null
   >(null);
 
   useEffect(() => {
@@ -51,39 +58,50 @@ function App() {
   }, [openapiHost, openapiToken]);
 
   // Initialize camera hook first as its localVideoTrack is needed by streaming
-  const { cameraEnabled, localVideoTrack, cameraError, toggleCamera, cleanup: cleanupCamera } = useUnifiedVideoCamera(streamType);
-
   const {
-    isJoined,
-    connected,
-    remoteStats,
-    startStreaming,
-    closeStreaming,
-    sendMessage,
-    sendInterrupt,
-  } = useUnifiedStreaming(
-    streamType,
-    avatarId,
-    knowledgeId,
-    sessionDuration,
-    voiceId,
-    voiceUrl,
-    backgroundUrl,
-    language,
-    modeType,
-    voiceParams,
-    api,
+    cameraEnabled,
     localVideoTrack,
-    (messageId, text, systemType, metadata) => {
-      systemMessageCallbackRef.current?.(messageId, text, systemType, metadata);
-    },
-    (message, from, messageData) => {
-      streamMessageCallbackRef.current?.(message, from, messageData);
-    },
-  );
+    cameraError,
+    toggleCamera,
+    cleanup: cleanupCamera,
+  } = useUnifiedVideoCamera(streamType);
 
-  // Initialize audio controls 
+  const { isJoined, connected, remoteStats, startStreaming, closeStreaming, sendMessage, sendInterrupt } =
+    useUnifiedStreaming(
+      streamType,
+      avatarId,
+      knowledgeId,
+      sessionDuration,
+      voiceId,
+      voiceUrl,
+      backgroundUrl,
+      language,
+      modeType,
+      voiceParams,
+      api,
+      localVideoTrack,
+      (messageId, text, systemType, metadata) => {
+        systemMessageCallbackRef.current?.(messageId, text, systemType, metadata);
+      },
+      (message, from, messageData, messageId) => {
+        streamMessageCallbackRef.current?.(message, from, messageData, messageId);
+      },
+      (isSpeaking) => {
+        // Update speaking state based on current stream type
+        if (streamType === 'agora') {
+          setAgoraAvatarSpeaking(isSpeaking);
+        } else if (streamType === 'livekit') {
+          setLiveKitAvatarSpeaking(isSpeaking);
+        }
+      },
+    );
+
+  // Initialize audio controls
   const { micEnabled, setMicEnabled, toggleMic, cleanup: cleanupAudio } = useUnifiedAudioControls(streamType);
+
+  // Get speaking state setters for both providers
+  const { setIsAvatarSpeaking: setAgoraAvatarSpeaking } = useAgora();
+  const { setIsAvatarSpeaking: setLiveKitAvatarSpeaking } = useLiveKit();
 
   // Auto-cleanup media devices when streaming stops
   useEffect(() => {

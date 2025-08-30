@@ -1,53 +1,27 @@
 import { IAgoraRTCRemoteUser, NetworkQuality, ILocalVideoTrack } from 'agora-rtc-sdk-ng';
 import { UID } from 'agora-rtc-sdk-ng/esm';
 import {
-  StreamingProvider,
   StreamProviderType,
-  StreamingState,
   StreamingEventHandlers,
   VideoTrack,
   ParticipantInfo,
-  CommandPayload,
   Metadata,
   NetworkQuality as CommonNetworkQuality,
-  StreamMessage,
-  CommandResponsePayload,
-  MessageType,
-  CommandType,
 } from '../types/streamingProvider';
+import { validateStreamMessage, processMessageChunk, processStreamMessage } from '../utils/messageUtils';
+import { BaseStreamingProvider } from './BaseStreamingProvider';
 import { AgoraCredentials, Credentials } from '../apiService';
 import { NetworkStats } from '../components/NetworkQuality';
-import {
-  RTCClient,
-  setAvatarParams,
-  interruptResponse,
-  sendMessageToAvatar,
-  log,
-} from '../agoraHelper';
+import { RTCClient, setAvatarParams, interruptResponse, sendMessageToAvatar } from '../agoraHelper';
+import { log } from '../utils/messageUtils';
 
-export class AgoraStreamingProvider implements StreamingProvider {
+export class AgoraStreamingProvider extends BaseStreamingProvider {
   public readonly providerType: StreamProviderType = 'agora';
   private client: RTCClient;
-  private handlers?: StreamingEventHandlers;
-  private _state: StreamingState;
 
   constructor(client: RTCClient) {
+    super();
     this.client = client;
-    this._state = {
-      isJoined: false,
-      connected: false,
-      remoteStats: null,
-      participants: [],
-      networkQuality: null,
-    };
-  }
-
-  public get state(): StreamingState {
-    return { ...this._state };
-  }
-
-  private updateState(newState: Partial<StreamingState>) {
-    this._state = { ...this._state, ...newState };
   }
 
   public async connect(credentials: Credentials, handlers?: StreamingEventHandlers): Promise<void> {
@@ -175,44 +149,16 @@ export class AgoraStreamingProvider implements StreamingProvider {
     await sendMessageToAvatar(this.client, messageId, content);
   }
 
-  public async sendCommand(
-    command: CommandPayload,
-    onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
-  ): Promise<void> {
-    if (command.cmd === CommandType.SET_PARAMS && command.data) {
-      await this.setAvatarParams(command.data, onCommandSend);
-    } else if (command.cmd === CommandType.INTERRUPT) {
-      await this.interruptResponse(onCommandSend);
-    } else {
-      throw new Error(`Unsupported command: ${command.cmd}`);
-    }
-  }
+  // Inherited from BaseStreamingProvider
 
-  public async interruptResponse(onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void): Promise<void> {
-    await interruptResponse(this.client, onCommandSend);
-  }
-
-  public async setAvatarParams(
-    meta: Metadata,
-    onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
-  ): Promise<void> {
-    await setAvatarParams(this.client, meta, onCommandSend);
-  }
+  // Implementations moved to after onStreamMessage
 
   public isConnected(): boolean {
     return this.client.connectionState === 'CONNECTED';
   }
 
-  public isJoined(): boolean {
-    return this._state.isJoined;
-  }
-
   public canSendMessages(): boolean {
     return this.isConnected() && this._state.connected && this.client.uid !== undefined;
-  }
-
-  public async cleanup(): Promise<void> {
-    await this.disconnect();
   }
 
   // Connect to chat (enable message handling)
@@ -340,27 +286,44 @@ export class AgoraStreamingProvider implements StreamingProvider {
     const msg = new TextDecoder().decode(body);
     log(`stream-message, uid=${uid}, size=${body.length}, msg=${msg}`);
 
-    try {
-      const { v, type, pld } = JSON.parse(msg) as StreamMessage;
-      if (v !== 2) {
-        log(`unsupported message version, v=${v}`);
-        return;
-      }
-
-      if (type === MessageType.COMMAND) {
-        const { cmd, code, msg: cmdMsg } = pld as CommandResponsePayload;
-        log(`cmd-response, cmd=${cmd}, code=${code}, msg=${cmdMsg}`);
-        // Handle command responses if needed
-      } else if (type === MessageType.CHAT) {
-        this.handlers?.onStreamMessage?.(msg, {
-          uid,
-          identity: uid.toString(),
-        });
-      }
-    } catch (error) {
-      log('Failed to parse stream message:', error);
+    const validation = validateStreamMessage(msg);
+    if (!validation.valid) {
+      log(validation.error);
+      return;
     }
+
+    const streamMessage = validation.parsed!;
+
+    // Process chunked messages for progressive display
+    const chunkResult = processMessageChunk(streamMessage);
+    if (!chunkResult) {
+      // Invalid chunk, ignore
+      return;
+    }
+
+    const { message } = chunkResult;
+    const uidStr = uid.toString();
+
+    // Use shared message processing utility
+    processStreamMessage(message, uidStr, {
+      onCommandResponse: (cmd, code, msg, messageId) => this.handleCommandResponse(cmd, code, msg, messageId, uidStr),
+      onCommandSend: (cmd, data, messageId) => this.handleCommandSend(cmd, data, messageId, uidStr),
+      onChatMessage: (text, from, messageId) => this.handleChatMessage(text, from, messageId, uidStr),
+      onEventMessage: (event, messageId, uid, eventData) => this.handleEventMessage(event, messageId, uid, eventData),
+    });
   };
+
+  // Agora-specific implementations
+  public async setAvatarParams(
+    meta: Metadata,
+    onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
+  ): Promise<void> {
+    await setAvatarParams(this.client, meta, onCommandSend);
+  }
+
+  public async interruptResponse(onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void): Promise<void> {
+    await interruptResponse(this.client, onCommandSend);
+  }
 
   private isAgoraCredentials(credentials: Credentials): credentials is AgoraCredentials {
     return 'agora_app_id' in credentials && 'agora_channel' in credentials;

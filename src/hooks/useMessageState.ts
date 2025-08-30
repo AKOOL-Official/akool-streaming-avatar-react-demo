@@ -56,7 +56,6 @@ interface UseMessageStateProps {
   client?: RTCClient | null;
   connected: boolean;
   sendMessage?: (messageId: string, content: string) => Promise<void>;
-  onStreamMessage?: (uid: number, body: Uint8Array) => void;
 }
 
 interface UseMessageStateReturn {
@@ -110,27 +109,15 @@ const shouldShowTimeSeparator = (currentMessage: Message, previousMessage: Messa
 };
 
 export const useMessageState = ({
-  client,
+  client: _client,
   connected,
   sendMessage: sendMessageProp,
-  onStreamMessage,
 }: UseMessageStateProps): UseMessageStateReturn => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Set up stream message listener (only for Agora)
-  useEffect(() => {
-    if (connected && onStreamMessage && client) {
-      // Store the handler reference so we can remove only this specific listener
-      const messageHandler = onStreamMessage;
-      client.on('stream-message', messageHandler);
-      return () => {
-        // Remove only this specific listener, not all listeners
-        client.off('stream-message', messageHandler);
-      };
-    }
-  }, [client, connected, onStreamMessage]);
+  // Stream message handling is now done in the provider, no listener setup needed here
 
   const sendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !connected || sending || !sendMessageProp) return;
@@ -193,25 +180,24 @@ export const useMessageState = ({
         if (existingMessageIndex !== -1) {
           // Update existing message
           const newMessages = [...prev];
+          const existingMessage = newMessages[existingMessageIndex];
           newMessages[existingMessageIndex] = {
-            ...newMessages[existingMessageIndex],
-            text: newMessages[existingMessageIndex].text + text,
+            ...existingMessage,
+            text: existingMessage.text + text,
             metadata,
           };
           return newMessages;
         }
         // Add new message
-        return [
-          ...prev,
-          {
-            id: messageId,
-            text,
-            sender,
-            messageType,
-            timestamp: currentTime,
-            metadata,
-          },
-        ];
+        const newMessage = {
+          id: messageId,
+          text,
+          sender,
+          messageType,
+          timestamp: currentTime,
+          metadata,
+        };
+        return [...prev, newMessage];
       });
     },
     [],

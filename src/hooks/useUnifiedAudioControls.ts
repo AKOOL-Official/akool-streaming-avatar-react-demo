@@ -9,7 +9,7 @@ export const useUnifiedAudioControls = (streamType: StreamProviderType) => {
   const { room } = useLiveKit();
   const [micEnabled, setMicEnabled] = useState(false);
   const audioTrackRef = useRef<AudioTrack | null>(null);
-  
+
   const mediaStrategy = useMediaStrategy(streamType, client, room);
 
   const toggleMic = useCallback(async () => {

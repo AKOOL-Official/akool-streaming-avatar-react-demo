@@ -28,10 +28,10 @@ export class AgoraAudioStrategy implements AudioStrategy {
 
   async unpublishAudioTrack(track: AudioTrack): Promise<void> {
     if (!track || !this.isConnected()) return;
-    
+
     const agoraTrack = track as IMicrophoneAudioTrack;
     if (!agoraTrack) return;
-    
+
     try {
       // Check if the track is in the published tracks list
       const publishedTracks = this.client.localTracks;

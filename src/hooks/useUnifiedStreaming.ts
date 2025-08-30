@@ -6,11 +6,12 @@ import {
   StreamingState,
   VideoTrack,
   Metadata,
+  ChatResponsePayload,
 } from '../types/streamingProvider';
 import { getStreamingProviderFactory } from '../providers/StreamingProviderFactory';
 import { useAgora } from '../contexts/AgoraContext';
 import { useLiveKit } from '../contexts/LiveKitContext';
-import { log } from '../agoraHelper';
+import { log } from '../utils/messageUtils';
 import { AgoraStreamingProvider } from '../providers/AgoraProvider';
 
 interface UnifiedStreamingState extends StreamingState {
@@ -32,7 +33,13 @@ export const useUnifiedStreaming = (
   api: ApiService | null,
   localVideoTrack: VideoTrack | null,
   onSystemMessage?: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void,
-  onStreamMessage?: (message: string, from: { uid: string | number; identity: string }, messageData?: import('../types/streamingProvider').ChatResponsePayload) => void,
+  onStreamMessage?: (
+    message: string,
+    from: { uid: string | number; identity: string },
+    messageData?: ChatResponsePayload,
+    messageId?: string,
+  ) => void,
+  onAudioStateChange?: (isSpeaking: boolean) => void,
 ) => {
   const { client: agoraClient } = useAgora();
   const { room: livekitRoom } = useLiveKit();
@@ -162,8 +169,8 @@ export const useUnifiedStreaming = (
 
       // Add a small delay to ensure room is fully stable after connection
       if (!initialParamsSentRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms for room to stabilize
-        
+        await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms for room to stabilize
+
         // Double-check connection state after delay
         if (!providerRef.current || !state.isJoined || !state.connected) {
           log('Connection lost during avatar params delay, skipping params update');
@@ -265,11 +272,12 @@ export const useUnifiedStreaming = (
         onNetworkQuality: (quality) => {
           log('Network quality updated:', quality);
         },
-        onStreamMessage: (message, from, messageData) => {
-          log('Stream message received:', message, 'from', from.identity);
-          onStreamMessage?.(message, from, messageData);
+        onStreamMessage: (message, from, messageData, messageId) => {
+          log('Stream message received:', message, 'from', from.identity, 'messageId:', messageId);
+          onStreamMessage?.(message, from, messageData, messageId);
         },
         onSystemMessage: onSystemMessage,
+        onAudioStateChange: onAudioStateChange,
         onException: (error) => {
           console.error('Provider exception:', error);
         },
@@ -327,6 +335,7 @@ export const useUnifiedStreaming = (
     voiceParams,
     onSystemMessage,
     onStreamMessage,
+    onAudioStateChange,
     syncProviderState,
     state.session,
   ]);

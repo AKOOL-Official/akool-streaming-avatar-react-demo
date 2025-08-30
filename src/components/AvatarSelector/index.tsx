@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Avatar, ApiService } from '../../apiService';
-import { log } from '../../agoraHelper';
+import { log } from '../../utils/messageUtils';
 import './styles.css';
 
 interface AvatarSelectorProps {

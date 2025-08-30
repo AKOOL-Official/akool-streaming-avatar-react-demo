@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Room } from 'livekit-client';
 import { RTCClient } from '../../agoraHelper';
-import { CommandType, StreamProviderType } from '../../types/streamingProvider';
+import { ChatResponsePayload, StreamProviderType } from '../../types/streamingProvider';
 import {
   useMessageState,
   SystemEventType,
@@ -10,8 +10,6 @@ import {
   MessageType,
   Message,
 } from '../../hooks/useMessageState';
-import { useAgora } from '../../contexts/AgoraContext';
-import { useLiveKit } from '../../contexts/LiveKitContext';
 import './styles.css';
 
 interface ChatInterfaceProps {
@@ -32,7 +30,12 @@ interface ChatInterfaceProps {
     callback: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void,
   ) => void;
   onStreamMessageCallback?: (
-    callback: (message: string, from: { uid: string | number; identity: string }, messageData?: import('../../types/streamingProvider').ChatResponsePayload) => void,
+    callback: (
+      message: string,
+      from: { uid: string | number; identity: string },
+      messageData?: ChatResponsePayload,
+      messageId?: string,
+    ) => void,
   ) => void;
 }
 
@@ -53,21 +56,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onStreamMessageCallback,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { setIsAvatarSpeaking: setAgoraAvatarSpeaking } = useAgora();
-  const { setIsAvatarSpeaking: setLiveKitAvatarSpeaking } = useLiveKit();
-  const [hasAvatarStartedSpeaking, setHasAvatarStartedSpeaking] = useState(false);
-
-  // Helper function to set avatar speaking state for current provider
-  const setIsAvatarSpeaking = useCallback(
-    (speaking: boolean) => {
-      if (streamType === 'agora') {
-        setAgoraAvatarSpeaking(speaking);
-      } else if (streamType === 'livekit') {
-        setLiveKitAvatarSpeaking(speaking);
-      }
-    },
-    [streamType, setAgoraAvatarSpeaking, setLiveKitAvatarSpeaking],
-  );
 
   // Add state for resizable height
   const [chatHeight, setChatHeight] = useState(400);
@@ -114,7 +102,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     inputMessage,
     setInputMessage,
     sendMessage: sendMessageHook,
-    addMessage,
     addChatMessage,
     addSystemMessage,
     clearMessages,
@@ -193,101 +180,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowTooltip(false);
   }, []);
 
-  const handleStreamMessage = useCallback(
-    (_: number, body: Uint8Array) => {
-      try {
-        const msg = new TextDecoder().decode(body);
-        const { v, type, mid, pld } = JSON.parse(msg);
-        if (v !== 2) {
-          return;
-        }
+  // Stream message handling is now done in the provider, no listener setup needed here
 
-        if (type === 'chat') {
-          const { text, from } = pld;
-          const sender = from === 'user' ? MessageSender.USER : MessageSender.AVATAR;
-          addChatMessage(`${type}_${mid}`, text, sender);
-        } else if (type === 'event') {
-          const { event } = pld;
-          if (event === 'audio_start') {
-            setIsAvatarSpeaking(true);
-            setHasAvatarStartedSpeaking(true);
-            console.log('Avatar started speaking - will now show "finished speaking" messages');
-            addSystemMessage(`event_${mid}`, '🎤 Avatar started speaking', SystemEventType.AVATAR_AUDIO_START);
-          } else if (event === 'audio_end') {
-            setIsAvatarSpeaking(false);
-            // Only show "Avatar finished speaking" message if:
-            // 1. The avatar has actually started speaking in this session, AND
-            // 2. There are actual chat messages in the conversation (not just system messages)
-            const hasChatMessages = messages.some((msg) => msg.messageType === MessageType.CHAT);
-            if (hasAvatarStartedSpeaking && hasChatMessages) {
-              addSystemMessage(`event_${mid}`, '✅ Avatar finished speaking', SystemEventType.AVATAR_AUDIO_END);
-            } else {
-              console.log('Suppressing "Avatar finished speaking" message:', {
-                hasAvatarStartedSpeaking,
-                hasChatMessages,
-                messageCount: messages.length,
-                chatMessageCount: messages.filter((msg) => msg.messageType === MessageType.CHAT).length,
-              });
-            }
-          }
-          // Log any other events for debugging
-          else {
-            addMessage(`event_${mid}`, `📋 Event: ${event}`, MessageSender.SYSTEM, MessageType.EVENT);
-          }
-        } else if (type === 'command') {
-          // Handle command acknowledgments
-          const { cmd, code, msg } = pld;
-          if (code !== undefined) {
-            // This is a command acknowledgment
-            const status = code === 1000 ? '✅' : '❌';
-            const statusText = code === 1000 ? 'Success' : 'Failed';
-            const systemType = cmd === 'interrupt' ? SystemEventType.INTERRUPT_ACK : SystemEventType.SET_PARAMS_ACK;
-            addSystemMessage(`cmd_ack_${mid}`, `${status} ${cmd}: ${statusText}${msg ? ` (${msg})` : ''}`, systemType);
-          } else {
-            // This is a command being sent
-            const { data } = pld;
-            const dataStr = data ? ` with data: ${JSON.stringify(data)}` : '';
-            const systemType = cmd === CommandType.INTERRUPT ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS;
-            const messageText = cmd === CommandType.SET_PARAMS && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
-
-            const metadata = cmd === CommandType.SET_PARAMS && data ? { fullParams: data } : undefined;
-            console.log('Creating set-params message:', {
-              cmd,
-              data,
-              metadata,
-              messageText,
-            });
-
-            addSystemMessage(`cmd_send_${mid}`, messageText, systemType, metadata);
-          }
-        }
-      } catch (error) {
-        console.error('Error handling stream message:', error);
-        console.error('Message body:', body);
-      }
-    },
-    [setIsAvatarSpeaking, addChatMessage, addSystemMessage, addMessage, hasAvatarStartedSpeaking, messages],
-  );
-
-  // Set up stream message listener (only for Agora)
-  useEffect(() => {
-    if (connected && client && streamType === 'agora') {
-      // Store the handler reference so we can remove only this specific listener
-      const messageHandler = handleStreamMessage;
-      client.on('stream-message', messageHandler);
-      return () => {
-        // Remove only this specific listener, not all listeners
-        client.off('stream-message', messageHandler);
-      };
-    }
-  }, [client, connected, streamType, handleStreamMessage]);
-
-  // Reset avatar speaking state when connection is established
-  useEffect(() => {
-    if (connected) {
-      setHasAvatarStartedSpeaking(false);
-    }
-  }, [connected]);
+  // Connection state is now managed by the provider
 
   // Set up system message callback
   useEffect(() => {
@@ -298,20 +193,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [onSystemMessageCallback, addSystemMessage]);
 
-  // Set up stream message callback for LiveKit
+  // Set up stream message callback for both Agora and LiveKit
   useEffect(() => {
-    if (onStreamMessageCallback && streamType === 'livekit') {
-      onStreamMessageCallback((message, from, messageData) => {
+    if (onStreamMessageCallback) {
+      onStreamMessageCallback((message, from, messageData, messageId) => {
         // Check for bot type in message data first, then fall back to identity check
         let sender = MessageSender.USER;
-        
+
         if (messageData?.from === 'bot') {
           sender = MessageSender.AVATAR;
         } else if (from.identity.includes('avatar') || from.identity.includes('bot')) {
           sender = MessageSender.AVATAR;
         }
-        
-        addChatMessage(`livekit_${Date.now()}`, message, sender);
+
+        // Use messageId directly - this is the mid for chunk merging
+        const finalMessageId = messageId || `${streamType}_${Date.now()}`;
+        addChatMessage(finalMessageId, message, sender);
       });
     }
   }, [onStreamMessageCallback, streamType, addChatMessage]);
@@ -324,8 +221,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     if (!connected) {
       clearMessages();
-      // Reset the avatar speaking state when connection is lost
-      setHasAvatarStartedSpeaking(false);
     }
   }, [connected, clearMessages]);
 

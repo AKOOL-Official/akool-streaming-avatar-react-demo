@@ -1,8 +1,6 @@
 import { Room, LocalVideoTrack, RemoteVideoTrack, RemoteAudioTrack, ConnectionQuality } from 'livekit-client';
 import {
-  StreamingProvider,
   StreamProviderType,
-  StreamingState,
   StreamingEventHandlers,
   VideoTrack,
   ParticipantInfo,
@@ -10,6 +8,7 @@ import {
   Metadata,
   NetworkQuality,
 } from '../types/streamingProvider';
+import { BaseStreamingProvider } from './BaseStreamingProvider';
 import { LivekitCredentials, Credentials } from '../apiService';
 // import { NetworkStats } from '../components/NetworkQuality'; // Unused for now
 import {
@@ -18,34 +17,17 @@ import {
   sendMessageToAvatar,
   registerMessageHandlers,
   unregisterMessageHandlers,
-  log,
 } from '../livekitHelper';
+import { log } from '../utils/messageUtils';
 
-export class LiveKitStreamingProvider implements StreamingProvider {
+export class LiveKitStreamingProvider extends BaseStreamingProvider {
   public readonly providerType: StreamProviderType = 'livekit';
   private room: Room;
-  private handlers?: StreamingEventHandlers;
-  private _state: StreamingState;
 
   constructor(room: Room) {
+    super();
     this.room = room;
-    this._state = {
-      isJoined: false,
-      connected: false,
-      remoteStats: null,
-      participants: [],
-      networkQuality: null,
-    };
-
     this.setupEventListeners();
-  }
-
-  public get state(): StreamingState {
-    return { ...this._state };
-  }
-
-  private updateState(newState: Partial<StreamingState>) {
-    this._state = { ...this._state, ...newState };
   }
 
   private setupEventListeners() {
@@ -168,7 +150,7 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       log('LiveKit room already connected, disconnecting first...');
       await this.disconnect();
       // Wait a bit for cleanup
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
 
     this.handlers = handlers;
@@ -179,7 +161,7 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       });
 
       // Wait for connection to be fully established before proceeding
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Register message handlers
       this.registerMessageHandlers();
@@ -202,7 +184,7 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       if (this.room.state === 'connected') {
         unregisterMessageHandlers(this.room);
       }
-      
+
       if (this.room.state === 'connected' || this.room.state === 'connecting') {
         await this.room.disconnect();
       }
@@ -231,13 +213,14 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       const localParticipant = this.room.localParticipant;
       const videoPublications = Array.from(localParticipant.trackPublications.values());
       const existingVideoPublication = videoPublications.find(
-        pub => pub.track && pub.track.kind === 'video' && (
-          pub.track === track ||
-          (track.sid && pub.track.sid === track.sid) ||
-          (track.source && pub.track.source === track.source)
-        )
+        (pub) =>
+          pub.track &&
+          pub.track.kind === 'video' &&
+          (pub.track === track ||
+            (track.sid && pub.track.sid === track.sid) ||
+            (track.source && pub.track.source === track.source)),
       );
-      
+
       if (existingVideoPublication) {
         log('Video track already published, skipping:', track.sid || 'unknown-sid');
         return;
@@ -254,25 +237,23 @@ export class LiveKitStreamingProvider implements StreamingProvider {
   public async unpublishVideo(): Promise<void> {
     try {
       const localParticipant = this.room.localParticipant;
-      
+
       // Find and unpublish all video track publications
       const publications = Array.from(localParticipant.trackPublications.values());
-      const videoPublications = publications.filter(
-        pub => pub.track && pub.track.kind === 'video'
-      );
+      const videoPublications = publications.filter((pub) => pub.track && pub.track.kind === 'video');
 
       if (videoPublications.length === 0) {
         log('No video tracks to unpublish');
         return;
       }
-      
+
       for (const publication of videoPublications) {
         if (publication.track) {
           await localParticipant.unpublishTrack(publication.track);
           log('Unpublished video track:', publication.track.sid || 'unknown-sid');
         }
       }
-      
+
       log('Video tracks unpublished successfully');
     } catch (error) {
       log('Failed to unpublish video tracks:', error);
@@ -286,7 +267,7 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     if (remoteParticipants.length > 0) {
       const participant = remoteParticipants[0];
       let videoTrack = null;
-      
+
       // Get first video track from track publications
       const publications = Array.from(participant.trackPublications.values());
       for (const publication of publications) {
@@ -295,7 +276,7 @@ export class LiveKitStreamingProvider implements StreamingProvider {
           break;
         }
       }
-      
+
       if (videoTrack) {
         const videoElement = document.getElementById(containerId) as HTMLVideoElement;
         if (videoElement) {
@@ -325,44 +306,16 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     await sendMessageToAvatar(this.room, messageId, content);
   }
 
-  public async sendCommand(
-    command: CommandPayload,
-    onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
-  ): Promise<void> {
-    if (command.cmd === 'set-params' && command.data) {
-      await this.setAvatarParams(command.data, onCommandSend);
-    } else if (command.cmd === 'interrupt') {
-      await this.interruptResponse(onCommandSend);
-    } else {
-      throw new Error(`Unsupported command: ${command.cmd}`);
-    }
-  }
+  // Inherited from BaseStreamingProvider
 
-  public async interruptResponse(onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void): Promise<void> {
-    await interruptResponse(this.room, onCommandSend);
-  }
-
-  public async setAvatarParams(
-    meta: Metadata,
-    onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
-  ): Promise<void> {
-    await setAvatarParams(this.room, meta, onCommandSend);
-  }
+  // Implementations moved below to avoid duplication
 
   public isConnected(): boolean {
     return this.room.state === 'connected';
   }
 
-  public isJoined(): boolean {
-    return this._state.isJoined;
-  }
-
   public canSendMessages(): boolean {
     return this.isConnected() && this._state.connected;
-  }
-
-  public async cleanup(): Promise<void> {
-    await this.disconnect();
   }
 
   private registerMessageHandlers() {
@@ -371,25 +324,40 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     registerMessageHandlers(this.room, {
       onAvatarCommand: (command, from) => {
         log('Received avatar command:', command.cmd, 'from', from.identity);
-        // Handle command responses if needed
+
+        // Handle command responses using shared logic
+        if ('code' in command) {
+          const { cmd, code, msg } = command as CommandPayload & { code: number; msg?: string };
+          this.handleCommandResponse(cmd, code, msg, 'unknown', from.identity);
+        }
       },
       onChatMessage: (message, from) => {
-        log('Received chat message from', from.identity);
-        // Convert ChatPayload to ChatResponsePayload format
-        const responsePayload: import('../types/streamingProvider').ChatResponsePayload = {
-          text: message.text,
-          from: message.from || 'user', // Default to 'user' if not specified
-        };
-        this.handlers?.onStreamMessage?.(message.text, {
-          uid: from.identity,
-          identity: from.identity,
-        }, responsePayload);
+        log('Received chat message from', from.identity, 'messageId:', from.messageId, 'from:', message.from);
+        // Use the shared handler
+        this.handleChatMessage(message.text, message.from, from.messageId || 'unknown', from.identity);
+      },
+      onEventMessage: (event, from) => {
+        log('Received event message:', event.event, 'from', from.identity);
+        // Use the shared handler
+        this.handleEventMessage(event.event, 'unknown', from.identity, event.data);
       },
       onSystemMessage: (message, from) => {
         log('Received system message from', from.identity);
         this.handlers?.onSystemMessage?.(`system_${Date.now()}`, message, 'system', { from: from.identity });
       },
     });
+  }
+
+  // LiveKit-specific implementations
+  public async setAvatarParams(
+    meta: Metadata,
+    onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
+  ): Promise<void> {
+    await setAvatarParams(this.room, meta, onCommandSend);
+  }
+
+  public async interruptResponse(onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void): Promise<void> {
+    await interruptResponse(this.room, onCommandSend);
   }
 
   private isLivekitCredentials(credentials: Credentials): credentials is LivekitCredentials {

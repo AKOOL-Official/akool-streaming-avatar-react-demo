@@ -13,14 +13,20 @@ interface VideoDisplayProps {
   streamType: StreamProviderType;
 }
 
-const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, localVideoTrack, cameraEnabled, streamType }) => {
+const VideoDisplay: React.FC<VideoDisplayProps> = ({
+  isJoined,
+  avatarVideoUrl,
+  localVideoTrack,
+  cameraEnabled,
+  streamType,
+}) => {
   const localVideoRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { isAvatarSpeaking } = useAgora();
   const { client } = useAgora();
   const { room } = useLiveKit();
-  
+
   const mediaStrategy = useMediaStrategy(streamType, client, room);
 
   // State for dragging, resizing, and view switching

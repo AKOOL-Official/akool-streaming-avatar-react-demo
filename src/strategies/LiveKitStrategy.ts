@@ -16,7 +16,7 @@ export class LiveKitAudioStrategy implements AudioStrategy {
         noiseSuppression: true,
         autoGainControl: true,
       });
-      
+
       return audioTrack;
     } catch (error) {
       console.error('Failed to create LiveKit audio track:', error);
@@ -28,20 +28,20 @@ export class LiveKitAudioStrategy implements AudioStrategy {
     if (!track) return;
     const livekitTrack = track as LocalAudioTrack;
     if (!livekitTrack) return;
-    
+
     // Ensure audio track is unmuted before publishing
     if (livekitTrack.isMuted) {
       await livekitTrack.unmute();
     }
-    
+
     // Check if already published to avoid duplicate publishing
     const audioPublications = Array.from(this.room.localParticipant.audioTrackPublications.values());
-    const isAlreadyPublished = audioPublications.some(pub => pub.track === livekitTrack);
-    
+    const isAlreadyPublished = audioPublications.some((pub) => pub.track === livekitTrack);
+
     if (isAlreadyPublished) {
       return;
     }
-    
+
     try {
       await this.room.localParticipant.publishTrack(livekitTrack);
     } catch (error) {
@@ -52,15 +52,15 @@ export class LiveKitAudioStrategy implements AudioStrategy {
 
   async unpublishAudioTrack(track: AudioTrack): Promise<void> {
     if (!track || !this.isConnected()) return;
-    
+
     const livekitTrack = track as LocalAudioTrack;
     if (!livekitTrack) return;
-    
+
     try {
       // Check if the track is actually published by looking at track publications
       const audioPublications = Array.from(this.room.localParticipant.audioTrackPublications.values());
-      const isPublished = audioPublications.some(pub => pub.track === livekitTrack);
-      
+      const isPublished = audioPublications.some((pub) => pub.track === livekitTrack);
+
       if (isPublished) {
         await this.room.localParticipant.unpublishTrack(livekitTrack);
       }
@@ -104,7 +104,7 @@ export class LiveKitVideoStrategy implements VideoStrategy {
           frameRate: 15,
         },
       });
-      
+
       return videoTrack;
     } catch (error) {
       console.error('Failed to create LiveKit video track:', error);
@@ -119,7 +119,7 @@ export class LiveKitVideoStrategy implements VideoStrategy {
       if (livekitTrack.isMuted) {
         await livekitTrack.unmute();
       }
-      
+
       // Note: Publishing is handled by the provider's publishVideo method
       // to avoid duplicate publishing. This method only handles track enabling.
     }
@@ -130,7 +130,7 @@ export class LiveKitVideoStrategy implements VideoStrategy {
     const livekitTrack = track as LocalVideoTrack;
     if (livekitTrack && typeof livekitTrack.mute === 'function') {
       await livekitTrack.mute();
-      
+
       // Note: Unpublishing is handled by the provider's unpublishVideo method
       // to avoid duplicate unpublishing. This method only handles track disabling.
     }
@@ -156,7 +156,7 @@ export class LiveKitVideoStrategy implements VideoStrategy {
     if (!track || !element) return;
     const livekitTrack = track as LocalVideoTrack;
     if (!livekitTrack || typeof livekitTrack.attach !== 'function') return;
-    
+
     // For LiveKit, we need to find or create a video element within the container
     let videoElement = element.querySelector('video') as HTMLVideoElement;
     if (!videoElement) {
@@ -170,17 +170,17 @@ export class LiveKitVideoStrategy implements VideoStrategy {
       videoElement.controls = false;
       element.appendChild(videoElement);
     }
-    
+
     // Detach any existing track first to avoid conflicts
     if (videoElement.srcObject) {
       livekitTrack.detach();
     }
-    
+
     // Attach the track to the video element
     livekitTrack.attach(videoElement);
-    
+
     // Ensure the video starts playing
-    videoElement.play().catch(error => {
+    videoElement.play().catch((error) => {
       console.warn('Failed to start video playback (non-critical):', error);
     });
   }

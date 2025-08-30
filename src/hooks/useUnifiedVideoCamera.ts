@@ -21,7 +21,7 @@ export const useUnifiedVideoCamera = (streamType: StreamProviderType): UseUnifie
   const [localVideoTrack, setLocalVideoTrack] = useState<VideoTrack | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoTrackRef = useRef<VideoTrack | null>(null);
-  
+
   const mediaStrategy = useMediaStrategy(streamType, client, room);
 
   const enableCamera = useCallback(async () => {
@@ -43,7 +43,7 @@ export const useUnifiedVideoCamera = (streamType: StreamProviderType): UseUnifie
       videoTrackRef.current = videoTrack;
       setLocalVideoTrack(videoTrack);
       setCameraEnabled(true);
-      
+
       // Try to enable the track (this might publish if connected)
       try {
         await mediaStrategy.video.enableVideoTrack(videoTrack);

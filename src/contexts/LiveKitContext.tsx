@@ -80,7 +80,11 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
       console.log('Participant disconnected:', participant.identity);
     };
 
-    const handleTrackSubscribed = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+    const handleTrackSubscribed = (
+      track: RemoteTrack,
+      _publication: RemoteTrackPublication,
+      participant: RemoteParticipant,
+    ) => {
       console.log('Track subscribed:', track.kind, 'from', participant.identity);
 
       if (track.kind === Track.Kind.Video) {
@@ -95,7 +99,11 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
       }
     };
 
-    const handleTrackUnsubscribed = (track: RemoteTrack, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+    const handleTrackUnsubscribed = (
+      track: RemoteTrack,
+      _publication: RemoteTrackPublication,
+      participant: RemoteParticipant,
+    ) => {
       console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
       track.detach();
     };
@@ -126,7 +134,7 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
   // Cleanup when component unmounts - use ref to avoid dependency issues
   const roomRef = React.useRef(room);
   roomRef.current = room;
-  
+
   React.useEffect(() => {
     return () => {
       // Use ref to access current room without triggering effect on room changes

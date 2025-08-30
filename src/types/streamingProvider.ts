@@ -63,7 +63,10 @@ export interface ChatPayload {
   from?: 'bot' | 'user';
 }
 
-
+export interface EventPayload {
+  event: string;
+  data?: Record<string, unknown>;
+}
 
 export type ChatResponsePayload = {
   text: string;
@@ -73,6 +76,7 @@ export type ChatResponsePayload = {
 export enum MessageType {
   COMMAND = 'command',
   CHAT = 'chat',
+  EVENT = 'event',
 }
 
 export interface StreamMessage {
@@ -81,7 +85,7 @@ export interface StreamMessage {
   mid: string;
   idx?: number;
   fin?: boolean;
-  pld: CommandPayload | ChatPayload;
+  pld: CommandPayload | ChatPayload | EventPayload;
 }
 
 // Event handlers
@@ -89,8 +93,14 @@ export interface StreamingEventHandlers {
   onUserJoin?: (participant: ParticipantInfo) => void;
   onUserLeave?: (participant: ParticipantInfo) => void;
   onNetworkQuality?: (quality: NetworkQuality) => void;
-  onStreamMessage?: (message: string, from: ParticipantInfo, messageData?: ChatResponsePayload) => void;
+  onStreamMessage?: (
+    message: string,
+    from: ParticipantInfo,
+    messageData?: ChatResponsePayload,
+    messageId?: string,
+  ) => void;
   onSystemMessage?: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void;
+  onAudioStateChange?: (isSpeaking: boolean) => void;
   onException?: (error: { code: number; msg: string; uid?: string | number }) => void;
   onTokenExpired?: () => void;
 }
