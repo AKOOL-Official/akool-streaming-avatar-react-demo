@@ -13,10 +13,74 @@ import {
   ChatResponsePayload,
 } from '../types/streamingProvider';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function log(...args: any[]) {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}]`, ...args);
+// Debug logging levels
+export enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3,
+  SILENT = 4,
+}
+
+// Get log level from environment variable
+const getLogLevel = (): LogLevel => {
+  const envLevel = import.meta.env.VITE_LOG_LEVEL || 'INFO';
+  switch (envLevel.toUpperCase()) {
+    case 'DEBUG':
+      return LogLevel.DEBUG;
+    case 'INFO':
+      return LogLevel.INFO;
+    case 'WARN':
+      return LogLevel.WARN;
+    case 'ERROR':
+      return LogLevel.ERROR;
+    case 'SILENT':
+      return LogLevel.SILENT;
+    default:
+      return LogLevel.INFO;
+  }
+};
+
+const currentLogLevel = getLogLevel();
+
+// Debug logger with configurable levels
+class Logger {
+  private formatMessage(level: string, ...args: unknown[]): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [${level}]`, ...args);
+  }
+
+  debug(...args: unknown[]): void {
+    if (currentLogLevel <= LogLevel.DEBUG) {
+      this.formatMessage('DEBUG', ...args);
+    }
+  }
+
+  info(...args: unknown[]): void {
+    if (currentLogLevel <= LogLevel.INFO) {
+      this.formatMessage('INFO', ...args);
+    }
+  }
+
+  warn(...args: unknown[]): void {
+    if (currentLogLevel <= LogLevel.WARN) {
+      this.formatMessage('WARN', ...args);
+    }
+  }
+
+  error(...args: unknown[]): void {
+    if (currentLogLevel <= LogLevel.ERROR) {
+      this.formatMessage('ERROR', ...args);
+    }
+  }
+}
+
+// Export logger instance
+export const logger = new Logger();
+
+// Backward compatibility - keep existing log function for non-debug logs
+export function log(...args: unknown[]) {
+  logger.info(...args);
 }
 
 // Shared message encoding utilities

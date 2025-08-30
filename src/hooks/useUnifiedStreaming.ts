@@ -11,7 +11,7 @@ import {
 import { getStreamingProviderFactory } from '../providers/StreamingProviderFactory';
 import { useAgora } from '../contexts/AgoraContext';
 import { useLiveKit } from '../contexts/LiveKitContext';
-import { log } from '../utils/messageUtils';
+import { log, logger } from '../utils/messageUtils';
 import { AgoraStreamingProvider } from '../providers/AgoraProvider';
 
 interface UnifiedStreamingState extends StreamingState {
@@ -67,14 +67,14 @@ export const useUnifiedStreaming = (
 
     const provider = providerRef.current;
     const providerState = provider.state;
-    
-    log('Manual sync - provider stats:', {
+
+    logger.debug('Manual sync - provider stats:', {
       hasRemoteStats: !!providerState.remoteStats,
       hasVideo: !!providerState.remoteStats?.video,
       hasAudio: !!providerState.remoteStats?.audio,
-      videoKeys: providerState.remoteStats?.video ? Object.keys(providerState.remoteStats.video) : []
+      videoKeys: providerState.remoteStats?.video ? Object.keys(providerState.remoteStats.video) : [],
     });
-    
+
     updateState({
       isJoined: providerState.isJoined,
       connected: providerState.connected,
@@ -82,8 +82,8 @@ export const useUnifiedStreaming = (
       participants: providerState.participants,
       networkQuality: providerState.networkQuality,
     });
-    
-    log('Manual sync complete - updated hook state');
+
+    logger.debug('Manual sync complete - updated hook state');
   }, []);
 
   // Initialize provider when stream type changes
@@ -111,98 +111,102 @@ export const useUnifiedStreaming = (
 
     initializeProvider();
 
-    // Cleanup previous provider
+    // Cleanup previous provider when effect reruns
     return () => {
       if (providerRef.current) {
+        logger.debug('Cleaning up provider on effect cleanup');
         providerRef.current.cleanup().catch(console.error);
         providerRef.current = null;
+        // Reset video track reference when provider changes
+        publishedVideoTrackRef.current = null;
       }
-      // Reset video track reference when provider changes
-      publishedVideoTrackRef.current = null;
     };
-  }, [streamType, agoraClient, livekitRoom]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamType]); // Only depend on streamType to prevent reconnection loops
 
   // Sync provider state with component state
   useEffect(() => {
     if (!providerRef.current) {
-      log('Sync effect: No provider available');
+      logger.debug('Sync effect: No provider available');
       return;
     }
 
-    log('Setting up provider state sync for', streamType);
+    logger.debug('Setting up provider state sync for', streamType);
 
     // Initial sync when provider changes
     syncProviderState();
 
     // Set up periodic sync for stats updates
     // Only sync stats-related properties to avoid triggering avatar params
-    log('Starting periodic stats sync interval');
+    logger.debug('Starting periodic stats sync interval');
     const statsSync = setInterval(() => {
       if (!providerRef.current) {
-        log('Periodic sync: No provider available');
+        logger.debug('Periodic sync: No provider available');
         return;
       }
 
       const provider = providerRef.current;
       const providerState = provider.state;
-      
+
       // Debug: Log provider state periodically
-      if (Math.random() < 0.1) { // 10% of the time
-        log('Periodic sync check - provider state:', {
+      if (Math.random() < 0.1) {
+        // 10% of the time
+        logger.debug('Periodic sync check - provider state:', {
           hasRemoteStats: !!providerState.remoteStats,
           hasVideo: !!providerState.remoteStats?.video,
           hasAudio: !!providerState.remoteStats?.audio,
           currentHookStats: !!state.remoteStats,
-          hookHasVideo: !!state.remoteStats?.video
+          hookHasVideo: !!state.remoteStats?.video,
         });
       }
-      
-          // Only update stats and network quality if they've actually changed
-          // This prevents unnecessary re-renders that cause flickering
-          const newStats: Partial<typeof state> = {};
-          
-          if (providerState.remoteStats !== state.remoteStats) {
-            newStats.remoteStats = providerState.remoteStats;
-          }
-          
-          if (providerState.networkQuality !== state.networkQuality) {
-            newStats.networkQuality = providerState.networkQuality;
-          }
-          
-          if (providerState.participants !== state.participants) {
-            newStats.participants = providerState.participants;
-          }
-          
-          // Only update if there are actual changes
-          if (Object.keys(newStats).length > 0) {
-            log('State update triggered with changes:', Object.keys(newStats));
-            updateState(newStats);
-          }
-      
+
+      // Only update stats and network quality if they've actually changed
+      // This prevents unnecessary re-renders that cause flickering
+      const newStats: Partial<typeof state> = {};
+
+      if (providerState.remoteStats !== state.remoteStats) {
+        newStats.remoteStats = providerState.remoteStats;
+      }
+
+      if (providerState.networkQuality !== state.networkQuality) {
+        newStats.networkQuality = providerState.networkQuality;
+      }
+
+      if (providerState.participants !== state.participants) {
+        newStats.participants = providerState.participants;
+      }
+
+      // Only update if there are actual changes
+      if (Object.keys(newStats).length > 0) {
+        logger.debug('State update triggered with changes:', Object.keys(newStats));
+        updateState(newStats);
+      }
+
       // Log when stats are actually synced (but not too frequently)
-      if (Math.random() < 0.2 && providerState.remoteStats) { // 20% of the time
-        log('Syncing provider stats to hook:', {
+      if (Math.random() < 0.2 && providerState.remoteStats) {
+        // 20% of the time
+        logger.debug('Syncing provider stats to hook:', {
           hasVideo: !!providerState.remoteStats?.video,
           hasAudio: !!providerState.remoteStats?.audio,
           providerType: providerState.remoteStats?.providerType,
-          videoKeys: providerState.remoteStats?.video ? Object.keys(providerState.remoteStats.video) : []
+          videoKeys: providerState.remoteStats?.video ? Object.keys(providerState.remoteStats.video) : [],
         });
       }
-      
+
       // Always log the first successful sync
       if (providerState.remoteStats && !state.remoteStats) {
-        log('First stats sync - provider stats available:', {
+        logger.debug('First stats sync - provider stats available:', {
           hasVideo: !!providerState.remoteStats?.video,
           hasAudio: !!providerState.remoteStats?.audio,
-          providerType: providerState.remoteStats?.providerType
+          providerType: providerState.remoteStats?.providerType,
         });
       }
-      
+
       updateState(newStats);
     }, 1000); // Sync every 1 second
 
     return () => {
-      log('Cleaning up stats sync interval');
+      logger.debug('Cleaning up stats sync interval');
       clearInterval(statsSync);
     };
   }, [syncProviderState, state.remoteStats, state.networkQuality, state.participants, streamType]);
@@ -359,7 +363,7 @@ export const useUnifiedStreaming = (
           // This ensures stats updates are reflected in the UI
           setTimeout(() => {
             if (providerRef.current) {
-              log('Triggering immediate sync after network quality update');
+              logger.debug('Triggering immediate sync after network quality update');
               syncProviderState();
             }
           }, 100);

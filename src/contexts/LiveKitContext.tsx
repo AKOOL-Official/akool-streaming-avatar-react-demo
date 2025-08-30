@@ -31,7 +31,7 @@ export const LiveKitProvider: React.FC<LiveKitProviderProps> = ({ children, room
 
     console.log('LiveKitContext: Creating new Room instance');
     return new Room(defaultOptions);
-  }, [JSON.stringify(roomOptions)]); // Use JSON.stringify to prevent recreation on object reference changes
+  }, [roomOptions]);
 
   // State for avatar speaking status
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);

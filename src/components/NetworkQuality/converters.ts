@@ -54,10 +54,7 @@ export function convertAgoraStats(agoraStats: LegacyNetworkStats): NetworkStats 
  * Create basic LiveKit network stats
  * LiveKit has limited stats compared to Agora, so we provide what's available
  */
-export function createLiveKitStats(
-  localQuality?: number,
-  remoteQuality?: number,
-): NetworkStats {
+export function createLiveKitStats(localQuality?: number, remoteQuality?: number): NetworkStats {
   const baseStats: NetworkStats = {
     providerType: 'livekit',
   };

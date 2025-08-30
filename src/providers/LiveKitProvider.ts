@@ -25,7 +25,7 @@ import {
   registerMessageHandlers,
   unregisterMessageHandlers,
 } from '../livekitHelper';
-import { log } from '../utils/messageUtils';
+import { log, logger } from '../utils/messageUtils';
 
 export class LiveKitStreamingProvider extends BaseStreamingProvider {
   public readonly providerType: StreamProviderType = 'livekit';
@@ -56,18 +56,18 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
       if (currentStats) {
         const audioStats = this.extractAudioStats(audioMetrics);
         if (audioStats) {
-          log('Combining audio stats with existing video stats');
-          
+          logger.debug('Combining audio stats with existing video stats');
+
           // Directly enhance existing stats instead of recreating them
           const enhancedAudioStats = this.createEnhancedLiveKitStats(null, audioStats);
-          
+
           const combinedStats = {
             ...currentStats,
             audio: enhancedAudioStats.audio,
           };
-          
+
           this.updateState({ remoteStats: combinedStats });
-          log('Combined video and audio stats successfully:', combinedStats);
+          logger.debug('Combined video and audio stats successfully:', combinedStats);
         }
       }
     } catch (error) {
@@ -89,29 +89,29 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
 
       this.updateState({ remoteStats });
 
-      log('Updated LiveKit stats - video:', !!remoteStats.video, 'audio:', !!remoteStats.audio);
-      
+      logger.debug('Updated LiveKit stats - video:', !!remoteStats.video, 'audio:', !!remoteStats.audio);
+
       // Debug specific delay values that reach the UI
       if (remoteStats.video) {
-        log('Video delays in final stats:', {
+        logger.debug('Video delays in final stats:', {
           end2EndDelay: remoteStats.video.end2EndDelay,
           receiveDelay: remoteStats.video.receiveDelay,
-          transportDelay: remoteStats.video.transportDelay
+          transportDelay: remoteStats.video.transportDelay,
         });
       }
       if (remoteStats.audio) {
-        log('Audio delays in final stats:', {
+        logger.debug('Audio delays in final stats:', {
           end2EndDelay: remoteStats.audio.end2EndDelay,
           receiveDelay: remoteStats.audio.receiveDelay,
-          transportDelay: remoteStats.audio.transportDelay
+          transportDelay: remoteStats.audio.transportDelay,
         });
       }
-      
+
       // Trigger state sync notification if handlers are available
       if (this.handlers?.onNetworkQuality) {
         this.handlers.onNetworkQuality({
           uplinkQuality: this.localConnectionQuality,
-          downlinkQuality: this.remoteConnectionQuality
+          downlinkQuality: this.remoteConnectionQuality,
         });
       }
     } catch (error) {
@@ -189,13 +189,13 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
   private createEnhancedLiveKitStats(videoStats: unknown, audioStats: unknown) {
     const baseStats = createLiveKitStats(this.localConnectionQuality, this.remoteConnectionQuality);
 
-    log('Creating enhanced stats with video:', !!videoStats, 'audio:', !!audioStats);
+    logger.debug('Creating enhanced stats with video:', !!videoStats, 'audio:', !!audioStats);
 
     // Enhance with detailed metrics if available
     if (videoStats && typeof videoStats === 'object') {
       const vStats = videoStats as Record<string, unknown>;
-      log('Processing video stats keys:', Object.keys(vStats));
-      
+      logger.debug('Processing video stats keys:', Object.keys(vStats));
+
       // Calculate proper delay metrics from WebRTC stats
       const calculateDelay = () => {
         // Use playout delay if available (most accurate for end-to-end)
@@ -218,8 +218,17 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
       };
 
       const calculatedDelay = calculateDelay();
-      log('Video delay calculation - playoutDelay:', vStats.playoutDelay, 'processingDelay:', vStats.processingDelay, 'jitter:', vStats.jitter, 'calculated:', calculatedDelay);
-      
+      logger.debug(
+        'Video delay calculation - playoutDelay:',
+        vStats.playoutDelay,
+        'processingDelay:',
+        vStats.processingDelay,
+        'jitter:',
+        vStats.jitter,
+        'calculated:',
+        calculatedDelay,
+      );
+
       const videoStatsObj = {
         codecType: vStats.codecName as string,
         receiveFrameRate: vStats.framerate as number,
@@ -231,12 +240,12 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
         receiveDelay: calculatedDelay,
         transportDelay: calculatedDelay,
       };
-      
+
       // Only add video stats if we have meaningful data
       const hasVideoData = videoStatsObj.codecType || videoStatsObj.receiveFrameRate || videoStatsObj.receiveBitrate;
       if (hasVideoData) {
         baseStats.video = videoStatsObj;
-        log('Added video stats with codec:', videoStatsObj.codecType);
+        logger.debug('Added video stats with codec:', videoStatsObj.codecType);
       } else {
         log('Video stats extracted but no meaningful data found');
       }
@@ -244,8 +253,8 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
 
     if (audioStats && typeof audioStats === 'object') {
       const aStats = audioStats as Record<string, unknown>;
-      log('Processing audio stats keys:', Object.keys(aStats));
-      
+      logger.debug('Processing audio stats keys:', Object.keys(aStats));
+
       // Calculate proper delay metrics for audio
       const calculateAudioDelay = () => {
         // Use playout delay if available (most accurate for end-to-end)
@@ -268,7 +277,16 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
       };
 
       const calculatedAudioDelay = calculateAudioDelay();
-      log('Audio delay calculation - playoutDelay:', aStats.playoutDelay, 'processingDelay:', aStats.processingDelay, 'jitter:', aStats.jitter, 'calculated:', calculatedAudioDelay);
+      logger.debug(
+        'Audio delay calculation - playoutDelay:',
+        aStats.playoutDelay,
+        'processingDelay:',
+        aStats.processingDelay,
+        'jitter:',
+        aStats.jitter,
+        'calculated:',
+        calculatedAudioDelay,
+      );
 
       const audioStatsObj = {
         codecType: aStats.codecName as string,
@@ -279,18 +297,19 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
         receiveLevel: aStats.audioLevel as number,
         transportDelay: calculatedAudioDelay,
       };
-      
+
       // Only add audio stats if we have meaningful data
-      const hasAudioData = audioStatsObj.codecType || audioStatsObj.receiveBitrate || (audioStatsObj.receiveLevel !== undefined);
+      const hasAudioData =
+        audioStatsObj.codecType || audioStatsObj.receiveBitrate || audioStatsObj.receiveLevel !== undefined;
       if (hasAudioData) {
         baseStats.audio = audioStatsObj;
-        log('Added audio stats with codec:', audioStatsObj.codecType);
+        logger.debug('Added audio stats with codec:', audioStatsObj.codecType);
       } else {
         log('Audio stats extracted but no meaningful data found');
       }
     }
 
-    log('Final enhanced stats object:', baseStats);
+    logger.debug('Final enhanced stats object:', baseStats);
     return baseStats;
   }
 
@@ -359,13 +378,15 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
 
       // Try to get stats from remote tracks directly (more reliable approach)
       let statsCollected = false;
-      
+
       for (const participant of remoteParticipants) {
         const videoTracks = Array.from(participant.videoTrackPublications.values());
         const audioTracks = Array.from(participant.audioTrackPublications.values());
-        
-        log(`Checking participant ${participant.identity}: ${videoTracks.length} video, ${audioTracks.length} audio tracks`);
-        
+
+        logger.debug(
+          `Checking participant ${participant.identity}: ${videoTracks.length} video, ${audioTracks.length} audio tracks`,
+        );
+
         // Try to get stats from video tracks first
         for (const publication of videoTracks) {
           if (publication.track && publication.isSubscribed) {
@@ -376,7 +397,7 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
                 const stats = await track.receiver.getStats();
                 const metricsData = this.parseWebRTCStats(stats);
                 if (metricsData) {
-                  log('Successfully collected video track stats from', participant.identity);
+                  logger.debug('Successfully collected video track stats from', participant.identity);
                   this.updateNetworkStatsFromMetrics(metricsData);
                   statsCollected = true;
                   break;
@@ -388,10 +409,12 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
               log('Error getting video track stats for', participant.identity, error);
             }
           } else {
-            log(`Video track not ready - subscribed: ${publication.isSubscribed}, track exists: ${!!publication.track}`);
+            log(
+              `Video track not ready - subscribed: ${publication.isSubscribed}, track exists: ${!!publication.track}`,
+            );
           }
         }
-        
+
         // Always try to collect audio stats separately (audio might be available even if video was collected)
         for (const publication of audioTracks) {
           if (publication.track && publication.isSubscribed) {
@@ -400,8 +423,8 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
               if (track.receiver) {
                 const audioStats = await track.receiver.getStats();
                 const audioMetricsData = this.parseWebRTCStats(audioStats);
-                if (audioMetricsData && Object.keys(audioMetricsData).some(key => key.includes('audio'))) {
-                  log('Successfully collected audio track stats from', participant.identity);
+                if (audioMetricsData && Object.keys(audioMetricsData).some((key) => key.includes('audio'))) {
+                  logger.debug('Successfully collected audio track stats from', participant.identity);
                   // If we already have video stats, combine them; otherwise use audio alone
                   if (statsCollected) {
                     // Combine audio with existing video stats
@@ -422,7 +445,7 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
             }
           }
         }
-        
+
         if (statsCollected) break;
       }
 
@@ -447,7 +470,7 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
       }
     }
 
-    log('Available WebRTC stat types:', statTypes);
+    logger.debug('Available WebRTC stat types:', statTypes);
 
     // Debug: Log all inbound-rtp entries to understand what's available
     const inboundRtpStats: unknown[] = [];
@@ -458,26 +481,26 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
           ssrc: stat.ssrc,
           codecId: stat.codecId,
           hasAudioLevel: 'audioLevel' in stat,
-          hasFrames: 'framesReceived' in stat
+          hasFrames: 'framesReceived' in stat,
         });
       }
     }
     log('All inbound-rtp entries found:', inboundRtpStats);
     log('Total inbound-rtp entries:', inboundRtpStats.length);
-    
+
     // Also check for other audio-related stat types
     const audioRelatedStats: unknown[] = [];
     for (const [, stat] of stats) {
-      if (stat.type.includes('audio') || (stat.mediaType === 'audio') || (stat.kind === 'audio')) {
+      if (stat.type.includes('audio') || stat.mediaType === 'audio' || stat.kind === 'audio') {
         audioRelatedStats.push({
           type: stat.type,
           mediaType: stat.mediaType || stat.kind,
           id: stat.id,
-          keys: Object.keys(stat)
+          keys: Object.keys(stat),
         });
       }
     }
-    log('Audio-related stats found:', audioRelatedStats);
+    logger.debug('Audio-related stats found:', audioRelatedStats);
 
     // Second pass: extract meaningful data
     for (const [, stat] of stats) {
@@ -487,7 +510,7 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
         if (mediaType === 'video' || mediaType === 'audio') {
           const key = mediaType === 'video' ? 'video-inbound' : 'audio-inbound';
 
-          log(`Found ${mediaType} inbound-rtp stats:`, {
+          logger.debug(`Found ${mediaType} inbound-rtp stats:`, {
             ssrc: stat.ssrc,
             mediaType,
             codecId: stat.codecId,
@@ -524,7 +547,7 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
     }
 
     const foundKeys = Object.keys(metricsData);
-    log('Extracted metrics keys:', foundKeys);
+    logger.debug('Extracted metrics keys:', foundKeys);
 
     return foundKeys.length > 0 ? metricsData : null;
   }
@@ -638,7 +661,7 @@ export class LiveKitStreamingProvider extends BaseStreamingProvider {
       // Only start if this is a remote track and we have remote participants
       const remoteParticipants = Array.from(this.room.remoteParticipants.values());
       const isRemoteTrack = participant.sid !== this.room.localParticipant.sid;
-      
+
       if (!this.statsCollectionInterval && isRemoteTrack && remoteParticipants.length > 0) {
         log('Starting stats collection after remote track subscription from', participant.identity);
         // Add a small delay to ensure the peer connection is fully established

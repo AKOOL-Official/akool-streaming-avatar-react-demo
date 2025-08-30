@@ -20,9 +20,15 @@ export class DefaultStreamingProviderFactory implements StreamingProviderFactory
   }
 
   public async createProvider(type: StreamProviderType): Promise<StreamingProvider> {
-    // Cleanup existing provider before creating a new one
+    // Only cleanup if we're actually switching provider types
     if (this.currentProvider) {
-      console.log('Cleaning up existing provider before creating new one');
+      const currentType = this.currentProvider.providerType;
+      if (currentType === type) {
+        console.log('Provider type', type, 'already exists, reusing existing provider');
+        return this.currentProvider;
+      }
+
+      console.log('Switching provider from', currentType, 'to', type, '- cleaning up existing provider');
       await this.currentProvider.cleanup();
       this.currentProvider = undefined;
     }

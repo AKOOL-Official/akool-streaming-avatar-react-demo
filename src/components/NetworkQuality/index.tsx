@@ -78,14 +78,12 @@ interface LatencyDataPoint {
 }
 
 const NetworkQualityDisplay = ({ stats, streamType }: NetworkQualityProps) => {
-
-
   // Create default stats when none are provided
   const defaultStats: NetworkStats = {
     providerType: streamType,
     // No detailed stats available initially
   };
-  
+
   // Use provided stats or default to basic stats
   const currentStats = stats || defaultStats;
   const TIME_WINDOW = 120;
@@ -95,9 +93,9 @@ const NetworkQualityDisplay = ({ stats, streamType }: NetworkQualityProps) => {
 
   const getQualityClass = (quality: number) => {
     // Fix inverted scale: higher numbers = better quality (0-6 scale)
-    if (quality >= 5) return 'quality-good';   // 5-6 = excellent (green)
-    if (quality >= 3) return 'quality-fair';   // 3-4 = fair (yellow)
-    return 'quality-poor';                     // 0-2 = poor (red)
+    if (quality >= 5) return 'quality-good'; // 5-6 = excellent (green)
+    if (quality >= 3) return 'quality-fair'; // 3-4 = fair (yellow)
+    return 'quality-poor'; // 0-2 = poor (red)
   };
 
   const formatBitrate = (bitrate: number) => {
@@ -239,12 +237,14 @@ const NetworkQualityDisplay = ({ stats, streamType }: NetworkQualityProps) => {
           <div className="provider-info">
             <span>Provider: {currentStats.providerType.toUpperCase()}</span>
           </div>
-          
+
           {currentStats.localNetwork && (
             <div className="quality-section">
               <div title="Local Upload Quality">
                 <span>Local Upload</span>
-                <span className={`quality-indicator ${getQualityClass(currentStats.localNetwork.uplinkNetworkQuality)}`}></span>
+                <span
+                  className={`quality-indicator ${getQualityClass(currentStats.localNetwork.uplinkNetworkQuality)}`}
+                ></span>
               </div>
               <div title="Local Download Quality">
                 <span>Local Download</span>
@@ -254,7 +254,7 @@ const NetworkQualityDisplay = ({ stats, streamType }: NetworkQualityProps) => {
               </div>
             </div>
           )}
-          
+
           {!isMinimized && (
             <>
               {currentStats.remoteNetwork && (
@@ -278,52 +278,92 @@ const NetworkQualityDisplay = ({ stats, streamType }: NetworkQualityProps) => {
                   <Line data={chartData} options={chartOptions} />
                 </div>
               )}
-              
+
               <div className="stats-section">
                 {currentStats.video && (
                   <div className="video-stats">
                     <h4>Video Statistics</h4>
                     <StatRow label="Codec" value={formatValue(currentStats.video.codecType)} />
-                    <StatRow label="Transport Delay" value={formatValue(currentStats.video.transportDelay?.toFixed(1), 'ms')} />
-                    <StatRow label="End-to-End Delay" value={formatValue(currentStats.video.end2EndDelay?.toFixed(1), 'ms')} />
-                    <StatRow label="Receive Delay" value={formatValue(currentStats.video.receiveDelay?.toFixed(1), 'ms')} />
-                    <StatRow label="Frame Rate" value={formatValue(currentStats.video.receiveFrameRate?.toFixed(1), ' fps')} />
+                    <StatRow
+                      label="Transport Delay"
+                      value={formatValue(currentStats.video.transportDelay?.toFixed(1), 'ms')}
+                    />
+                    <StatRow
+                      label="End-to-End Delay"
+                      value={formatValue(currentStats.video.end2EndDelay?.toFixed(1), 'ms')}
+                    />
+                    <StatRow
+                      label="Receive Delay"
+                      value={formatValue(currentStats.video.receiveDelay?.toFixed(1), 'ms')}
+                    />
+                    <StatRow
+                      label="Frame Rate"
+                      value={formatValue(currentStats.video.receiveFrameRate?.toFixed(1), ' fps')}
+                    />
                     {currentStats.video.receiveResolutionWidth && currentStats.video.receiveResolutionHeight && (
                       <StatRow
                         label="Resolution"
                         value={`${currentStats.video.receiveResolutionWidth}x${currentStats.video.receiveResolutionHeight}`}
                       />
                     )}
-                    <StatRow label="Bitrate" value={currentStats.video.receiveBitrate ? formatBitrate(currentStats.video.receiveBitrate) : 'N/A'} />
-                    <StatRow label="Packet Loss" value={formatValue(currentStats.video.packetLossRate?.toFixed(2), '%')} />
+                    <StatRow
+                      label="Bitrate"
+                      value={
+                        currentStats.video.receiveBitrate ? formatBitrate(currentStats.video.receiveBitrate) : 'N/A'
+                      }
+                    />
+                    <StatRow
+                      label="Packet Loss"
+                      value={formatValue(currentStats.video.packetLossRate?.toFixed(2), '%')}
+                    />
                     {currentStats.video.totalFreezeTime !== undefined && (
                       <StatRow label="Total Freeze Time" value={`${currentStats.video.totalFreezeTime}s`} />
                     )}
                     {currentStats.video.freezeRate !== undefined && (
-                      <StatRow label="Freeze Rate" value={formatValue(currentStats.video.freezeRate?.toFixed(2), '%')} />
+                      <StatRow
+                        label="Freeze Rate"
+                        value={formatValue(currentStats.video.freezeRate?.toFixed(2), '%')}
+                      />
                     )}
                   </div>
                 )}
-                
+
                 {currentStats.audio && (
                   <div className="audio-stats">
                     <h4>Audio Statistics</h4>
                     <StatRow label="Codec" value={formatValue(currentStats.audio.codecType)} />
-                    <StatRow label="Transport Delay" value={formatValue(currentStats.audio.transportDelay?.toFixed(1), 'ms')} />
-                    <StatRow label="End-to-End Delay" value={formatValue(currentStats.audio.end2EndDelay?.toFixed(1), 'ms')} />
-                    <StatRow label="Receive Delay" value={formatValue(currentStats.audio.receiveDelay?.toFixed(1), 'ms')} />
-                    <StatRow label="Bitrate" value={currentStats.audio.receiveBitrate ? formatBitrate(currentStats.audio.receiveBitrate) : 'N/A'} />
-                    <StatRow label="Packet Loss" value={formatValue(currentStats.audio.packetLossRate?.toFixed(2), '%')} />
+                    <StatRow
+                      label="Transport Delay"
+                      value={formatValue(currentStats.audio.transportDelay?.toFixed(1), 'ms')}
+                    />
+                    <StatRow
+                      label="End-to-End Delay"
+                      value={formatValue(currentStats.audio.end2EndDelay?.toFixed(1), 'ms')}
+                    />
+                    <StatRow
+                      label="Receive Delay"
+                      value={formatValue(currentStats.audio.receiveDelay?.toFixed(1), 'ms')}
+                    />
+                    <StatRow
+                      label="Bitrate"
+                      value={
+                        currentStats.audio.receiveBitrate ? formatBitrate(currentStats.audio.receiveBitrate) : 'N/A'
+                      }
+                    />
+                    <StatRow
+                      label="Packet Loss"
+                      value={formatValue(currentStats.audio.packetLossRate?.toFixed(2), '%')}
+                    />
                     <StatRow label="Volume Level" value={formatValue(currentStats.audio.receiveLevel?.toFixed(0))} />
                   </div>
                 )}
-                
-                        {!currentStats.video && !currentStats.audio && (
-          <div className="no-stats">
-            <p>⏳ Collecting detailed statistics...</p>
-          </div>
-        )}
-                
+
+                {!currentStats.video && !currentStats.audio && (
+                  <div className="no-stats">
+                    <p>⏳ Collecting detailed statistics...</p>
+                  </div>
+                )}
+
                 {currentStats.video && !currentStats.audio && (
                   <div className="audio-note">
                     <p>💡 Audio statistics will appear when avatar is speaking</p>
