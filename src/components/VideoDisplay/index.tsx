@@ -27,7 +27,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({
   const { isAvatarSpeaking: agoraAvatarSpeaking } = useAgora();
   const { room } = useLiveKit();
   const { isAvatarSpeaking: liveKitAvatarSpeaking } = useLiveKit();
-  
+
   // Get the correct speaking state based on stream type
   const isAvatarSpeaking = streamType === 'agora' ? agoraAvatarSpeaking : liveKitAvatarSpeaking;
 
@@ -46,21 +46,27 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({
   };
 
   // Helper functions for unified video track handling using strategy pattern
-  const playVideoTrack = useCallback((track: VideoTrack, element: HTMLElement) => {
-    try {
-      mediaStrategy.video.playVideoTrack(track, element);
-    } catch (error) {
-      console.error('Failed to play video track:', error);
-    }
-  }, [mediaStrategy.video]);
+  const playVideoTrack = useCallback(
+    (track: VideoTrack, element: HTMLElement) => {
+      try {
+        mediaStrategy.video.playVideoTrack(track, element);
+      } catch (error) {
+        console.error('Failed to play video track:', error);
+      }
+    },
+    [mediaStrategy.video],
+  );
 
-  const stopVideoTrack = useCallback((track: VideoTrack) => {
-    try {
-      mediaStrategy.video.stopVideoPlayback(track);
-    } catch (error) {
-      console.error('Failed to stop video track:', error);
-    }
-  }, [mediaStrategy.video]);
+  const stopVideoTrack = useCallback(
+    (track: VideoTrack) => {
+      try {
+        mediaStrategy.video.stopVideoPlayback(track);
+      } catch (error) {
+        console.error('Failed to stop video track:', error);
+      }
+    },
+    [mediaStrategy.video],
+  );
 
   // Drag handlers
   const handleDragStart = useCallback((e: React.MouseEvent) => {

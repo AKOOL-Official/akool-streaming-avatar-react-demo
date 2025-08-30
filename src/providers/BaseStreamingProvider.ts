@@ -6,9 +6,8 @@ import {
   CommandType,
   CommandPayload,
   Metadata,
-  ChatResponsePayload,
 } from '../types/streamingProvider';
-import { log } from '../utils/messageUtils';
+import { formatCommandResponse, formatCommandSend, formatChatMessage, formatEventMessage } from '../utils/messageUtils';
 
 /**
  * Base class for streaming providers with shared functionality
@@ -78,7 +77,7 @@ export abstract class BaseStreamingProvider implements StreamingProvider {
     onCommandSend?: (cmd: string, data?: Record<string, unknown>) => void,
   ): Promise<void>;
 
-  // Common message handling methods
+  // Common message handling methods using shared utilities
   protected handleCommandResponse(
     cmd: CommandType,
     code: number,
@@ -86,14 +85,8 @@ export abstract class BaseStreamingProvider implements StreamingProvider {
     messageId: string,
     uid: string,
   ) {
-    log(`cmd-response, cmd=${cmd}, code=${code}, msg=${msg}`);
-
-    const status = code === 1000 ? '✅' : '❌';
-    const statusText = code === 1000 ? 'Success' : 'Failed';
-    const responseText = `${status} ${cmd}: ${statusText}${msg ? ` (${msg})` : ''}`;
-    const systemType = cmd === 'interrupt' ? 'interrupt_ack' : 'set_params_ack';
-
-    this.handlers?.onSystemMessage?.(`cmd_ack_${messageId}`, responseText, systemType, { uid });
+    if (!this.handlers) return;
+    formatCommandResponse(cmd, code, msg, messageId, uid, this.handlers);
   }
 
   protected handleCommandSend(
@@ -102,52 +95,17 @@ export abstract class BaseStreamingProvider implements StreamingProvider {
     messageId: string,
     uid: string,
   ) {
-    const dataStr = data ? ` with data: ${JSON.stringify(data)}` : '';
-    const systemType = cmd === 'interrupt' ? 'interrupt' : 'set_params';
-    const messageText = cmd === 'set-params' && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
-    const metadata = cmd === 'set-params' && data ? { fullParams: data } : undefined;
-
-    this.handlers?.onSystemMessage?.(`cmd_send_${messageId}`, messageText, systemType, { uid, ...metadata });
+    if (!this.handlers) return;
+    formatCommandSend(cmd, data, messageId, uid, this.handlers);
   }
 
   protected handleChatMessage(text: string, from: string | undefined, messageId: string, uid: string) {
-    const responsePayload: ChatResponsePayload = {
-      text,
-      from: (from === 'bot' ? 'bot' : 'user') as 'bot' | 'user', // Preserve original from: 'bot' = avatar response, 'user' = STT result
-    };
-
-    // Ensure avatar responses get unique message IDs to avoid appending to user messages
-    const finalMessageId = `reply_${messageId}`;
-
-    this.handlers?.onStreamMessage?.(
-      text,
-      {
-        uid,
-        identity: uid.toString(),
-      },
-      responsePayload,
-      finalMessageId,
-    );
+    if (!this.handlers) return;
+    formatChatMessage(text, from, messageId, uid, this.handlers);
   }
 
   protected handleEventMessage(event: string, messageId: string, uid: string, eventData?: Record<string, unknown>) {
-    log(`event, event=${event}`);
-
-    if (event === 'audio_start') {
-      this.handlers?.onSystemMessage?.(`event_${messageId}`, '🎤 Avatar started speaking', 'avatar_audio_start', {
-        uid,
-      });
-      // Update speaking state
-      this.handlers?.onAudioStateChange?.(true);
-    } else if (event === 'audio_end') {
-      this.handlers?.onSystemMessage?.(`event_${messageId}`, '✅ Avatar finished speaking', 'avatar_audio_end', {
-        uid,
-      });
-      // Update speaking state
-      this.handlers?.onAudioStateChange?.(false);
-    } else {
-      // Handle other events generically
-      this.handlers?.onSystemMessage?.(`event_${messageId}`, `📋 Event: ${event}`, 'event', { uid, eventData });
-    }
+    if (!this.handlers) return;
+    formatEventMessage(event, messageId, uid, eventData, this.handlers);
   }
 }

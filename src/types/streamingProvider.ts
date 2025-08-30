@@ -77,6 +77,51 @@ export enum MessageType {
   COMMAND = 'command',
   CHAT = 'chat',
   EVENT = 'event',
+  SYSTEM = 'system',
+}
+
+// System event types enum
+export enum SystemEventType {
+  AVATAR_AUDIO_START = 'avatar_audio_start',
+  AVATAR_AUDIO_END = 'avatar_audio_end',
+  MIC_START = 'mic_start',
+  MIC_END = 'mic_end',
+  CAMERA_START = 'camera_start',
+  CAMERA_END = 'camera_end',
+  SET_PARAMS = 'set_params',
+  SET_PARAMS_ACK = 'set_params_ack',
+  INTERRUPT = 'interrupt',
+  INTERRUPT_ACK = 'interrupt_ack',
+}
+
+// Message sender types
+export enum MessageSender {
+  USER = 'user',
+  AVATAR = 'avatar',
+  SYSTEM = 'system',
+}
+
+// Type for user-triggered system events
+export type UserTriggeredEventType =
+  | SystemEventType.MIC_START
+  | SystemEventType.MIC_END
+  | SystemEventType.CAMERA_START
+  | SystemEventType.CAMERA_END;
+
+// UI Message interface for React components
+export interface UIMessage {
+  id: string;
+  text: string;
+  sender: MessageSender;
+  messageType: MessageType;
+  timestamp: number;
+  // System-specific fields
+  systemType?: SystemEventType;
+  // Additional data for tooltips and other features
+  metadata?: {
+    fullParams?: Record<string, unknown>; // For set-params messages
+    [key: string]: unknown;
+  };
 }
 
 export interface StreamMessage {

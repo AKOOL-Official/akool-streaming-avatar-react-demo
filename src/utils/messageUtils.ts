@@ -7,6 +7,10 @@ import {
   CommandPayload,
   CommandResponsePayload,
   EventPayload,
+  SystemEventType,
+  UIMessage,
+  ParticipantInfo,
+  ChatResponsePayload,
 } from '../types/streamingProvider';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -263,5 +267,126 @@ export async function rateLimit(chunkSize: number, startTime: number): Promise<v
 
   if (remainingDelay > 0) {
     await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+  }
+}
+
+// Time formatting utilities for UI
+export function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+export function shouldShowTimeSeparator(currentMessage: UIMessage, previousMessage: UIMessage | undefined): boolean {
+  if (!previousMessage) return false;
+  const timeDiff = currentMessage.timestamp - previousMessage.timestamp;
+
+  // Show separator if gap is more than 30 seconds
+  if (timeDiff > 30000) return true;
+
+  // Show separator every 5 minutes (300000 ms) regardless of gap
+  const currentMinute = Math.floor(currentMessage.timestamp / 300000);
+  const previousMinute = Math.floor(previousMessage.timestamp / 300000);
+
+  return currentMinute > previousMinute;
+}
+
+// Message formatting utilities
+export interface MessageFormattingHandlers {
+  onSystemMessage?: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void;
+  onStreamMessage?: (
+    text: string,
+    from: ParticipantInfo,
+    responsePayload: ChatResponsePayload,
+    messageId: string,
+  ) => void;
+  onAudioStateChange?: (isSpeaking: boolean) => void;
+}
+
+export function formatCommandResponse(
+  cmd: CommandType,
+  code: number,
+  msg: string | undefined,
+  messageId: string,
+  uid: string,
+  handlers: MessageFormattingHandlers,
+) {
+  log(`cmd-response, cmd=${cmd}, code=${code}, msg=${msg}`);
+
+  const status = code === 1000 ? '✅' : '❌';
+  const statusText = code === 1000 ? 'Success' : 'Failed';
+  const responseText = `${status} ${cmd}: ${statusText}${msg ? ` (${msg})` : ''}`;
+  const systemType = cmd === CommandType.INTERRUPT ? SystemEventType.INTERRUPT_ACK : SystemEventType.SET_PARAMS_ACK;
+
+  handlers.onSystemMessage?.(`cmd_ack_${messageId}`, responseText, systemType, { uid });
+}
+
+export function formatCommandSend(
+  cmd: CommandType,
+  data: Record<string, unknown> | undefined,
+  messageId: string,
+  uid: string,
+  handlers: MessageFormattingHandlers,
+) {
+  const dataStr = data ? ` with data: ${JSON.stringify(data)}` : '';
+  const systemType = cmd === CommandType.INTERRUPT ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS;
+  const messageText = cmd === CommandType.SET_PARAMS && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
+  const metadata = cmd === CommandType.SET_PARAMS && data ? { fullParams: data } : undefined;
+
+  handlers.onSystemMessage?.(`cmd_send_${messageId}`, messageText, systemType, { uid, ...metadata });
+}
+
+export function formatChatMessage(
+  text: string,
+  from: string | undefined,
+  messageId: string,
+  uid: string,
+  handlers: MessageFormattingHandlers,
+) {
+  const responsePayload: ChatResponsePayload = {
+    text,
+    from: (from === 'bot' ? 'bot' : 'user') as 'bot' | 'user', // Preserve original from: 'bot' = avatar response, 'user' = STT result
+  };
+
+  // Ensure avatar responses get unique message IDs to avoid appending to user messages
+  const finalMessageId = `reply_${messageId}`;
+
+  handlers.onStreamMessage?.(
+    text,
+    {
+      uid,
+      identity: uid.toString(),
+    },
+    responsePayload,
+    finalMessageId,
+  );
+}
+
+export function formatEventMessage(
+  event: string,
+  messageId: string,
+  uid: string,
+  eventData: Record<string, unknown> | undefined,
+  handlers: MessageFormattingHandlers,
+) {
+  log(`event, event=${event}`);
+
+  if (event === 'audio_start') {
+    handlers.onSystemMessage?.(`event_${messageId}`, '🎤 Avatar started speaking', SystemEventType.AVATAR_AUDIO_START, {
+      uid,
+    });
+    // Update speaking state
+    handlers.onAudioStateChange?.(true);
+  } else if (event === 'audio_end') {
+    handlers.onSystemMessage?.(`event_${messageId}`, '✅ Avatar finished speaking', SystemEventType.AVATAR_AUDIO_END, {
+      uid,
+    });
+    // Update speaking state
+    handlers.onAudioStateChange?.(false);
+  } else {
+    // Handle other events generically
+    handlers.onSystemMessage?.(`event_${messageId}`, `📋 Event: ${event}`, 'event', { uid, eventData });
   }
 }

@@ -1,56 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { RTCClient } from '../agoraHelper';
+import {
+  MessageType,
+  MessageSender,
+  SystemEventType,
+  UserTriggeredEventType,
+  UIMessage,
+} from '../types/streamingProvider';
+import { formatTime, shouldShowTimeSeparator } from '../utils/messageUtils';
 
-// System event types enum
-export enum SystemEventType {
-  AVATAR_AUDIO_START = 'avatar_audio_start',
-  AVATAR_AUDIO_END = 'avatar_audio_end',
-  MIC_START = 'mic_start',
-  MIC_END = 'mic_end',
-  CAMERA_START = 'camera_start',
-  CAMERA_END = 'camera_end',
-  SET_PARAMS = 'set_params',
-  SET_PARAMS_ACK = 'set_params_ack',
-  INTERRUPT = 'interrupt',
-  INTERRUPT_ACK = 'interrupt_ack',
-}
-
-// Message sender types
-export enum MessageSender {
-  USER = 'user',
-  AVATAR = 'avatar',
-  SYSTEM = 'system',
-}
-
-// Message types for better categorization
-export enum MessageType {
-  CHAT = 'chat',
-  SYSTEM = 'system',
-  EVENT = 'event',
-  COMMAND = 'command',
-}
-
-// Type for user-triggered system events
-export type UserTriggeredEventType =
-  | SystemEventType.MIC_START
-  | SystemEventType.MIC_END
-  | SystemEventType.CAMERA_START
-  | SystemEventType.CAMERA_END;
-
-export interface Message {
-  id: string;
-  text: string;
-  sender: MessageSender;
-  messageType: MessageType;
-  timestamp: number;
-  // System-specific fields
-  systemType?: SystemEventType;
-  // Additional data for tooltips and other features
-  metadata?: {
-    fullParams?: Record<string, unknown>; // For set-params messages
-    [key: string]: unknown;
-  };
-}
+// Re-export for compatibility with existing components
+export { MessageType, MessageSender, SystemEventType };
+export type { UserTriggeredEventType };
+export type Message = UIMessage;
 
 interface UseMessageStateProps {
   client?: RTCClient | null;
@@ -83,30 +45,6 @@ interface UseMessageStateReturn {
   formatTime: (timestamp: number) => string;
   shouldShowTimeSeparator: (currentMessage: Message, previousMessage: Message | undefined) => boolean;
 }
-
-// Utility function to format timestamp as HH:mm
-const formatTime = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-};
-
-// Utility function to check if time separator should be shown
-const shouldShowTimeSeparator = (currentMessage: Message, previousMessage: Message | undefined): boolean => {
-  if (!previousMessage) return false;
-  const timeDiff = currentMessage.timestamp - previousMessage.timestamp;
-
-  // Show separator if gap is more than 30 seconds
-  if (timeDiff > 30000) return true;
-
-  // Show separator every 5 minutes (300000 ms) regardless of gap
-  const currentMinute = Math.floor(currentMessage.timestamp / 300000);
-  const previousMinute = Math.floor(previousMessage.timestamp / 300000);
-
-  return currentMinute > previousMinute;
-};
 
 export const useMessageState = ({
   client: _client,
