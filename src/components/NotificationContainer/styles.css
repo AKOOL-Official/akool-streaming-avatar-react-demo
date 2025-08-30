@@ -1,0 +1,142 @@
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.notification {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: white;
+  border-left: 4px solid;
+  pointer-events: auto;
+  animation: slideIn 0.3s ease-out;
+  min-width: 320px;
+}
+
+.notification--success {
+  border-left-color: #10b981;
+  background: #f0fdf4;
+}
+
+.notification--error {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.notification--warning {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.notification--info {
+  border-left-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.notification__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.notification--success .notification__icon {
+  background: #10b981;
+  color: white;
+}
+
+.notification--error .notification__icon {
+  background: #ef4444;
+  color: white;
+}
+
+.notification--warning .notification__icon {
+  background: #f59e0b;
+  color: white;
+}
+
+.notification--info .notification__icon {
+  background: #3b82f6;
+  color: white;
+}
+
+.notification__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification__title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: #1f2937;
+}
+
+.notification__message {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #4b5563;
+  word-wrap: break-word;
+}
+
+.notification__close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 12px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  flex-shrink: 0;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.notification__close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .notification-container {
+    left: 20px;
+    right: 20px;
+    max-width: none;
+  }
+
+  .notification {
+    min-width: auto;
+  }
+}

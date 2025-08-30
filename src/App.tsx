@@ -7,6 +7,7 @@ import ConfigurationPanel from './components/ConfigurationPanel';
 import NetworkQualityDisplay from './components/NetworkQuality';
 import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
+import { NotificationContainer } from './components/NotificationContainer';
 import { useUnifiedStreamingContext } from './contexts/UnifiedStreamingContext';
 import { useAgora } from './contexts/AgoraContext';
 import { useLiveKit } from './contexts/LiveKitContext';
@@ -187,6 +188,7 @@ function App() {
         />
         <div>{isJoined && <NetworkQualityDisplay stats={remoteStats} streamType={streamType} />}</div>
       </div>
+      <NotificationContainer />
     </>
   );
 }

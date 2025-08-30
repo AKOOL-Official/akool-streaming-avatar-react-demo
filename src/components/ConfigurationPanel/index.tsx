@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ApiService, Language, Voice, Avatar } from '../../apiService';
 import { StreamProviderType } from '../../types/streamingProvider';
+import { useNotifications } from '../../hooks/useNotifications';
 import AvatarSelector from '../AvatarSelector';
 import VoiceSelector from '../VoiceSelector';
 import JsonEditorModal from '../JsonEditorModal';
@@ -69,6 +70,7 @@ export default function ConfigurationPanel({
   closeStreaming,
   setAvatarVideoUrl,
 }: ConfigurationPanelProps) {
+  const { showError } = useNotifications();
   const [languages, setLanguages] = useState<Language[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
@@ -90,11 +92,14 @@ export default function ConfigurationPanel({
         setAvatars(avatarList);
       } catch (error) {
         console.error('Error fetching language and voice data:', error);
+        showError(error instanceof Error ? error.message : 'Failed to load configuration data', {
+          title: 'Configuration Error',
+        });
       }
     };
 
     fetchData();
-  }, [api]);
+  }, [api, showError]);
 
   // Sync local background URL input with prop
   useEffect(() => {
@@ -119,6 +124,7 @@ export default function ConfigurationPanel({
       await startStreaming();
     } catch (error) {
       console.error('Error starting streaming:', error);
+      showError(error instanceof Error ? error.message : 'Failed to start streaming', { title: 'Streaming Error' });
     } finally {
       setIsStarting(false);
     }

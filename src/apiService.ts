@@ -99,7 +99,6 @@ export class ApiService {
     });
     const responseBody = await response.json();
     if (responseBody.code != 1000) {
-      alert(responseBody.msg);
       throw new Error(responseBody.msg);
     }
     return responseBody.data;

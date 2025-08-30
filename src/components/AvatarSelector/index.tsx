@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Avatar, ApiService } from '../../apiService';
+import { useNotifications } from '../../hooks/useNotifications';
 import { log } from '../../utils/messageUtils';
 import './styles.css';
 
@@ -22,6 +23,7 @@ export default function AvatarSelector({
   setAvatarVideoUrl,
   disabled = false,
 }: AvatarSelectorProps) {
+  const { showError } = useNotifications();
   const [useManualAvatarId, setUseManualAvatarId] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshCooldown, setRefreshCooldown] = useState(false);
@@ -38,6 +40,9 @@ export default function AvatarSelector({
       setTimeout(() => setRefreshCooldown(false), 5000);
     } catch (error) {
       console.error('Error refreshing avatar list:', error);
+      showError(error instanceof Error ? error.message : 'Failed to refresh avatar list', {
+        title: 'Avatar List Error',
+      });
     } finally {
       setIsRefreshing(false);
     }

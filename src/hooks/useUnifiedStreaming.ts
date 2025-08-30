@@ -11,6 +11,7 @@ import {
 import { getStreamingProviderFactory } from '../providers/StreamingProviderFactory';
 import { useAgora } from '../contexts/AgoraContext';
 import { useLiveKit } from '../contexts/LiveKitContext';
+import { useNotifications } from './useNotifications';
 import { log, logger } from '../utils/messageUtils';
 import { AgoraStreamingProvider } from '../providers/AgoraProvider';
 
@@ -43,6 +44,7 @@ export const useUnifiedStreaming = (
 ) => {
   const { client: agoraClient } = useAgora();
   const { room: livekitRoom } = useLiveKit();
+  const { showError, showWarning } = useNotifications();
 
   const [state, setState] = useState<UnifiedStreamingState>({
     isJoined: false,
@@ -318,12 +320,12 @@ export const useUnifiedStreaming = (
 
   const startStreaming = useCallback(async () => {
     if (!api) {
-      alert('Please set host and token first');
+      showWarning('Please set host and token first');
       return;
     }
 
     if (!providerRef.current) {
-      alert('Streaming provider not initialized');
+      showError('Streaming provider not initialized');
       return;
     }
 
@@ -378,7 +380,7 @@ export const useUnifiedStreaming = (
           console.error('Provider exception:', error);
         },
         onTokenExpired: async () => {
-          alert('Session expired');
+          showWarning('Session expired', { title: 'Session Expired' });
           // Handle session expiration by disconnecting directly
           try {
             if (providerRef.current) {
@@ -416,7 +418,9 @@ export const useUnifiedStreaming = (
       syncProviderState();
     } catch (error) {
       console.error('Failed to start streaming:', error);
-      alert(`Failed to start streaming: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showError(`Failed to start streaming: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        title: 'Streaming Error',
+      });
     }
   }, [
     api,
@@ -435,6 +439,8 @@ export const useUnifiedStreaming = (
     onAudioStateChange,
     syncProviderState,
     state.session,
+    showError,
+    showWarning,
   ]);
 
   const closeStreaming = useCallback(async () => {
