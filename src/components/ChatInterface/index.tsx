@@ -31,6 +31,9 @@ interface ChatInterfaceProps {
   onSystemMessageCallback?: (
     callback: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void,
   ) => void;
+  onStreamMessageCallback?: (
+    callback: (message: string, from: { uid: string | number; identity: string }, messageData?: import('../../types/streamingProvider').ChatResponsePayload) => void,
+  ) => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -47,6 +50,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   sendMessage,
   sendInterrupt,
   onSystemMessageCallback,
+  onStreamMessageCallback,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { setIsAvatarSpeaking: setAgoraAvatarSpeaking } = useAgora();
@@ -293,6 +297,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       });
     }
   }, [onSystemMessageCallback, addSystemMessage]);
+
+  // Set up stream message callback for LiveKit
+  useEffect(() => {
+    if (onStreamMessageCallback && streamType === 'livekit') {
+      onStreamMessageCallback((message, from, messageData) => {
+        // Check for bot type in message data first, then fall back to identity check
+        let sender = MessageSender.USER;
+        
+        if (messageData?.from === 'bot') {
+          sender = MessageSender.AVATAR;
+        } else if (from.identity.includes('avatar') || from.identity.includes('bot')) {
+          sender = MessageSender.AVATAR;
+        }
+        
+        addChatMessage(`livekit_${Date.now()}`, message, sender);
+      });
+    }
+  }, [onStreamMessageCallback, streamType, addChatMessage]);
 
   useEffect(() => {
     scrollToBottom();

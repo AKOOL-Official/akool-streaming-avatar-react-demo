@@ -39,6 +39,11 @@ function App() {
     ((messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void) | null
   >(null);
 
+  // Ref to store the stream message callback for LiveKit
+  const streamMessageCallbackRef = useRef<
+    ((message: string, from: { uid: string | number; identity: string }, messageData?: import('./types/streamingProvider').ChatResponsePayload) => void) | null
+  >(null);
+
   useEffect(() => {
     if (openapiHost && openapiToken) {
       setApi(new ApiService(openapiHost, openapiToken));
@@ -69,7 +74,12 @@ function App() {
     voiceParams,
     api,
     localVideoTrack,
-    systemMessageCallbackRef.current || undefined,
+    (messageId, text, systemType, metadata) => {
+      systemMessageCallbackRef.current?.(messageId, text, systemType, metadata);
+    },
+    (message, from, messageData) => {
+      streamMessageCallbackRef.current?.(message, from, messageData);
+    },
   );
 
   // Initialize audio controls 
@@ -152,6 +162,9 @@ function App() {
           sendInterrupt={sendInterrupt}
           onSystemMessageCallback={(callback) => {
             systemMessageCallbackRef.current = callback;
+          }}
+          onStreamMessageCallback={(callback) => {
+            streamMessageCallbackRef.current = callback;
           }}
         />
         <div>{isJoined && remoteStats && <NetworkQualityDisplay stats={remoteStats} />}</div>

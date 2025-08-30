@@ -60,7 +60,10 @@ export type CommandResponsePayload = {
 export interface ChatPayload {
   text: string;
   meta?: Metadata;
+  from?: 'bot' | 'user';
 }
+
+
 
 export type ChatResponsePayload = {
   text: string;
@@ -86,7 +89,7 @@ export interface StreamingEventHandlers {
   onUserJoin?: (participant: ParticipantInfo) => void;
   onUserLeave?: (participant: ParticipantInfo) => void;
   onNetworkQuality?: (quality: NetworkQuality) => void;
-  onStreamMessage?: (message: string, from: ParticipantInfo) => void;
+  onStreamMessage?: (message: string, from: ParticipantInfo, messageData?: ChatResponsePayload) => void;
   onSystemMessage?: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void;
   onException?: (error: { code: number; msg: string; uid?: string | number }) => void;
   onTokenExpired?: () => void;

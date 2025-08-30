@@ -32,6 +32,7 @@ export const useUnifiedStreaming = (
   api: ApiService | null,
   localVideoTrack: VideoTrack | null,
   onSystemMessage?: (messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void,
+  onStreamMessage?: (message: string, from: { uid: string | number; identity: string }, messageData?: import('../types/streamingProvider').ChatResponsePayload) => void,
 ) => {
   const { client: agoraClient } = useAgora();
   const { room: livekitRoom } = useLiveKit();
@@ -251,8 +252,9 @@ export const useUnifiedStreaming = (
         onNetworkQuality: (quality) => {
           log('Network quality updated:', quality);
         },
-        onStreamMessage: (message, from) => {
+        onStreamMessage: (message, from, messageData) => {
           log('Stream message received:', message, 'from', from.identity);
+          onStreamMessage?.(message, from, messageData);
         },
         onSystemMessage: onSystemMessage,
         onException: (error) => {
@@ -309,6 +311,7 @@ export const useUnifiedStreaming = (
     backgroundUrl,
     voiceParams,
     onSystemMessage,
+    onStreamMessage,
     syncProviderState,
     state.session,
   ]);

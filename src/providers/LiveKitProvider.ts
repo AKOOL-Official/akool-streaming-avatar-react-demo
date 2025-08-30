@@ -17,6 +17,7 @@ import {
   interruptResponse,
   sendMessageToAvatar,
   registerMessageHandlers,
+  unregisterMessageHandlers,
   log,
 } from '../livekitHelper';
 
@@ -197,6 +198,11 @@ export class LiveKitStreamingProvider implements StreamingProvider {
 
   public async disconnect(): Promise<void> {
     try {
+      // Unregister message handlers before disconnecting
+      if (this.room.state === 'connected') {
+        unregisterMessageHandlers(this.room);
+      }
+      
       if (this.room.state === 'connected' || this.room.state === 'connecting') {
         await this.room.disconnect();
       }
@@ -344,10 +350,15 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       },
       onChatMessage: (message, from) => {
         log('Received chat message from', from.identity);
+        // Convert ChatPayload to ChatResponsePayload format
+        const responsePayload: import('../types/streamingProvider').ChatResponsePayload = {
+          text: message.text,
+          from: message.from || 'user', // Default to 'user' if not specified
+        };
         this.handlers?.onStreamMessage?.(message.text, {
           uid: from.identity,
           identity: from.identity,
-        });
+        }, responsePayload);
       },
       onSystemMessage: (message, from) => {
         log('Received system message from', from.identity);
