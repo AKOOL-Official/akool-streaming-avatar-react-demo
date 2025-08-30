@@ -23,9 +23,13 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({
   const localVideoRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isAvatarSpeaking } = useAgora();
   const { client } = useAgora();
+  const { isAvatarSpeaking: agoraAvatarSpeaking } = useAgora();
   const { room } = useLiveKit();
+  const { isAvatarSpeaking: liveKitAvatarSpeaking } = useLiveKit();
+  
+  // Get the correct speaking state based on stream type
+  const isAvatarSpeaking = streamType === 'agora' ? agoraAvatarSpeaking : liveKitAvatarSpeaking;
 
   const mediaStrategy = useMediaStrategy(streamType, client, room);
 
@@ -42,21 +46,21 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({
   };
 
   // Helper functions for unified video track handling using strategy pattern
-  const playVideoTrack = (track: VideoTrack, element: HTMLElement) => {
+  const playVideoTrack = useCallback((track: VideoTrack, element: HTMLElement) => {
     try {
       mediaStrategy.video.playVideoTrack(track, element);
     } catch (error) {
       console.error('Failed to play video track:', error);
     }
-  };
+  }, [mediaStrategy.video]);
 
-  const stopVideoTrack = (track: VideoTrack) => {
+  const stopVideoTrack = useCallback((track: VideoTrack) => {
     try {
       mediaStrategy.video.stopVideoPlayback(track);
     } catch (error) {
       console.error('Failed to stop video track:', error);
     }
-  };
+  }, [mediaStrategy.video]);
 
   // Drag handlers
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -211,7 +215,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({
         }
       }
     };
-  }, [localVideoTrack, cameraEnabled, isViewSwitched]);
+  }, [localVideoTrack, cameraEnabled, isViewSwitched, playVideoTrack, stopVideoTrack]);
 
   // Additional cleanup when camera is disabled
   useEffect(() => {
@@ -222,7 +226,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({
         console.error('Failed to stop video track when camera disabled:', error);
       }
     }
-  }, [cameraEnabled, localVideoTrack]);
+  }, [cameraEnabled, localVideoTrack, stopVideoTrack]);
 
   return (
     <div ref={containerRef} className="video-container">
