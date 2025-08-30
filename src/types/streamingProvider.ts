@@ -185,7 +185,7 @@ export interface StreamingProvider {
 
 // Provider factory interface
 export interface StreamingProviderFactory {
-  createProvider(type: StreamProviderType): StreamingProvider;
+  createProvider(type: StreamProviderType): Promise<StreamingProvider>;
   getSupportedProviders(): StreamProviderType[];
 }
 

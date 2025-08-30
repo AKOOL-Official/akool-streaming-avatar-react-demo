@@ -188,3 +188,62 @@
   min-width: 300px;
   max-width: 600px;
 }
+
+/* Provider info section */
+.provider-info {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* No stats fallback section */
+.no-stats {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.no-stats p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.no-stats p:first-child {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Audio note for when only video stats are available */
+.audio-note {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 0.5rem 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+/* Update stats section to handle single column when one side is missing */
+.stats-section:has(.video-stats):not(:has(.audio-stats)) .video-stats,
+.stats-section:has(.audio-stats):not(:has(.video-stats)) .audio-stats {
+  grid-column: 1 / -1;
+}
+
+/* Responsive adjustments for provider info */
+@media (max-width: 768px) {
+  .provider-info {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}

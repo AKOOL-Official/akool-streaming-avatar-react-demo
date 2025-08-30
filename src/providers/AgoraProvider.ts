@@ -11,9 +11,9 @@ import {
 import { validateStreamMessage, processMessageChunk, processStreamMessage } from '../utils/messageUtils';
 import { BaseStreamingProvider } from './BaseStreamingProvider';
 import { AgoraCredentials, Credentials } from '../apiService';
-import { NetworkStats } from '../components/NetworkQuality';
 import { RTCClient, setAvatarParams, interruptResponse, sendMessageToAvatar } from '../agoraHelper';
 import { log } from '../utils/messageUtils';
+import { LegacyNetworkStats, convertAgoraStats } from '../components/NetworkQuality/converters';
 
 export class AgoraStreamingProvider extends BaseStreamingProvider {
   public readonly providerType: StreamProviderType = 'agora';
@@ -262,12 +262,14 @@ export class AgoraStreamingProvider extends BaseStreamingProvider {
     const firstAudioStats = Object.values(audioStats)[0] || {};
     const firstNetworkStats = Object.values(networkStats)[0] || {};
 
-    const remoteStats: NetworkStats = {
+    const legacyStats: LegacyNetworkStats = {
       localNetwork: stats,
       remoteNetwork: firstNetworkStats,
       video: firstVideoStats,
       audio: firstAudioStats,
     };
+
+    const remoteStats = convertAgoraStats(legacyStats);
 
     const networkQuality: CommonNetworkQuality = {
       uplinkQuality: stats.uplinkNetworkQuality,

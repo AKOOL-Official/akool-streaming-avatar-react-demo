@@ -13,24 +13,36 @@ export class DefaultStreamingProviderFactory implements StreamingProviderFactory
   private agoraClient?: RTCClient;
   private livekitRoom?: Room;
   private config: ProviderConfig;
+  private currentProvider?: StreamingProvider;
 
   constructor(config: ProviderConfig = {}) {
     this.config = config;
   }
 
-  public createProvider(type: StreamProviderType): StreamingProvider {
+  public async createProvider(type: StreamProviderType): Promise<StreamingProvider> {
+    // Cleanup existing provider before creating a new one
+    if (this.currentProvider) {
+      console.log('Cleaning up existing provider before creating new one');
+      await this.currentProvider.cleanup();
+      this.currentProvider = undefined;
+    }
+
+    let provider: StreamingProvider;
+
     switch (type) {
       case 'agora':
         if (!this.agoraClient) {
           throw new Error('Agora client not initialized. Call setAgoraClient() first.');
         }
-        return new AgoraStreamingProvider(this.agoraClient);
+        provider = new AgoraStreamingProvider(this.agoraClient);
+        break;
 
       case 'livekit':
         if (!this.livekitRoom) {
           throw new Error('LiveKit room not initialized. Call setLiveKitRoom() first.');
         }
-        return new LiveKitStreamingProvider(this.livekitRoom);
+        provider = new LiveKitStreamingProvider(this.livekitRoom);
+        break;
 
       case 'trtc':
         throw new Error('TRTC provider not implemented yet');
@@ -38,6 +50,9 @@ export class DefaultStreamingProviderFactory implements StreamingProviderFactory
       default:
         throw new Error(`Unsupported provider type: ${type}`);
     }
+
+    this.currentProvider = provider;
+    return provider;
   }
 
   public getSupportedProviders(): StreamProviderType[] {
@@ -59,6 +74,13 @@ export class DefaultStreamingProviderFactory implements StreamingProviderFactory
   public getConfig(): ProviderConfig {
     return { ...this.config };
   }
+
+  public async cleanupCurrentProvider(): Promise<void> {
+    if (this.currentProvider) {
+      await this.currentProvider.cleanup();
+      this.currentProvider = undefined;
+    }
+  }
 }
 
 // Singleton factory instance
@@ -71,6 +93,9 @@ export function getStreamingProviderFactory(): DefaultStreamingProviderFactory {
   return factoryInstance;
 }
 
-export function resetStreamingProviderFactory(): void {
+export async function resetStreamingProviderFactory(): Promise<void> {
+  if (factoryInstance) {
+    await factoryInstance.cleanupCurrentProvider();
+  }
   factoryInstance = null;
 }

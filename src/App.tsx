@@ -185,7 +185,7 @@ function App() {
             streamMessageCallbackRef.current = callback;
           }}
         />
-        <div>{isJoined && remoteStats && <NetworkQualityDisplay stats={remoteStats} />}</div>
+        <div>{isJoined && <NetworkQualityDisplay stats={remoteStats} streamType={streamType} />}</div>
       </div>
     </>
   );

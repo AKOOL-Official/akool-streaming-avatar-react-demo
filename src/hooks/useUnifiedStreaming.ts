@@ -67,6 +67,14 @@ export const useUnifiedStreaming = (
 
     const provider = providerRef.current;
     const providerState = provider.state;
+    
+    log('Manual sync - provider stats:', {
+      hasRemoteStats: !!providerState.remoteStats,
+      hasVideo: !!providerState.remoteStats?.video,
+      hasAudio: !!providerState.remoteStats?.audio,
+      videoKeys: providerState.remoteStats?.video ? Object.keys(providerState.remoteStats.video) : []
+    });
+    
     updateState({
       isJoined: providerState.isJoined,
       connected: providerState.connected,
@@ -74,6 +82,8 @@ export const useUnifiedStreaming = (
       participants: providerState.participants,
       networkQuality: providerState.networkQuality,
     });
+    
+    log('Manual sync complete - updated hook state');
   }, []);
 
   // Initialize provider when stream type changes
@@ -90,7 +100,7 @@ export const useUnifiedStreaming = (
         }
 
         // Create the provider
-        providerRef.current = factory.createProvider(streamType);
+        providerRef.current = await factory.createProvider(streamType);
         updateState({ currentProvider: streamType });
 
         log(`Initialized ${streamType} provider`);
@@ -114,14 +124,88 @@ export const useUnifiedStreaming = (
 
   // Sync provider state with component state
   useEffect(() => {
-    if (!providerRef.current) return;
+    if (!providerRef.current) {
+      log('Sync effect: No provider available');
+      return;
+    }
+
+    log('Setting up provider state sync for', streamType);
 
     // Initial sync when provider changes
     syncProviderState();
 
-    // No periodic sync - only sync when provider changes
-    // This prevents continuous state updates that trigger avatar params
-  }, [syncProviderState]);
+    // Set up periodic sync for stats updates
+    // Only sync stats-related properties to avoid triggering avatar params
+    log('Starting periodic stats sync interval');
+    const statsSync = setInterval(() => {
+      if (!providerRef.current) {
+        log('Periodic sync: No provider available');
+        return;
+      }
+
+      const provider = providerRef.current;
+      const providerState = provider.state;
+      
+      // Debug: Log provider state periodically
+      if (Math.random() < 0.1) { // 10% of the time
+        log('Periodic sync check - provider state:', {
+          hasRemoteStats: !!providerState.remoteStats,
+          hasVideo: !!providerState.remoteStats?.video,
+          hasAudio: !!providerState.remoteStats?.audio,
+          currentHookStats: !!state.remoteStats,
+          hookHasVideo: !!state.remoteStats?.video
+        });
+      }
+      
+          // Only update stats and network quality if they've actually changed
+          // This prevents unnecessary re-renders that cause flickering
+          const newStats: Partial<typeof state> = {};
+          
+          if (providerState.remoteStats !== state.remoteStats) {
+            newStats.remoteStats = providerState.remoteStats;
+          }
+          
+          if (providerState.networkQuality !== state.networkQuality) {
+            newStats.networkQuality = providerState.networkQuality;
+          }
+          
+          if (providerState.participants !== state.participants) {
+            newStats.participants = providerState.participants;
+          }
+          
+          // Only update if there are actual changes
+          if (Object.keys(newStats).length > 0) {
+            log('State update triggered with changes:', Object.keys(newStats));
+            updateState(newStats);
+          }
+      
+      // Log when stats are actually synced (but not too frequently)
+      if (Math.random() < 0.2 && providerState.remoteStats) { // 20% of the time
+        log('Syncing provider stats to hook:', {
+          hasVideo: !!providerState.remoteStats?.video,
+          hasAudio: !!providerState.remoteStats?.audio,
+          providerType: providerState.remoteStats?.providerType,
+          videoKeys: providerState.remoteStats?.video ? Object.keys(providerState.remoteStats.video) : []
+        });
+      }
+      
+      // Always log the first successful sync
+      if (providerState.remoteStats && !state.remoteStats) {
+        log('First stats sync - provider stats available:', {
+          hasVideo: !!providerState.remoteStats?.video,
+          hasAudio: !!providerState.remoteStats?.audio,
+          providerType: providerState.remoteStats?.providerType
+        });
+      }
+      
+      updateState(newStats);
+    }, 1000); // Sync every 1 second
+
+    return () => {
+      log('Cleaning up stats sync interval');
+      clearInterval(statsSync);
+    };
+  }, [syncProviderState, state.remoteStats, state.networkQuality, state.participants, streamType]);
 
   // Track published video track to prevent duplicate publishing
   const publishedVideoTrackRef = useRef<VideoTrack | null>(null);
@@ -271,6 +355,14 @@ export const useUnifiedStreaming = (
         },
         onNetworkQuality: (quality) => {
           log('Network quality updated:', quality);
+          // Trigger immediate state sync when network quality updates
+          // This ensures stats updates are reflected in the UI
+          setTimeout(() => {
+            if (providerRef.current) {
+              log('Triggering immediate sync after network quality update');
+              syncProviderState();
+            }
+          }, 100);
         },
         onStreamMessage: (message, from, messageData, messageId) => {
           log('Stream message received:', message, 'from', from.identity, 'messageId:', messageId);
@@ -316,6 +408,7 @@ export const useUnifiedStreaming = (
       }
 
       // Sync provider state after connection
+      log('Calling syncProviderState after successful connection');
       syncProviderState();
     } catch (error) {
       console.error('Failed to start streaming:', error);
