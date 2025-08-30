@@ -120,19 +120,8 @@ export class LiveKitVideoStrategy implements VideoStrategy {
         await livekitTrack.unmute();
       }
       
-      // Publish the video track to the room if connected and not already published
-      if (this.isConnected()) {
-        const videoPublications = Array.from(this.room.localParticipant.videoTrackPublications.values());
-        const isAlreadyPublished = videoPublications.some(pub => pub.track === livekitTrack);
-        
-        if (!isAlreadyPublished) {
-          try {
-            await this.room.localParticipant.publishTrack(livekitTrack);
-          } catch (error) {
-            console.warn('Failed to publish video track (non-critical):', error);
-          }
-        }
-      }
+      // Note: Publishing is handled by the provider's publishVideo method
+      // to avoid duplicate publishing. This method only handles track enabling.
     }
   }
 
@@ -142,19 +131,8 @@ export class LiveKitVideoStrategy implements VideoStrategy {
     if (livekitTrack && typeof livekitTrack.mute === 'function') {
       await livekitTrack.mute();
       
-      // Unpublish the video track from the room when disabled
-      if (this.isConnected()) {
-        const videoPublications = Array.from(this.room.localParticipant.videoTrackPublications.values());
-        const isPublished = videoPublications.some(pub => pub.track === livekitTrack);
-        
-        if (isPublished) {
-          try {
-            await this.room.localParticipant.unpublishTrack(livekitTrack);
-          } catch (error) {
-            console.warn('Failed to unpublish video track (non-critical):', error);
-          }
-        }
-      }
+      // Note: Unpublishing is handled by the provider's unpublishVideo method
+      // to avoid duplicate unpublishing. This method only handles track disabling.
     }
   }
 

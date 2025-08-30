@@ -100,6 +100,8 @@ export const useUnifiedStreaming = (
         providerRef.current.cleanup().catch(console.error);
         providerRef.current = null;
       }
+      // Reset video track reference when provider changes
+      publishedVideoTrackRef.current = null;
     };
   }, [streamType, agoraClient, livekitRoom]);
 
@@ -114,6 +116,9 @@ export const useUnifiedStreaming = (
     // This prevents continuous state updates that trigger avatar params
   }, [syncProviderState]);
 
+  // Track published video track to prevent duplicate publishing
+  const publishedVideoTrackRef = useRef<VideoTrack | null>(null);
+
   // Handle video track publishing/unpublishing
   useEffect(() => {
     const handleVideoTrack = async () => {
@@ -121,11 +126,19 @@ export const useUnifiedStreaming = (
 
       try {
         if (localVideoTrack) {
-          await providerRef.current.publishVideo(localVideoTrack);
-          log('Local video track published');
+          // Only publish if this is a different track than what's currently published
+          if (publishedVideoTrackRef.current !== localVideoTrack) {
+            await providerRef.current.publishVideo(localVideoTrack);
+            publishedVideoTrackRef.current = localVideoTrack;
+            log('Local video track published');
+          }
         } else {
-          await providerRef.current.unpublishVideo();
-          log('Local video track unpublished');
+          // Only unpublish if we have a published track
+          if (publishedVideoTrackRef.current) {
+            await providerRef.current.unpublishVideo();
+            publishedVideoTrackRef.current = null;
+            log('Local video track unpublished');
+          }
         }
       } catch (error) {
         console.error('Failed to handle video track:', error);
@@ -281,6 +294,8 @@ export const useUnifiedStreaming = (
               remoteStats: null,
               networkQuality: null,
             });
+            // Reset video track reference on token expiration
+            publishedVideoTrackRef.current = null;
           } catch (error) {
             console.error('Failed to handle token expiration:', error);
           }
@@ -339,6 +354,9 @@ export const useUnifiedStreaming = (
         remoteStats: null,
         networkQuality: null,
       });
+
+      // Reset video track reference on disconnect
+      publishedVideoTrackRef.current = null;
 
       // Sync provider state after disconnection
       syncProviderState();

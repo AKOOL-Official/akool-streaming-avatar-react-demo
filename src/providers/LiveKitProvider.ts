@@ -227,6 +227,22 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     }
 
     try {
+      // Check if track is already published to avoid duplicate publishing
+      const localParticipant = this.room.localParticipant;
+      const videoPublications = Array.from(localParticipant.trackPublications.values());
+      const existingVideoPublication = videoPublications.find(
+        pub => pub.track && pub.track.kind === 'video' && (
+          pub.track === track ||
+          (track.sid && pub.track.sid === track.sid) ||
+          (track.source && pub.track.source === track.source)
+        )
+      );
+      
+      if (existingVideoPublication) {
+        log('Video track already published, skipping:', track.sid || 'unknown-sid');
+        return;
+      }
+
       await this.room.localParticipant.publishTrack(track);
       log('Video track published successfully');
     } catch (error) {
@@ -239,12 +255,21 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     try {
       const localParticipant = this.room.localParticipant;
       
-      // Use getTrack method to get video track publications
+      // Find and unpublish all video track publications
       const publications = Array.from(localParticipant.trackPublications.values());
-      for (const publication of publications) {
-        if (publication.track && publication.track.kind === 'video') {
+      const videoPublications = publications.filter(
+        pub => pub.track && pub.track.kind === 'video'
+      );
+
+      if (videoPublications.length === 0) {
+        log('No video tracks to unpublish');
+        return;
+      }
+      
+      for (const publication of videoPublications) {
+        if (publication.track) {
           await localParticipant.unpublishTrack(publication.track);
-          log('Unpublished video track:', publication.track.sid);
+          log('Unpublished video track:', publication.track.sid || 'unknown-sid');
         }
       }
       
