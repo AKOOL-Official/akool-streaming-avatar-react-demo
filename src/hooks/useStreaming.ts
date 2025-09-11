@@ -81,10 +81,14 @@ export const useStreaming = (
     alert('Session will expire in 30s');
   }, []);
 
-  const onTokenDidExpire = useCallback(() => {
+  const onTokenDidExpire = useCallback(async () => {
     alert('Session expired');
-    closeStreaming();
-  }, []);
+    // Handle session expiry inline to avoid circular dependency
+    updateState({ connected: false, isJoined: false });
+    if (state.session) {
+      await api?.closeSession(state.session._id);
+    }
+  }, [api, state.session]);
 
   const onUserPublish = useCallback(
     async (user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio' | 'datachannel') => {
@@ -126,6 +130,36 @@ export const useStreaming = (
   }, []);
 
   // Main functions
+  const leaveChannel = useCallback(async () => {
+    updateState({ isJoined: false });
+
+    client.removeAllListeners('exception');
+    client.removeAllListeners('user-published');
+    client.removeAllListeners('user-unpublished');
+    client.removeAllListeners('token-privilege-will-expire');
+    client.removeAllListeners('token-privilege-did-expire');
+
+    try {
+      // Stop and close all local tracks before unpublishing
+      const localTracks = client.localTracks;
+      for (const track of localTracks) {
+        try {
+          track.stop();
+          track.close();
+        } catch (error) {
+          console.error('Failed to stop/close local track:', error);
+        }
+      }
+
+      // Unpublish all local tracks
+      await client.unpublish();
+    } catch (error) {
+      console.error('Failed to unpublish tracks:', error);
+    }
+
+    await client.leave();
+  }, [client]);
+
   const joinChannel = useCallback(
     async (credentials: Credentials) => {
       const { agora_app_id, agora_channel, agora_token, agora_uid } = credentials;
@@ -165,38 +199,17 @@ export const useStreaming = (
 
       updateState({ isJoined: true });
     },
-    [client, onException, onUserPublish, onUserUnpublish, onTokenWillExpire, onTokenDidExpire, state.isJoined],
+    [
+      client,
+      onException,
+      onUserPublish,
+      onUserUnpublish,
+      onTokenWillExpire,
+      onTokenDidExpire,
+      state.isJoined,
+      leaveChannel,
+    ],
   );
-
-  const leaveChannel = useCallback(async () => {
-    updateState({ isJoined: false });
-
-    client.removeAllListeners('exception');
-    client.removeAllListeners('user-published');
-    client.removeAllListeners('user-unpublished');
-    client.removeAllListeners('token-privilege-will-expire');
-    client.removeAllListeners('token-privilege-did-expire');
-
-    try {
-      // Stop and close all local tracks before unpublishing
-      const localTracks = client.localTracks;
-      for (const track of localTracks) {
-        try {
-          track.stop();
-          track.close();
-        } catch (error) {
-          console.error('Failed to stop/close local track:', error);
-        }
-      }
-
-      // Unpublish all local tracks
-      await client.unpublish();
-    } catch (error) {
-      console.error('Failed to unpublish tracks:', error);
-    }
-
-    await client.leave();
-  }, [client]);
 
   // Custom hook for avatar parameter management
   const updateAvatarParams = useCallback(async () => {
@@ -251,7 +264,17 @@ export const useStreaming = (
     if (state.isJoined && state.connected) {
       updateAvatarParams();
     }
-  }, [state.isJoined, state.connected, voiceId, voiceUrl, language, modeType, backgroundUrl, voiceParams]);
+  }, [
+    state.isJoined,
+    state.connected,
+    voiceId,
+    voiceUrl,
+    language,
+    modeType,
+    backgroundUrl,
+    voiceParams,
+    updateAvatarParams,
+  ]);
 
   // Handle local video track publishing/unpublishing
   useEffect(() => {

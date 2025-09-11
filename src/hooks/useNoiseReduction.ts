@@ -72,7 +72,7 @@ export const useNoiseReduction = () => {
         if (!processor) return false;
 
         // Pipe the audio track through the processor
-        await audioTrack.pipe(processor).pipe(audioTrack.processorDestination);
+        await audioTrack.pipe?.(processor).pipe?.(audioTrack.processorDestination);
 
         // Enable or disable based on current state
         if (noiseReductionEnabled) {

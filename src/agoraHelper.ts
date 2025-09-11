@@ -48,10 +48,10 @@ export type ChatResponsePayload = {
 export type StreamMessage = {
   v: number;
   type: string;
-  mid: string;
+  mid?: string;
   idx?: number;
   fin?: boolean;
-  pld: CommandPayload | ChatPayload;
+  pld: CommandPayload | ChatPayload | CommandResponsePayload | ChatResponsePayload;
 };
 
 export async function setAvatarParams(

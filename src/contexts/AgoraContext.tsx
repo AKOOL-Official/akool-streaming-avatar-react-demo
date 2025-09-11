@@ -46,6 +46,7 @@ export const AgoraProvider: React.FC<AgoraProviderProps> = ({ children }) => {
 };
 
 // Create a custom hook to use the context
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAgora = (): AgoraContextType => {
   const context = useContext(AgoraContext);
   if (context === undefined) {
