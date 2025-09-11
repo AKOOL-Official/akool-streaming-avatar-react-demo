@@ -28,9 +28,100 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   // State for remote video playing status
   const [isRemoteVideoPlaying, setIsRemoteVideoPlaying] = useState(false);
 
+  // State for placeholder video loading
+  const [isPlaceholderVideoLoading, setIsPlaceholderVideoLoading] = useState(false);
+  const [placeholderVideoError, setPlaceholderVideoError] = useState(false);
+
   const isImageUrl = (url: string) => {
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
   };
+
+  // Render placeholder for empty avatar URL
+  const renderEmptyPlaceholder = () => (
+    <div
+      className="empty-placeholder"
+      style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#1a1a1a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        color: '#666',
+        fontSize: '16px',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        zIndex: 1,
+      }}
+    >
+      <div style={{ marginBottom: '15px', fontSize: '48px' }}>🤖</div>
+      <div style={{ textAlign: 'center', fontWeight: '500', lineHeight: '1.4' }}>No image or video for avatar</div>
+    </div>
+  );
+
+  // Render loading placeholder
+  const renderLoadingPlaceholder = () => (
+    <div
+      className="loading-placeholder"
+      style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(26, 26, 26, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        color: '#666',
+        fontSize: '16px',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        zIndex: 2,
+      }}
+    >
+      <div style={{ marginBottom: '15px', fontSize: '32px' }}>⏳</div>
+      <div
+        className="loading-spinner"
+        style={{
+          width: '40px',
+          height: '40px',
+          border: '3px solid #333',
+          borderTop: '3px solid #007bff',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: '15px',
+        }}
+      ></div>
+      <div style={{ fontWeight: '500' }}>Loading avatar...</div>
+    </div>
+  );
+
+  // Render error placeholder
+  const renderErrorPlaceholder = () => (
+    <div
+      className="error-placeholder"
+      style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#1a1a1a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        color: '#ff6b6b',
+        fontSize: '16px',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        zIndex: 1,
+      }}
+    >
+      <div style={{ marginBottom: '15px', fontSize: '48px' }}>⚠️</div>
+      <div style={{ textAlign: 'center', fontWeight: '500', lineHeight: '1.4' }}>Failed to load avatar</div>
+    </div>
+  );
 
   // Drag handlers
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -238,30 +329,88 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     }
   }, [isJoined]);
 
+  // Monitor placeholder video loading state
+  useEffect(() => {
+    const placeholderVideo = document.getElementById('placeholder-video') as HTMLVideoElement;
+    if (!placeholderVideo || !avatarVideoUrl || isImageUrl(avatarVideoUrl)) return;
+
+    const handleLoadStart = () => {
+      setIsPlaceholderVideoLoading(true);
+      setPlaceholderVideoError(false);
+    };
+
+    const handleCanPlay = () => {
+      setIsPlaceholderVideoLoading(false);
+      setPlaceholderVideoError(false);
+    };
+
+    const handleError = () => {
+      setIsPlaceholderVideoLoading(false);
+      setPlaceholderVideoError(true);
+    };
+
+    placeholderVideo.addEventListener('loadstart', handleLoadStart);
+    placeholderVideo.addEventListener('canplay', handleCanPlay);
+    placeholderVideo.addEventListener('error', handleError);
+
+    return () => {
+      placeholderVideo.removeEventListener('loadstart', handleLoadStart);
+      placeholderVideo.removeEventListener('canplay', handleCanPlay);
+      placeholderVideo.removeEventListener('error', handleError);
+    };
+  }, [avatarVideoUrl]);
+
+  // Reset placeholder video state when URL changes
+  useEffect(() => {
+    if (!avatarVideoUrl) {
+      setIsPlaceholderVideoLoading(false);
+      setPlaceholderVideoError(false);
+    } else if (!isImageUrl(avatarVideoUrl)) {
+      setIsPlaceholderVideoLoading(true);
+      setPlaceholderVideoError(false);
+    }
+  }, [avatarVideoUrl]);
+
   return (
     <div ref={containerRef} className="video-container">
       {/* Main video area - shows avatar or local camera based on switch state */}
       {!isViewSwitched ? (
         <>
-          {isImageUrl(avatarVideoUrl) ? (
-            <img
-              id="placeholder-image"
-              hidden={isRemoteVideoPlaying}
-              src={avatarVideoUrl}
-              alt="Avatar placeholder"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-          ) : (
-            <video
-              id="placeholder-video"
-              hidden={isRemoteVideoPlaying}
-              src={avatarVideoUrl}
-              loop
-              muted
-              playsInline
-              autoPlay
-            ></video>
-          )}
+          {/* Avatar content with placeholders */}
+          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            {!avatarVideoUrl ? (
+              // Show empty placeholder when no URL
+              <div hidden={isRemoteVideoPlaying}>{renderEmptyPlaceholder()}</div>
+            ) : placeholderVideoError ? (
+              // Show error placeholder when video failed to load
+              <div hidden={isRemoteVideoPlaying}>{renderErrorPlaceholder()}</div>
+            ) : isImageUrl(avatarVideoUrl) ? (
+              // Show image
+              <img
+                id="placeholder-image"
+                hidden={isRemoteVideoPlaying}
+                src={avatarVideoUrl}
+                alt="Avatar placeholder"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              // Show video with loading placeholder
+              <>
+                <video
+                  id="placeholder-video"
+                  hidden={isRemoteVideoPlaying}
+                  src={avatarVideoUrl}
+                  loop
+                  muted
+                  playsInline
+                  autoPlay
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                ></video>
+                {isPlaceholderVideoLoading && !isRemoteVideoPlaying && renderLoadingPlaceholder()}
+              </>
+            )}
+          </div>
+
           <video id="remote-video" style={{ display: isRemoteVideoPlaying ? 'block' : 'none' }}></video>
 
           {/* Speaking indicator overlay */}
@@ -314,22 +463,35 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
             {isViewSwitched && (
               // When switched, show avatar in the overlay
               <>
-                {isImageUrl(avatarVideoUrl) ? (
-                  <img
-                    src={avatarVideoUrl}
-                    alt="Avatar"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  />
-                ) : (
-                  <video
-                    src={avatarVideoUrl}
-                    loop
-                    muted
-                    playsInline
-                    autoPlay
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  ></video>
-                )}
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  {!avatarVideoUrl ? (
+                    // Show empty placeholder when no URL
+                    renderEmptyPlaceholder()
+                  ) : placeholderVideoError ? (
+                    // Show error placeholder when video failed to load
+                    renderErrorPlaceholder()
+                  ) : isImageUrl(avatarVideoUrl) ? (
+                    // Show image
+                    <img
+                      src={avatarVideoUrl}
+                      alt="Avatar"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                  ) : (
+                    // Show video with loading placeholder
+                    <>
+                      <video
+                        src={avatarVideoUrl}
+                        loop
+                        muted
+                        playsInline
+                        autoPlay
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      ></video>
+                      {isPlaceholderVideoLoading && renderLoadingPlaceholder()}
+                    </>
+                  )}
+                </div>
                 <div
                   id="remote-video-overlay"
                   style={{

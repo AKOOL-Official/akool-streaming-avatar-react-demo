@@ -246,6 +246,36 @@
   }
 }
 
+/* Loading spinner animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Placeholder styles */
+.empty-placeholder,
+.loading-placeholder,
+.error-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: #1a1a1a;
+  color: #666;
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.error-placeholder {
+  color: #ff6b6b;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .local-video-overlay {
