@@ -25,7 +25,8 @@
     "chart.js": "^4.4.7",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.6",
