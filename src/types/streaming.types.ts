@@ -27,6 +27,13 @@ export interface VideoConfig {
   deviceId?: string;
 }
 
+export interface AudioConfig {
+  encoderConfig?: string;
+  enableAEC?: boolean;
+  enableANS?: boolean;
+  enableAGC?: boolean;
+}
+
 export interface Participant {
   id: string;
   displayName?: string;

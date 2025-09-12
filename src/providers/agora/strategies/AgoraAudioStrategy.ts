@@ -2,6 +2,7 @@ import { AudioStrategy } from '../../../types/provider.interfaces';
 import { AudioTrack } from '../../../types/streaming.types';
 import { AgoraAudioController } from '../controllers/AgoraAudioController';
 import { logger } from '../../../core/Logger';
+import { IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 
 export class AgoraAudioStrategy implements AudioStrategy {
   private audioController: AgoraAudioController;
@@ -188,9 +189,9 @@ export class AgoraAudioStrategy implements AudioStrategy {
   }
 
   // Apply noise reduction to the audio track
-  async applyNoiseReduction(): Promise<void> {
+  async applyNoiseReduction(audioTrack: IMicrophoneAudioTrack): Promise<void> {
     try {
-      await this.audioController.applyNoiseReduction();
+      await this.audioController.applyNoiseReduction(audioTrack);
       logger.info('Noise reduction applied to audio track');
     } catch (error) {
       logger.error('Failed to apply noise reduction', {

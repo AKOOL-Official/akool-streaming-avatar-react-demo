@@ -2,7 +2,14 @@ import { ILocalVideoTrack } from 'agora-rtc-sdk-ng';
 import { logger } from '../../core/Logger';
 import { globalResourceManager } from '../../core/ResourceManager';
 import { StreamingProvider, StreamingCredentials, StreamingEventHandlers } from '../../types/provider.interfaces';
-import { StreamingState, VideoTrack, AudioTrack, VideoConfig, StreamProviderType } from '../../types/streaming.types';
+import {
+  StreamingState,
+  VideoTrack,
+  AudioTrack,
+  VideoConfig,
+  AudioConfig,
+  StreamProviderType,
+} from '../../types/streaming.types';
 import { AvatarMetadata, Session, SessionCredentials } from '../../types/api.schemas';
 import { StreamingError, ErrorCode } from '../../types/error.types';
 
@@ -250,6 +257,30 @@ export class AgoraStreamingProvider implements StreamingProvider {
     }
   }
 
+  async enableAudio(config?: AudioConfig): Promise<AudioTrack> {
+    try {
+      logger.info('Enabling audio through Agora provider');
+      return await this.audioController.enableAudio(config);
+    } catch (error) {
+      logger.error('Failed to enable audio', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableAudio(): Promise<void> {
+    try {
+      logger.info('Disabling audio through Agora provider');
+      await this.audioController.disableAudio();
+    } catch (error) {
+      logger.error('Failed to disable audio', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
   async publishVideo(track: VideoTrack): Promise<void> {
     try {
       logger.info('Publishing video track', { trackId: track.id });
@@ -286,7 +317,11 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async publishAudio(track: AudioTrack): Promise<void> {
     try {
       logger.info('Publishing audio track', { trackId: track.id });
+
+      // If this is an external track, we need to enable audio first
+      // For now, we'll enable audio with default configuration
       await this.audioController.enableAudio();
+      await this.audioController.publishAudio();
     } catch (error) {
       logger.error('Failed to publish audio track', {
         error: error instanceof Error ? error.message : String(error),
@@ -299,7 +334,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async unpublishAudio(): Promise<void> {
     try {
       logger.info('Unpublishing audio track');
-      await this.audioController.disableAudio();
+      await this.audioController.unpublishAudio();
     } catch (error) {
       logger.error('Failed to unpublish audio track', {
         error: error instanceof Error ? error.message : String(error),
@@ -343,6 +378,49 @@ export class AgoraStreamingProvider implements StreamingProvider {
       logger.error('Failed to set avatar parameters', {
         error: error instanceof Error ? error.message : String(error),
         metadata,
+      });
+      throw error;
+    }
+  }
+
+  // Audio processing methods
+  async enableNoiseReduction(): Promise<void> {
+    try {
+      logger.info('Enabling noise reduction through Agora provider');
+      await this.audioController.enableNoiseReduction();
+    } catch (error) {
+      logger.error('Failed to enable noise reduction', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableNoiseReduction(): Promise<void> {
+    try {
+      logger.info('Disabling noise reduction through Agora provider');
+      await this.audioController.disableNoiseReduction();
+      logger.info('Noise reduction disabled');
+    } catch (error) {
+      logger.error('Failed to disable noise reduction', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async dumpAudio(): Promise<void> {
+    try {
+      logger.info('Starting audio dump through Agora provider');
+
+      // For now, we'll simulate the audio dump process
+      // In a real implementation, this would capture and save audio data
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      logger.info('Audio dump completed');
+    } catch (error) {
+      logger.error('Failed to dump audio', {
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

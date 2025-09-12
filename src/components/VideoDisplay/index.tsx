@@ -94,15 +94,15 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
 
   // Additional cleanup when camera is disabled
   useEffect(() => {
-    if (!cameraEnabled && localVideoTrack) {
+    if (!cameraEnabled && localVideoTrack && provider) {
       try {
-        // TODO: Implement provider-agnostic video track stop
-        // localVideoTrack.stop();
+        // Use provider-agnostic video track stop
+        provider.stopVideo();
       } catch (error) {
         logger.error('Failed to stop video track when camera disabled:', { error });
       }
     }
-  }, [cameraEnabled, localVideoTrack]);
+  }, [cameraEnabled, localVideoTrack, provider]);
 
   // Monitor placeholder video loading state
   useEffect(() => {

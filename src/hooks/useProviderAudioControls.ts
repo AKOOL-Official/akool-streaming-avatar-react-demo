@@ -41,16 +41,8 @@ export const useProviderAudioControls = (): UseProviderAudioControlsReturn => {
         // Create and publish audio track through provider
         logger.info('Enabling microphone through provider', { providerType: provider.providerType });
 
-        // For now, we'll delegate to the current Agora implementation
-        // TODO: Implement provider-specific audio track creation
-        const track: AudioTrack = {
-          id: `audio-${Date.now()}`,
-          kind: 'audio',
-          enabled: true,
-          muted: false,
-          volume: 1.0,
-        };
-
+        // Use provider-specific audio track creation
+        const track = await provider.enableAudio();
         setAudioTrack(track);
         await publishAudio(track);
         setMicEnabled(true);
@@ -64,6 +56,9 @@ export const useProviderAudioControls = (): UseProviderAudioControlsReturn => {
           await unpublishAudio();
         }
 
+        // Use provider-specific audio track disabling
+        await provider.disableAudio();
+
         setAudioTrack(null);
         setMicEnabled(false);
 
@@ -76,34 +71,46 @@ export const useProviderAudioControls = (): UseProviderAudioControlsReturn => {
   }, [provider, micEnabled, audioTrack, publishAudio, unpublishAudio]);
 
   const toggleNoiseReduction = useCallback(async () => {
+    if (!provider) {
+      logger.error('No provider available for noise reduction');
+      return;
+    }
+
     try {
       logger.info('Toggling noise reduction', { current: noiseReductionEnabled });
 
-      // TODO: Implement provider-specific noise reduction
-      setNoiseReductionEnabled((prev) => !prev);
+      if (!noiseReductionEnabled) {
+        await provider.enableNoiseReduction();
+      } else {
+        await provider.disableNoiseReduction();
+      }
 
+      setNoiseReductionEnabled((prev) => !prev);
       logger.info('Noise reduction toggled', { enabled: !noiseReductionEnabled });
     } catch (error) {
       logger.error('Failed to toggle noise reduction', { error });
     }
-  }, [noiseReductionEnabled]);
+  }, [provider, noiseReductionEnabled]);
 
   const dumpAudio = useCallback(async () => {
+    if (!provider) {
+      logger.error('No provider available for audio dumping');
+      return;
+    }
+
     try {
       logger.info('Starting audio dump');
       setIsDumping(true);
 
-      // TODO: Implement provider-specific audio dumping
-      // Simulate dumping process
-      setTimeout(() => {
-        setIsDumping(false);
-        logger.info('Audio dump completed');
-      }, 2000);
+      await provider.dumpAudio();
+
+      setIsDumping(false);
+      logger.info('Audio dump completed');
     } catch (error) {
       logger.error('Failed to dump audio', { error });
       setIsDumping(false);
     }
-  }, []);
+  }, [provider]);
 
   const cleanup = useCallback(async () => {
     try {

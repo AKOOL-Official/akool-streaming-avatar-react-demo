@@ -1,5 +1,12 @@
 import { StreamingProvider, StreamingEventHandlers, StreamingCredentials } from '../types/provider.interfaces';
-import { StreamingState, StreamProviderType, VideoTrack, AudioTrack, VideoConfig } from '../types/streaming.types';
+import {
+  StreamingState,
+  StreamProviderType,
+  VideoTrack,
+  AudioTrack,
+  VideoConfig,
+  AudioConfig,
+} from '../types/streaming.types';
 import { EventBus } from '../core/EventBus';
 import { logger } from '../core/Logger';
 import { globalResourceManager } from '../core/ResourceManager';
@@ -29,11 +36,16 @@ export abstract class BaseStreamingProvider implements StreamingProvider {
   abstract stopVideo(): Promise<void>;
   abstract publishVideo(track: VideoTrack): Promise<void>;
   abstract unpublishVideo(): Promise<void>;
+  abstract enableAudio(config?: AudioConfig): Promise<AudioTrack>;
+  abstract disableAudio(): Promise<void>;
   abstract publishAudio(track: AudioTrack): Promise<void>;
   abstract unpublishAudio(): Promise<void>;
   abstract sendMessage(content: string): Promise<void>;
   abstract sendInterrupt(): Promise<void>;
   abstract setAvatarParameters(metadata: Record<string, unknown>): Promise<void>;
+  abstract enableNoiseReduction(): Promise<void>;
+  abstract disableNoiseReduction(): Promise<void>;
+  abstract dumpAudio(): Promise<void>;
 
   // Common implementation for all providers
   updateState(partialState: Partial<StreamingState>): void {

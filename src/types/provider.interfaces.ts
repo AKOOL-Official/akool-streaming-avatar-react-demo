@@ -3,6 +3,7 @@ import {
   VideoTrack,
   AudioTrack,
   VideoConfig,
+  AudioConfig,
   ChatMessage,
   Participant,
   ConnectionQuality,
@@ -69,6 +70,8 @@ export interface StreamingProvider {
   stopVideo(): Promise<void>;
   publishVideo(track: VideoTrack): Promise<void>;
   unpublishVideo(): Promise<void>;
+  enableAudio(config?: AudioConfig): Promise<AudioTrack>;
+  disableAudio(): Promise<void>;
   publishAudio(track: AudioTrack): Promise<void>;
   unpublishAudio(): Promise<void>;
 
@@ -76,6 +79,11 @@ export interface StreamingProvider {
   sendMessage(content: string): Promise<void>;
   sendInterrupt(): Promise<void>;
   setAvatarParameters(metadata: Record<string, unknown>): Promise<void>;
+
+  // Audio processing
+  enableNoiseReduction(): Promise<void>;
+  disableNoiseReduction(): Promise<void>;
+  dumpAudio(): Promise<void>;
 
   // State management
   updateState(partialState: Partial<StreamingState>): void;

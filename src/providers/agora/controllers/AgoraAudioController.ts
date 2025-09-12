@@ -1,15 +1,25 @@
 import { IAgoraRTCClient, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 import AgoraRTC from 'agora-rtc-sdk-ng';
+import { AIDenoiserExtension, IAIDenoiserProcessor, AIDenoiserProcessorMode } from 'agora-extension-ai-denoiser';
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 import { AudioTrack } from '../../../types/streaming.types';
+
+// Register the AI denoiser extension globally when the module loads
+const aiDenoiser = new AIDenoiserExtension({
+  assetsPath: './external', // Path to Wasm files - will be served from public directory
+});
+
+AgoraRTC.registerExtensions([aiDenoiser]);
 
 export interface AudioControllerCallbacks {
   onAudioTrackPublished?: (track: AudioTrack) => void;
   onAudioTrackUnpublished?: (trackId: string) => void;
   onAudioError?: (error: StreamingError) => void;
 }
+
+// AI Denoiser Processor interface (using the actual type from the package)
 
 export interface AudioConfig {
   encoderConfig?: string;
@@ -22,6 +32,8 @@ export class AgoraAudioController {
   private client: IAgoraRTCClient;
   private currentTrack: IMicrophoneAudioTrack | null = null;
   private isEnabled = false;
+  private aiDenoiserProcessor: IAIDenoiserProcessor | null = null;
+  private isNoiseReductionEnabled = false;
   private callbacks: AudioControllerCallbacks = {};
 
   constructor(client: IAgoraRTCClient) {
@@ -45,9 +57,12 @@ export class AgoraAudioController {
       const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
         encoderConfig: (config.encoderConfig as unknown) || 'speech_low_quality',
         AEC: config.enableAEC !== false, // Enable AEC by default
-        ANS: config.enableANS || false, // Disable ANS by default (we use AI denoiser)
+        ANS: false, // Disable ANS by default (we use AI denoiser)
         AGC: config.enableAGC !== false, // Enable AGC by default
       });
+
+      // Apply noise reduction to the audio track
+      await this.applyNoiseReduction(audioTrack);
 
       // Publish the audio track
       await this.client.publish(audioTrack);
@@ -179,32 +194,204 @@ export class AgoraAudioController {
     }
   }
 
-  // Apply noise reduction to the audio track
-  async applyNoiseReduction(processor?: unknown): Promise<void> {
+  async publishAudio(): Promise<void> {
     try {
       if (!this.currentTrack) {
-        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'No active audio track for noise reduction');
+        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'No audio track available to publish');
       }
 
-      // Note: This is a placeholder for noise reduction integration
-      // The actual implementation would depend on the specific noise reduction
-      // processor being used (e.g., Agora's AI Denoiser)
-      logger.debug('Applying noise reduction to audio track', {
+      logger.info('Publishing audio track', {
         trackId: this.currentTrack.getTrackId(),
-        hasProcessor: !!processor,
       });
 
-      // TODO: Implement actual noise reduction integration
-      // This would typically involve:
-      // 1. Creating the noise reduction processor
-      // 2. Applying it to the audio track
-      // await this.currentTrack.pipe(processor);
+      await this.client.publish(this.currentTrack);
+
+      logger.info('Audio track published successfully', {
+        trackId: this.currentTrack.getTrackId(),
+      });
+
+      const audioTrackInfo = this.convertToAudioTrack(this.currentTrack);
+      this.callbacks.onAudioTrackPublished?.(audioTrackInfo);
     } catch (error) {
       const streamingError = ErrorMapper.mapAgoraError(error);
-      logger.error('Failed to apply noise reduction', {
+      logger.error('Failed to publish audio track', {
         error: streamingError.message,
       });
+
+      this.callbacks.onAudioError?.(streamingError);
       throw streamingError;
+    }
+  }
+
+  async unpublishAudio(): Promise<void> {
+    try {
+      if (!this.currentTrack) {
+        logger.debug('No audio track to unpublish');
+        return;
+      }
+
+      logger.info('Unpublishing audio track', {
+        trackId: this.currentTrack.getTrackId(),
+      });
+
+      // Only unpublish if client is connected to channel
+      if (this.client.connectionState === 'CONNECTED') {
+        await this.client.unpublish(this.currentTrack);
+      } else {
+        logger.debug('Client not connected, skipping unpublish for audio track');
+      }
+
+      logger.info('Audio track unpublished successfully');
+
+      this.callbacks.onAudioTrackUnpublished?.(this.currentTrack.getTrackId());
+    } catch (error) {
+      const streamingError = ErrorMapper.mapAgoraError(error);
+      logger.error('Failed to unpublish audio track', {
+        error: streamingError.message,
+      });
+
+      this.callbacks.onAudioError?.(streamingError);
+      throw streamingError;
+    }
+  }
+
+  // Apply noise reduction to the audio track using AI denoiser
+  async applyNoiseReduction(audioTrack: IMicrophoneAudioTrack): Promise<boolean> {
+    try {
+      if (!audioTrack) {
+        logger.warn('No audio track provided for noise reduction');
+        return false;
+      }
+
+      if (this.aiDenoiserProcessor) {
+        logger.debug('Noise reduction already applied to this track');
+        return true;
+      }
+
+      logger.debug('Applying AI noise reduction to audio track', {
+        trackId: audioTrack.getTrackId(),
+      });
+
+      // Create the AI denoiser processor
+      this.aiDenoiserProcessor = aiDenoiser.createProcessor();
+
+      // Set up event listeners for processor
+      this.aiDenoiserProcessor.onoverload = (elapsedTime: number) => {
+        logger.warn(`AI Denoiser overload detected: ${elapsedTime}ms processing time`);
+        // Optionally switch to stationary noise reduction mode
+        this.aiDenoiserProcessor?.setMode(AIDenoiserProcessorMode.STATIONARY_NS).catch((error) => {
+          logger.error('Failed to switch to stationary mode', { error });
+        });
+      };
+
+      // Set denoiser mode
+      await this.aiDenoiserProcessor.setMode(AIDenoiserProcessorMode.NSNG);
+
+      // Pipe the audio track through the processor
+      await audioTrack.pipe(this.aiDenoiserProcessor).pipe(audioTrack.processorDestination);
+
+      // Enable or disable based on current state
+      if (this.isNoiseReductionEnabled) {
+        await this.aiDenoiserProcessor.enable();
+      } else {
+        await this.aiDenoiserProcessor.disable();
+      }
+
+      logger.info('AI noise reduction applied to audio track', {
+        trackId: audioTrack.getTrackId(),
+      });
+
+      return true;
+    } catch (error) {
+      logger.error('Failed to apply noise reduction to audio track', { error });
+      return false;
+    }
+  }
+
+  // Enable noise reduction
+  async enableNoiseReduction(): Promise<void> {
+    try {
+      if (this.isNoiseReductionEnabled) {
+        logger.debug('Noise reduction already enabled');
+        return;
+      }
+
+      if (!this.aiDenoiserProcessor) {
+        logger.warn('Noise reduction processor not initialized - please enable microphone first');
+        return;
+      }
+
+      logger.debug('Enabling noise reduction');
+
+      await this.aiDenoiserProcessor.enable();
+      this.isNoiseReductionEnabled = true;
+
+      logger.info('Noise reduction enabled successfully');
+    } catch (error) {
+      logger.error('Failed to enable noise reduction', { error });
+      throw error;
+    }
+  }
+
+  // Disable noise reduction
+  async disableNoiseReduction(): Promise<void> {
+    try {
+      if (!this.isNoiseReductionEnabled) {
+        logger.debug('Noise reduction already disabled');
+        return;
+      }
+
+      if (!this.aiDenoiserProcessor) {
+        logger.debug('No noise reduction processor to disable');
+        return;
+      }
+
+      logger.debug('Disabling noise reduction');
+
+      await this.aiDenoiserProcessor.disable();
+      this.isNoiseReductionEnabled = false;
+
+      logger.info('Noise reduction disabled successfully');
+    } catch (error) {
+      logger.error('Failed to disable noise reduction', { error });
+      throw error;
+    }
+  }
+
+  // Dump audio data for analysis
+  async dumpAudio(): Promise<void> {
+    try {
+      if (!this.aiDenoiserProcessor) {
+        logger.warn('Noise reduction processor not initialized - please enable microphone first');
+        return;
+      }
+
+      logger.debug('Starting audio dump');
+
+      // Set up dump event listeners if not already set
+      this.aiDenoiserProcessor.ondump = (blob: Blob, name: string) => {
+        logger.info(`Audio dump received: ${name}`);
+        // Create download link for the audio file
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      this.aiDenoiserProcessor.ondumpend = () => {
+        logger.info('Audio dump completed');
+      };
+
+      // Start the dump
+      this.aiDenoiserProcessor.dump();
+      logger.info('Audio dump started - will download 9 audio files automatically');
+    } catch (error) {
+      logger.error('Failed to start audio dump', { error });
+      throw error;
     }
   }
 
@@ -241,12 +428,36 @@ export class AgoraAudioController {
     return this.currentTrack?.getVolumeLevel() || 0;
   }
 
+  // Get noise reduction status
+  get noiseReductionEnabled(): boolean {
+    return this.isNoiseReductionEnabled;
+  }
+
   // Clean up method for proper resource management
   async cleanup(): Promise<void> {
     try {
+      // Disable noise reduction if enabled
+      if (this.isNoiseReductionEnabled) {
+        await this.disableNoiseReduction();
+      }
+
+      // Disable and cleanup audio track
       if (this.currentTrack) {
         await this.disableAudio();
       }
+
+      // Clean up AI denoiser processor
+      if (this.aiDenoiserProcessor) {
+        try {
+          await this.aiDenoiserProcessor.disable();
+        } catch (error) {
+          logger.warn('Failed to disable AI denoiser processor', { error });
+        }
+        this.aiDenoiserProcessor = null;
+      }
+
+      // Clear all references
+      this.isNoiseReductionEnabled = false;
       this.callbacks = {};
     } catch (error) {
       logger.error('Error during audio controller cleanup', {
