@@ -33,6 +33,7 @@ export interface StreamingContextType {
   // Communication
   sendMessage: (content: string) => Promise<void>;
   sendInterrupt: () => Promise<void>;
+  setAvatarParameters: (metadata: Record<string, unknown>) => Promise<void>;
 
   // Avatar state
   isAvatarSpeaking: boolean;
@@ -248,6 +249,16 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
     await provider.sendInterrupt();
   }, [provider]);
 
+  const setAvatarParameters = useCallback(
+    async (metadata: Record<string, unknown>) => {
+      if (!provider) {
+        throw new Error('No provider available for setting avatar parameters');
+      }
+      await provider.setAvatarParameters(metadata);
+    },
+    [provider],
+  );
+
   const handleSetIsAvatarSpeaking = useCallback((speaking: boolean) => {
     setIsAvatarSpeaking(speaking);
   }, []);
@@ -301,6 +312,7 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
 
         sendMessage,
         sendInterrupt,
+        setAvatarParameters,
 
         isAvatarSpeaking,
         setIsAvatarSpeaking: handleSetIsAvatarSpeaking,

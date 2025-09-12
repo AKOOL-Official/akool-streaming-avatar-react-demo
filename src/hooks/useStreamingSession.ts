@@ -80,6 +80,7 @@ export const useStreamingSession = ({
     unpublishVideo,
     sendMessage: providerSendMessage,
     sendInterrupt: providerSendInterrupt,
+    setAvatarParameters: providerSetAvatarParameters,
   } = useStreamingContext();
 
   const [state, setState] = useState<StreamingSessionState>({
@@ -281,8 +282,9 @@ export const useStreamingSession = ({
       }
 
       try {
-        // Provider-specific avatar parameter setting would be implemented here
-        // This might require extending the provider interface
+        // Call the provider's setAvatarParameters method
+        await providerSetAvatarParameters(metadata);
+
         logger.info('Avatar parameters set via unified streaming', {
           metadata,
           providerType: currentProviderType,
@@ -294,7 +296,18 @@ export const useStreamingSession = ({
         logger.error('Failed to set avatar parameters', { error, metadata });
       }
     },
-    [provider, state.connected, voiceId, voiceUrl, language, modeType, backgroundUrl, voiceParams, currentProviderType],
+    [
+      provider,
+      state.connected,
+      voiceId,
+      voiceUrl,
+      language,
+      modeType,
+      backgroundUrl,
+      voiceParams,
+      currentProviderType,
+      providerSetAvatarParameters,
+    ],
   );
 
   // Auto-set avatar params when connection established
