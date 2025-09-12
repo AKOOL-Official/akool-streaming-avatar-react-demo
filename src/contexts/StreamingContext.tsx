@@ -1,5 +1,12 @@
 import React, { createContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
-import type { StreamingProvider, StreamingCredentials, StreamingEventHandlers } from '../types/provider.interfaces';
+import type {
+  StreamingProvider,
+  StreamingCredentials,
+  StreamingEventHandlers,
+  SystemMessageEvent,
+  ChatMessageEvent,
+  CommandEvent,
+} from '../types/provider.interfaces';
 import { StreamProviderType, StreamingState, VideoTrack, AudioTrack, ChatMessage } from '../types/streaming.types';
 import { providerManager } from '../providers/ProviderManager';
 import { logger } from '../core/Logger';
@@ -33,6 +40,9 @@ export interface StreamingContextType {
 
   // Message handling
   onMessageReceived: (callback: (message: ChatMessage) => void) => () => void;
+  onSystemMessage: (callback: (event: SystemMessageEvent) => void) => () => void;
+  onChatMessage: (callback: (event: ChatMessageEvent) => void) => () => void;
+  onCommand: (callback: (event: CommandEvent) => void) => () => void;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -57,8 +67,11 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
   // Avatar speaking state
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
 
-  // Message callback system
+  // Message callback systems
   const messageCallbacks = useRef<Set<(message: ChatMessage) => void>>(new Set());
+  const systemMessageCallbacks = useRef<Set<(event: SystemMessageEvent) => void>>(new Set());
+  const chatMessageCallbacks = useRef<Set<(event: ChatMessageEvent) => void>>(new Set());
+  const commandCallbacks = useRef<Set<(event: CommandEvent) => void>>(new Set());
 
   // Subscribe to provider manager events
   useEffect(() => {
@@ -116,6 +129,21 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
           // Notify all registered message callbacks
           logger.debug('Message received from provider', { message });
           messageCallbacks.current.forEach((callback) => callback(message));
+        },
+        onSystemMessage: (event) => {
+          // Notify all registered system message callbacks
+          logger.debug('System message received from provider', { event });
+          systemMessageCallbacks.current.forEach((callback) => callback(event));
+        },
+        onChatMessage: (event) => {
+          // Notify all registered chat message callbacks
+          logger.debug('Chat message received from provider', { event });
+          chatMessageCallbacks.current.forEach((callback) => callback(event));
+        },
+        onCommand: (event) => {
+          // Notify all registered command callbacks
+          logger.debug('Command event received from provider', { event });
+          commandCallbacks.current.forEach((callback) => callback(event));
         },
       };
 
@@ -232,6 +260,27 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
     };
   }, []);
 
+  const onSystemMessage = useCallback((callback: (event: SystemMessageEvent) => void) => {
+    systemMessageCallbacks.current.add(callback);
+    return () => {
+      systemMessageCallbacks.current.delete(callback);
+    };
+  }, []);
+
+  const onChatMessage = useCallback((callback: (event: ChatMessageEvent) => void) => {
+    chatMessageCallbacks.current.add(callback);
+    return () => {
+      chatMessageCallbacks.current.delete(callback);
+    };
+  }, []);
+
+  const onCommand = useCallback((callback: (event: CommandEvent) => void) => {
+    commandCallbacks.current.add(callback);
+    return () => {
+      commandCallbacks.current.delete(callback);
+    };
+  }, []);
+
   return (
     <StreamingContext.Provider
       value={{
@@ -257,6 +306,9 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
         setIsAvatarSpeaking: handleSetIsAvatarSpeaking,
 
         onMessageReceived,
+        onSystemMessage,
+        onChatMessage,
+        onCommand,
       }}
     >
       {children}

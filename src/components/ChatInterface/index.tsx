@@ -103,7 +103,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   });
 
   // Listen for received messages from the provider
-  const { onMessageReceived } = useStreamingContext();
+  const { onMessageReceived, onSystemMessage, onChatMessage, onCommand } = useStreamingContext();
 
   // Handle mouse down on resize handle
   const handleMouseDown = useCallback(
@@ -198,6 +198,46 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     return unsubscribe;
   }, [onMessageReceived, addChatMessage]);
+
+  // Listen for system messages from the provider
+  useEffect(() => {
+    const unsubscribe = onSystemMessage((event) => {
+      // Convert SystemMessageEvent to Message format and add to state
+      addSystemMessage(event.messageId, event.text, event.eventType as SystemEventType, event.metadata);
+    });
+
+    return unsubscribe;
+  }, [onSystemMessage, addSystemMessage]);
+
+  // Listen for chat messages from the provider (alternative to onMessageReceived)
+  useEffect(() => {
+    const unsubscribe = onChatMessage((event) => {
+      // Convert ChatMessageEvent to Message format and add to state
+      addChatMessage(event.messageId, event.text, event.from === 'avatar' ? MessageSender.AVATAR : MessageSender.USER);
+    });
+
+    return unsubscribe;
+  }, [onChatMessage, addChatMessage]);
+
+  // Listen for command events from the provider
+  useEffect(() => {
+    const unsubscribe = onCommand((event) => {
+      // Convert CommandEvent to system message format
+      const commandText =
+        event.success !== undefined
+          ? `${event.success ? '✅' : '❌'} ${event.command}${event.message ? `: ${event.message}` : ''}`
+          : `📤 ${event.command}${event.data ? ` with data: ${JSON.stringify(event.data)}` : ''}`;
+
+      addSystemMessage(
+        `cmd_${Date.now()}`,
+        commandText,
+        event.command === 'interrupt' ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS,
+        event.data,
+      );
+    });
+
+    return unsubscribe;
+  }, [onCommand, addSystemMessage]);
 
   useEffect(() => {
     scrollToBottom();
