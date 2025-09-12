@@ -8,11 +8,11 @@ import {
   MessageType,
   Message,
 } from '../../hooks/useMessageState';
-import { useAgora } from '../../contexts/AgoraContext';
+import { useStreamingContext } from '../../contexts/StreamingContext';
 import './styles.css';
 
 interface ChatInterfaceProps {
-  client: RTCClient;
+  client?: RTCClient | null; // Optional during migration to provider-agnostic system
   connected: boolean;
   micEnabled: boolean;
   setMicEnabled: (enabled: boolean) => void;
@@ -48,7 +48,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Check if debug features should be shown (default: false)
   const showDebugFeatures = import.meta.env.VITE_DEBUG_FEATURES === 'true';
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { setIsAvatarSpeaking } = useAgora();
+  const { setIsAvatarSpeaking } = useStreamingContext();
   const [hasAvatarStartedSpeaking, setHasAvatarStartedSpeaking] = useState(false);
 
   // Add state for resizable height
@@ -255,10 +255,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (connected) {
       // Store the handler reference so we can remove only this specific listener
       const messageHandler = handleStreamMessage;
-      client.on('stream-message', messageHandler);
+      client?.on('stream-message', messageHandler);
       return () => {
         // Remove only this specific listener, not all listeners
-        client.off('stream-message', messageHandler);
+        client?.off('stream-message', messageHandler);
       };
     }
   }, [client, connected, handleStreamMessage]);
@@ -441,9 +441,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onClick={() => {
                 // Add system message for interrupt
                 addSystemMessage(`interrupt_${Date.now()}`, '🛑 User interrupted response', SystemEventType.INTERRUPT);
-                interruptResponse(client, (cmd) => {
-                  console.log(`Interrupt command sent: ${cmd}`);
-                });
+                if (client) {
+                  interruptResponse(client, (cmd) => {
+                    console.log(`Interrupt command sent: ${cmd}`);
+                  });
+                } else {
+                  console.error('No client available for interrupt');
+                }
               }}
               disabled={!connected}
               className={`icon-button ${!connected ? 'disabled' : ''}`}

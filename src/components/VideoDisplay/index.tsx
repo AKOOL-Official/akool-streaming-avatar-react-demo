@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ILocalVideoTrack } from 'agora-rtc-sdk-ng';
-import { useAgora } from '../../contexts/AgoraContext';
+import { VideoTrack } from '../../types/streaming.types';
+import { useStreamingContext } from '../../contexts/StreamingContext';
 import './styles.css';
-import { log } from '../../agoraHelper';
+import { logger } from '../../core/Logger';
 
 interface VideoDisplayProps {
   isJoined: boolean;
   avatarVideoUrl: string;
-  localVideoTrack: ILocalVideoTrack | null;
+  localVideoTrack: VideoTrack | null;
   cameraEnabled: boolean;
 }
 
@@ -15,7 +15,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   const localVideoRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isAvatarSpeaking } = useAgora();
+  const { isAvatarSpeaking } = useStreamingContext();
 
   // State for dragging, resizing, and view switching
   const [isDragging, setIsDragging] = useState(false);
@@ -240,7 +240,8 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     if (localVideoTrack && cameraEnabled) {
       try {
         // Always stop the track first to avoid conflicts
-        localVideoTrack.stop();
+        // TODO: Implement provider-agnostic video track stop
+        // localVideoTrack.stop();
 
         // Add a small delay to ensure the stop operation completes
         setTimeout(() => {
@@ -248,13 +249,15 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
             if (!isViewSwitched) {
               // Normal mode, local video in overlay
               if (localVideoRef.current) {
-                localVideoTrack.play(localVideoRef.current);
+                // TODO: Implement provider-agnostic video track play
+                // localVideoTrack.play(localVideoRef.current);
               }
             } else {
               // When switched, local video goes to a main video element
               const mainLocalVideo = document.getElementById('main-local-video');
               if (mainLocalVideo) {
-                localVideoTrack.play(mainLocalVideo);
+                // TODO: Implement provider-agnostic video track play
+                // localVideoTrack.play(mainLocalVideo);
               }
             }
           } catch (error) {
@@ -270,7 +273,8 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     return () => {
       if (localVideoTrack) {
         try {
-          localVideoTrack.stop();
+          // TODO: Implement provider-agnostic video track stop
+          // localVideoTrack.stop();
         } catch (error) {
           console.error('Failed to stop local video track in cleanup:', error);
         }
@@ -282,7 +286,8 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   useEffect(() => {
     if (!cameraEnabled && localVideoTrack) {
       try {
-        localVideoTrack.stop();
+        // TODO: Implement provider-agnostic video track stop
+        // localVideoTrack.stop();
       } catch (error) {
         console.error('Failed to stop video track when camera disabled:', error);
       }
@@ -299,7 +304,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
       const isReady = !remoteVideo.paused && remoteVideo.readyState >= 2;
       setIsRemoteVideoPlaying(isReady);
       if (isReady) {
-        log('remote video is ready');
+        logger.info('remote video is ready');
       }
     };
 
@@ -325,7 +330,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   useEffect(() => {
     if (!isJoined) {
       setIsRemoteVideoPlaying(false);
-      log('Stream disconnected, switching back to local video');
+      logger.info('Stream disconnected, switching back to local video');
     }
   }, [isJoined]);
 

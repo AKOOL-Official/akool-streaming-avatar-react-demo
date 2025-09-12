@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ApiService, Language, Voice, Avatar } from '../../apiService';
+import { StreamProviderType } from '../../types/streaming.types';
 import AvatarSelector from '../AvatarSelector';
 import VoiceSelector from '../VoiceSelector';
 import JsonEditorModal from '../JsonEditorModal';
+import { ProviderSelector } from '../ProviderSelector';
 import './styles.css';
 
 interface ConfigurationPanelProps {
@@ -33,6 +35,9 @@ interface ConfigurationPanelProps {
   startStreaming: () => Promise<void>;
   closeStreaming: () => Promise<void>;
   setAvatarVideoUrl: (url: string) => void;
+  // Provider selector props
+  connected: boolean;
+  onProviderChange: (type: StreamProviderType) => Promise<void>;
 }
 
 const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
@@ -63,6 +68,9 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   startStreaming,
   closeStreaming,
   setAvatarVideoUrl,
+  // Provider selector props
+  connected,
+  onProviderChange,
 }) => {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -126,6 +134,10 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       {/* Connection Settings */}
       <div className="config-group">
         <div className="group-header">Connection</div>
+
+        {/* Provider Selection */}
+        <ProviderSelector disabled={connected} onProviderChange={onProviderChange} />
+
         <div>
           <label>
             Host:

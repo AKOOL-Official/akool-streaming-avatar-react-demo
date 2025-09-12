@@ -54,7 +54,7 @@ export interface Message {
 }
 
 interface UseMessageStateProps {
-  client: RTCClient;
+  client?: RTCClient | null; // Optional during migration to provider-agnostic system
   connected: boolean;
   onStreamMessage?: (uid: number, body: Uint8Array) => void;
 }
@@ -123,10 +123,10 @@ export const useMessageState = ({
     if (connected && onStreamMessage) {
       // Store the handler reference so we can remove only this specific listener
       const messageHandler = onStreamMessage;
-      client.on('stream-message', messageHandler);
+      client?.on('stream-message', messageHandler);
       return () => {
         // Remove only this specific listener, not all listeners
-        client.off('stream-message', messageHandler);
+        client?.off('stream-message', messageHandler);
       };
     }
   }, [client, connected, onStreamMessage]);
@@ -150,7 +150,11 @@ export const useMessageState = ({
     setInputMessage('');
 
     try {
-      await sendMessageToAvatar(client, messageId, inputMessage);
+      if (client) {
+        await sendMessageToAvatar(client, messageId, inputMessage);
+      } else {
+        throw new Error('No client available for sending messages');
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       // Optionally remove the message from state if sending failed
