@@ -4,7 +4,7 @@ import { ApiService } from './apiService';
 import { StreamProviderType } from './types/streaming.types';
 
 import ConfigurationPanel from './components/ConfigurationPanel';
-import NetworkQualityDisplay, { NetworkStats } from './components/NetworkQuality';
+import NetworkQualityDisplay from './components/NetworkQuality';
 import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
 import { NotificationContainer } from './components/NotificationContainer';
@@ -78,7 +78,7 @@ const App: React.FC = () => {
   } = useProviderVideoCamera();
 
   // Unified streaming hook
-  const { isJoined, connected, remoteStats, startStreaming, closeStreaming } = useStreamingSession({
+  const { isJoined, connected, startStreaming, closeStreaming } = useStreamingSession({
     avatarId,
     knowledgeId,
     sessionDuration,
@@ -190,11 +190,7 @@ const App: React.FC = () => {
           }}
         />
 
-        {isJoined && remoteStats ? (
-          <div>
-            <NetworkQualityDisplay stats={remoteStats as NetworkStats} />
-          </div>
-        ) : null}
+        {isJoined && <NetworkQualityDisplay />}
       </div>
 
       <NotificationContainer />

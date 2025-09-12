@@ -59,5 +59,22 @@ export interface StreamingState {
   participants: Participant[];
   localParticipant: Participant | null;
   networkQuality: ConnectionQuality | null;
+  detailedNetworkStats?: {
+    video?: {
+      codec?: string;
+      bitrate?: number;
+      frameRate?: number;
+      resolution?: { width: number; height: number };
+      packetLoss?: number;
+      rtt?: number;
+    };
+    audio?: {
+      codec?: string;
+      bitrate?: number;
+      packetLoss?: number;
+      volume?: number;
+      rtt?: number;
+    };
+  };
   error: StreamingError | null;
 }

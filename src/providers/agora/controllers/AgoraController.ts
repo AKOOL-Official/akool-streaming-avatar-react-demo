@@ -217,25 +217,45 @@ export class AgoraController {
     try {
       const videoStats = this.client.getRemoteVideoStats();
       const audioStats = this.client.getRemoteAudioStats();
-      const networkStats = this.client.getRemoteNetworkQuality();
 
       const firstVideoStats = Object.values(videoStats)[0] || {};
       const firstAudioStats = Object.values(audioStats)[0] || {};
-      const firstNetworkStats = Object.values(networkStats)[0] || {};
 
-      const networkStatsUpdate: NetworkStats = {
-        localNetwork: stats,
-        remoteNetwork: firstNetworkStats,
-        video: firstVideoStats,
-        audio: firstAudioStats,
-      };
+      // Calculate RTT from video/audio stats (end2EndDelay is the most accurate RTT measurement)
+      const videoRtt = firstVideoStats.end2EndDelay || 0;
+      const audioRtt = firstAudioStats.end2EndDelay || 0;
+      const avgRtt = videoRtt > 0 && audioRtt > 0 ? (videoRtt + audioRtt) / 2 : Math.max(videoRtt, audioRtt);
 
       const connectionQuality: ConnectionQuality = {
         score: this.mapQualityToScore(stats.downlinkNetworkQuality || 0),
         uplink: this.mapQualityToString(stats.uplinkNetworkQuality || 0),
         downlink: this.mapQualityToString(stats.downlinkNetworkQuality || 0),
-        rtt: (firstNetworkStats as unknown as { rtt?: number })?.rtt || 0,
-        packetLoss: ((firstNetworkStats as unknown as { packetLoss?: number })?.packetLoss || 0) * 100,
+        rtt: avgRtt,
+        packetLoss: ((firstVideoStats.packetLossRate || 0) + (firstAudioStats.packetLossRate || 0)) / 2,
+      };
+
+      const networkStatsUpdate: NetworkStats = {
+        connectionQuality: connectionQuality,
+        detailedStats: {
+          video: {
+            codec: firstVideoStats.codecType,
+            bitrate: firstVideoStats.receiveBitrate,
+            frameRate: firstVideoStats.receiveFrameRate,
+            resolution: {
+              width: firstVideoStats.receiveResolutionWidth,
+              height: firstVideoStats.receiveResolutionHeight,
+            },
+            packetLoss: firstVideoStats.packetLossRate,
+            rtt: firstVideoStats.end2EndDelay,
+          },
+          audio: {
+            codec: firstAudioStats.codecType,
+            bitrate: firstAudioStats.receiveBitrate,
+            packetLoss: firstAudioStats.packetLossRate,
+            volume: firstAudioStats.receiveLevel,
+            rtt: firstAudioStats.end2EndDelay,
+          },
+        },
       };
 
       this.callbacks.onNetworkStatsUpdate?.(networkStatsUpdate);

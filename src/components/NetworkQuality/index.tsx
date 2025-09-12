@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { NetworkQuality, RemoteVideoTrackStats, RemoteAudioTrackStats } from 'agora-rtc-sdk-ng';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -11,20 +10,39 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import { useStreamingContext } from '../../hooks/useStreamingContext';
+import { ConnectionQuality } from '../../types/streaming.types';
 import './index.css';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
+// Unified network quality data structure
 export interface NetworkStats {
-  localNetwork: NetworkQuality;
-  remoteNetwork: NetworkQuality;
-  video: RemoteVideoTrackStats;
-  audio: RemoteAudioTrackStats;
+  connectionQuality: ConnectionQuality | null;
+  // Optional detailed stats that may be available from some providers
+  detailedStats?: {
+    video?: {
+      codec?: string;
+      bitrate?: number;
+      frameRate?: number;
+      resolution?: { width: number; height: number };
+      packetLoss?: number;
+      rtt?: number;
+    };
+    audio?: {
+      codec?: string;
+      bitrate?: number;
+      packetLoss?: number;
+      volume?: number;
+      rtt?: number;
+    };
+  };
 }
 
 interface NetworkQualityProps {
-  stats: NetworkStats;
+  // Optional prop for backward compatibility, but component will use context by default
+  stats?: NetworkStats;
 }
 
 interface LatencyDataPoint {
@@ -34,16 +52,29 @@ interface LatencyDataPoint {
   index: number;
 }
 
-const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats }) => {
+const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats: propStats }) => {
+  const { state } = useStreamingContext();
   const TIME_WINDOW = 120;
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [latencyData, setLatencyData] = useState<LatencyDataPoint[]>([]);
 
-  const getQualityClass = (quality: number) => {
-    if (quality <= 2) return 'quality-good';
-    if (quality <= 4) return 'quality-fair';
-    return 'quality-poor';
+  // Use context data by default, fallback to props for backward compatibility
+  const networkQuality = state?.networkQuality || propStats?.connectionQuality;
+  const detailedStats = state?.detailedNetworkStats || propStats?.detailedStats;
+
+  const getQualityClass = (quality: 'excellent' | 'good' | 'fair' | 'poor') => {
+    switch (quality) {
+      case 'excellent':
+      case 'good':
+        return 'quality-good';
+      case 'fair':
+        return 'quality-fair';
+      case 'poor':
+        return 'quality-poor';
+      default:
+        return 'quality-poor';
+    }
   };
 
   const formatBitrate = (bitrate: number) => {
@@ -60,13 +91,15 @@ const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats }) => {
   );
 
   useEffect(() => {
+    if (!networkQuality) return;
+
     const now = Date.now();
 
     setLatencyData((prevData) => {
       const newDataPoint = {
         timestamp: now,
-        video: stats.video.end2EndDelay || 0,
-        audio: stats.audio.end2EndDelay || 0,
+        video: detailedStats?.video?.rtt || networkQuality.rtt || 0,
+        audio: detailedStats?.audio?.rtt || networkQuality.rtt || 0,
         index: prevData.length + 1,
       };
 
@@ -77,7 +110,7 @@ const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats }) => {
         .map((point, idx) => ({ ...point, index: idx + 1 }));
       return filteredData;
     });
-  }, [stats]);
+  }, [networkQuality, detailedStats]);
 
   const chartData = {
     labels: latencyData.map((d) => d.index),
@@ -103,6 +136,7 @@ const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats }) => {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     animation: {
       duration: 0,
     },
@@ -153,6 +187,11 @@ const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats }) => {
     },
   };
 
+  // Don't render if no network quality data is available
+  if (!networkQuality) {
+    return null;
+  }
+
   return (
     <>
       <button
@@ -169,63 +208,91 @@ const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats }) => {
           onClick={() => setIsMinimized(!isMinimized)}
         >
           <div className="quality-section">
-            <div title="Local Upload Quality">
-              <span>Local Upload</span>
-              <span className={`quality-indicator ${getQualityClass(stats.localNetwork.uplinkNetworkQuality)}`}></span>
+            <div title="Upload Quality">
+              <span>Upload</span>
+              <span className={`quality-indicator ${getQualityClass(networkQuality.uplink)}`}></span>
             </div>
-            <div title="Local Download Quality">
-              <span>Local Download</span>
-              <span
-                className={`quality-indicator ${getQualityClass(stats.localNetwork.downlinkNetworkQuality)}`}
-              ></span>
+            <div title="Download Quality">
+              <span>Download</span>
+              <span className={`quality-indicator ${getQualityClass(networkQuality.downlink)}`}></span>
             </div>
           </div>
           {!isMinimized && (
             <>
               <div className="quality-section">
-                <div title="Remote Download Quality">
-                  <span>Remote Download</span>
-                  <span
-                    className={`quality-indicator ${getQualityClass(stats.remoteNetwork.downlinkNetworkQuality)}`}
-                  ></span>
+                <div title="Connection Score">
+                  <span>Score</span>
+                  <span className="score-value">{networkQuality.score}/100</span>
                 </div>
-                <div title="Remote Upload Quality">
-                  <span>Remote Upload</span>
-                  <span
-                    className={`quality-indicator ${getQualityClass(stats.remoteNetwork.uplinkNetworkQuality)}`}
-                  ></span>
+                <div title="Round Trip Time">
+                  <span>RTT</span>
+                  <span className="rtt-value">{networkQuality.rtt.toFixed(0)}ms</span>
                 </div>
               </div>
               <div className="latency-chart">
                 <Line data={chartData} options={chartOptions} />
               </div>
               <div className="stats-section">
-                <div className="video-stats">
-                  <h4>Video Statistics</h4>
-                  <StatRow label="Codec" value={stats.video.codecType || 'N/A'} />
-                  <StatRow label="Transport Delay" value={`${stats.video.transportDelay?.toFixed(1) || 0}ms`} />
-                  <StatRow label="End-to-End Delay" value={`${stats.video.end2EndDelay?.toFixed(1) || 0}ms`} />
-                  <StatRow label="Receive Delay" value={`${stats.video.receiveDelay?.toFixed(1) || 0}ms`} />
-                  <StatRow label="Frame Rate" value={`${stats.video.receiveFrameRate?.toFixed(1) || 0} fps`} />
-                  <StatRow
-                    label="Resolution"
-                    value={`${stats.video.receiveResolutionWidth}x${stats.video.receiveResolutionHeight}`}
-                  />
-                  <StatRow label="Bitrate" value={formatBitrate(stats.video.receiveBitrate)} />
-                  <StatRow label="Packet Loss" value={`${stats.video.packetLossRate?.toFixed(2) || 0}%`} />
-                  <StatRow label="Total Freeze Time" value={`${stats.video.totalFreezeTime}s`} />
-                  <StatRow label="Freeze Rate" value={`${stats.video.freezeRate?.toFixed(2) || 0}%`} />
+                <div className="connection-stats">
+                  <h4>Connection</h4>
+                  <StatRow label="Score" value={`${networkQuality.score}/100`} />
+                  <StatRow label="Upload" value={networkQuality.uplink} />
+                  <StatRow label="Download" value={networkQuality.downlink} />
+                  <StatRow label="RTT" value={`${networkQuality.rtt.toFixed(1)}ms`} />
+                  <StatRow label="Loss" value={`${networkQuality.packetLoss.toFixed(2)}%`} />
                 </div>
-                <div className="audio-stats">
-                  <h4>Audio Statistics</h4>
-                  <StatRow label="Codec" value={stats.audio.codecType || 'N/A'} />
-                  <StatRow label="Transport Delay" value={`${stats.audio.transportDelay?.toFixed(1) || 0}ms`} />
-                  <StatRow label="End-to-End Delay" value={`${stats.audio.end2EndDelay?.toFixed(1) || 0}ms`} />
-                  <StatRow label="Receive Delay" value={`${stats.audio.receiveDelay?.toFixed(1) || 0}ms`} />
-                  <StatRow label="Bitrate" value={formatBitrate(stats.audio.receiveBitrate)} />
-                  <StatRow label="Packet Loss" value={`${stats.audio.packetLossRate?.toFixed(2) || 0}%`} />
-                  <StatRow label="Volume Level" value={`${stats.audio.receiveLevel?.toFixed(0) || 0}`} />
-                </div>
+                {detailedStats && (
+                  <>
+                    {detailedStats.video && (
+                      <div className="video-stats">
+                        <h4>Video</h4>
+                        {detailedStats.video.codec && detailedStats.video.codec !== '0' && (
+                          <StatRow label="Codec" value={detailedStats.video.codec} />
+                        )}
+                        {detailedStats.video.bitrate && detailedStats.video.bitrate > 0 && (
+                          <StatRow label="Bitrate" value={formatBitrate(detailedStats.video.bitrate)} />
+                        )}
+                        {detailedStats.video.frameRate && detailedStats.video.frameRate > 0 && (
+                          <StatRow label="FPS" value={`${detailedStats.video.frameRate.toFixed(1)}`} />
+                        )}
+                        {detailedStats.video.resolution &&
+                          detailedStats.video.resolution.width > 0 &&
+                          detailedStats.video.resolution.height > 0 && (
+                            <StatRow
+                              label="Res"
+                              value={`${detailedStats.video.resolution.width}x${detailedStats.video.resolution.height}`}
+                            />
+                          )}
+                        {detailedStats.video.packetLoss !== undefined && detailedStats.video.packetLoss !== null && (
+                          <StatRow label="Loss" value={`${detailedStats.video.packetLoss.toFixed(2)}%`} />
+                        )}
+                        {detailedStats.video.rtt && detailedStats.video.rtt > 0 && (
+                          <StatRow label="RTT" value={`${detailedStats.video.rtt.toFixed(1)}ms`} />
+                        )}
+                      </div>
+                    )}
+                    {detailedStats.audio && (
+                      <div className="audio-stats">
+                        <h4>Audio</h4>
+                        {detailedStats.audio.codec && detailedStats.audio.codec !== '0' && (
+                          <StatRow label="Codec" value={detailedStats.audio.codec} />
+                        )}
+                        {detailedStats.audio.bitrate && detailedStats.audio.bitrate > 0 && (
+                          <StatRow label="Bitrate" value={formatBitrate(detailedStats.audio.bitrate)} />
+                        )}
+                        {detailedStats.audio.packetLoss !== undefined && detailedStats.audio.packetLoss !== null && (
+                          <StatRow label="Loss" value={`${detailedStats.audio.packetLoss.toFixed(2)}%`} />
+                        )}
+                        {detailedStats.audio.volume !== undefined && detailedStats.audio.volume !== null && (
+                          <StatRow label="Vol" value={`${detailedStats.audio.volume.toFixed(0)}`} />
+                        )}
+                        {detailedStats.audio.rtt && detailedStats.audio.rtt > 0 && (
+                          <StatRow label="RTT" value={`${detailedStats.audio.rtt.toFixed(1)}ms`} />
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </>
           )}
