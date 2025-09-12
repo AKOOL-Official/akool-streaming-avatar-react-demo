@@ -159,12 +159,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Tooltip event handlers
   const handleMessageMouseEnter = useCallback((e: React.MouseEvent, message: Message) => {
-    if (message.systemType === SystemEventType.SET_PARAMS && message.metadata?.fullParams) {
-      console.log('Showing tooltip for set-params message:', message.metadata.fullParams);
-      const paramsStr = JSON.stringify(message.metadata.fullParams, null, 2);
-      setTooltipContent(paramsStr);
-      setTooltipPosition({ x: e.clientX, y: e.clientY });
-      setShowTooltip(true);
+    if (message.systemType === SystemEventType.SET_PARAMS) {
+      // Check for parameters in different metadata locations
+      const params = message.metadata?.fullParams || message.metadata?.data || message.metadata;
+
+      if (params && typeof params === 'object' && Object.keys(params).length > 0) {
+        console.log('Showing tooltip for set-params message:', params);
+        const paramsStr = JSON.stringify(params, null, 2);
+        setTooltipContent(paramsStr);
+        setTooltipPosition({ x: e.clientX, y: e.clientY });
+        setShowTooltip(true);
+      }
     }
   }, []);
 
@@ -218,13 +223,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const commandText =
         event.success !== undefined
           ? `${event.success ? '✅' : '❌'} ${event.command}${event.message ? `: ${event.message}` : ''}`
-          : `📤 ${event.command}${event.data ? ` with data: ${JSON.stringify(event.data)}` : ''}`;
+          : `📤 ${event.command}${event.data ? ' (hover to see details)' : ''}`;
+
+      // For set-params commands, store the data in fullParams for tooltip display
+      const metadata = event.command === 'set-params' && event.data ? { fullParams: event.data } : event.data;
 
       addSystemMessage(
         `cmd_${Date.now()}`,
         commandText,
         event.command === 'interrupt' ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS,
-        event.data,
+        metadata,
       );
     });
 
