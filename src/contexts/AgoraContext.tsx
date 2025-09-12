@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback, useMemo } from 'react';
 import AgoraRTC from 'agora-rtc-sdk-ng';
-import { RTCClient } from '../agoraHelper';
+import { RTCClient } from '../providers/agora/types';
 
 // Create the context with default value
 interface AgoraContextType {

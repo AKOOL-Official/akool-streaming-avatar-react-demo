@@ -1,6 +1,6 @@
 import React from 'react';
 import { StreamProviderType } from '../../types/streaming.types';
-import { useStreamingContext } from '../../contexts/StreamingContext';
+import { useStreamingContext } from '../../hooks/useStreamingContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { logger } from '../../core/Logger';
 import './styles.css';

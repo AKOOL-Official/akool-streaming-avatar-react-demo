@@ -1,5 +1,4 @@
 import { ILocalVideoTrack } from 'agora-rtc-sdk-ng';
-import { RTCClient } from '../../agoraHelper';
 import { logger } from '../../core/Logger';
 import { globalResourceManager } from '../../core/ResourceManager';
 import { StreamingProvider, StreamingCredentials, StreamingEventHandlers } from '../../types/provider.interfaces';
@@ -13,10 +12,24 @@ import {
   AgoraConnectionConfig,
   ConnectionEventCallbacks,
 } from './controllers/AgoraConnectionController';
-import { AgoraEventController, AgoraEventCallbacks } from './controllers/AgoraEventController';
-import { AgoraMessagingController, MessagingEventCallbacks } from './controllers/AgoraMessagingController';
+import { AgoraController, AgoraControllerCallbacks } from './controllers/AgoraController';
 import { AgoraAudioController, AudioControllerCallbacks } from './controllers/AgoraAudioController';
 import { AgoraVideoController, VideoControllerCallbacks } from './controllers/AgoraVideoController';
+import { RTCClient } from './types';
+
+// Agora-specific credential types
+export interface AgoraCredentials {
+  agora_uid: number;
+  agora_app_id: string;
+  agora_channel: string;
+  agora_token: string;
+}
+
+// Type guard for Agora credentials
+export function isAgoraCredentials(credentials: unknown): credentials is AgoraCredentials {
+  const creds = credentials as AgoraCredentials;
+  return !!(creds?.agora_app_id && creds?.agora_token && creds?.agora_channel && creds?.agora_uid !== undefined);
+}
 
 export interface AgoraProviderConfig {
   client: RTCClient;
@@ -41,22 +54,18 @@ export class AgoraStreamingProvider implements StreamingProvider {
 
   // Controllers
   private connectionController: AgoraConnectionController;
-  private eventController: AgoraEventController;
-  private messagingController: AgoraMessagingController;
+  private agoraController: AgoraController;
   private audioController: AgoraAudioController;
   private videoController: AgoraVideoController;
 
   private client: RTCClient;
-  private currentSession: Session | null = null;
 
   constructor(config: AgoraProviderConfig) {
     this.client = config.client;
-    this.currentSession = config.session || null;
 
     // Initialize controllers
     this.connectionController = new AgoraConnectionController(this.client);
-    this.eventController = new AgoraEventController(this.client);
-    this.messagingController = new AgoraMessagingController(this.client);
+    this.agoraController = new AgoraController(this.client);
     this.audioController = new AgoraAudioController(this.client);
     this.videoController = new AgoraVideoController(this.client);
 
@@ -67,11 +76,6 @@ export class AgoraStreamingProvider implements StreamingProvider {
       cleanup: () => this.cleanup(),
       id: `agora-provider-${Date.now()}`,
       type: 'AgoraStreamingProvider',
-    });
-
-    logger.info('AgoraStreamingProvider initialized', {
-      providerType: this.providerType,
-      hasSession: !!this.currentSession,
     });
   }
 
@@ -92,12 +96,8 @@ export class AgoraStreamingProvider implements StreamingProvider {
       // Map credentials to Agora format
       const agoraCredentials = this.mapCredentials(credentials);
 
-      // Create session if not provided
-      const session = this.currentSession || this.createTemporarySession(agoraCredentials);
-
       const connectionConfig: AgoraConnectionConfig = {
         credentials: agoraCredentials,
-        session,
       };
 
       const connectionCallbacks: ConnectionEventCallbacks = {
@@ -256,9 +256,8 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async sendMessage(content: string): Promise<void> {
     try {
       const messageId = `msg-${Date.now()}`;
-      logger.info('Sending message to avatar', { messageId, contentLength: content.length });
 
-      await this.messagingController.sendMessage(messageId, content);
+      await this.agoraController.sendMessage(messageId, content);
     } catch (error) {
       logger.error('Failed to send message', {
         error: error instanceof Error ? error.message : String(error),
@@ -271,7 +270,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async sendInterrupt(): Promise<void> {
     try {
       logger.info('Sending interrupt command');
-      await this.messagingController.interruptResponse();
+      await this.agoraController.interruptResponse();
     } catch (error) {
       logger.error('Failed to send interrupt', {
         error: error instanceof Error ? error.message : String(error),
@@ -281,10 +280,10 @@ export class AgoraStreamingProvider implements StreamingProvider {
   }
 
   // Set avatar parameters (voice, background, etc.)
-  async setAvatarParameters(metadata: AvatarMetadata): Promise<void> {
+  async setAvatarParameters(metadata: Record<string, unknown>): Promise<void> {
     try {
       logger.info('Setting avatar parameters', { metadata });
-      await this.messagingController.setAvatarParameters(metadata);
+      await this.agoraController.setAvatarParameters(metadata as unknown as AvatarMetadata);
     } catch (error) {
       logger.error('Failed to set avatar parameters', {
         error: error instanceof Error ? error.message : String(error),
@@ -357,23 +356,13 @@ export class AgoraStreamingProvider implements StreamingProvider {
       },
     };
 
-    // Messaging controller callbacks
-    const messagingCallbacks: MessagingEventCallbacks = {
-      onCommandSent: (cmd, data) => {
-        logger.debug('Command sent to avatar', { command: cmd, data });
-      },
-      onCommandResponse: (cmd, code, message) => {
-        logger.debug('Command response received', { command: cmd, code, message });
-      },
-    };
-
     this.audioController.setCallbacks(audioCallbacks);
     this.videoController.setCallbacks(videoCallbacks);
-    this.messagingController.setCallbacks(messagingCallbacks);
+    // AgoraController callbacks are set in startEventListening()
   }
 
   private startEventListening(): void {
-    const eventCallbacks: AgoraEventCallbacks = {
+    const eventCallbacks: AgoraControllerCallbacks = {
       onParticipantJoined: (participant) => {
         const participants = [...this._state.participants];
         const existingIndex = participants.findIndex((p) => p.id === participant.id);
@@ -405,35 +394,26 @@ export class AgoraStreamingProvider implements StreamingProvider {
       },
     };
 
-    this.eventController.startListening(eventCallbacks);
+    this.agoraController.setCallbacks(eventCallbacks);
   }
 
   private stopEventListening(): void {
-    this.eventController.stopListening();
+    this.agoraController.cleanup();
   }
 
   private mapCredentials(credentials: StreamingCredentials): SessionCredentials {
-    return {
-      // Common credentials
-      channel: credentials.channelName,
-      userId: credentials.userId,
+    // Type-safe extraction with defaults
+    const agoraAppId = credentials.agora_app_id as string;
+    const agoraChannel = credentials.agora_channel as string;
+    const agoraToken = credentials.agora_token as string;
+    const agoraUid = credentials.agora_uid as number;
 
+    return {
       // Agora-specific credentials
-      agora_app_id: credentials.agora_app_id as string,
-      agora_channel: (credentials.agora_channel as string) || credentials.channelName,
-      agora_token: credentials.agora_token as string,
-      agora_uid: (credentials.agora_uid as number) || parseInt(credentials.userId),
-    };
-  }
-
-  private createTemporarySession(credentials: SessionCredentials): Session {
-    return {
-      _id: `temp-session-${Date.now()}`,
-      credentials,
-      provider: 'agora',
-      status: 'active',
-      created_at: Date.now(),
-      expires_at: Date.now() + 60 * 60 * 1000, // 1 hour
+      agora_app_id: agoraAppId,
+      agora_channel: agoraChannel,
+      agora_token: agoraToken,
+      agora_uid: agoraUid,
     };
   }
 
@@ -467,8 +447,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
       // Cleanup all controllers
       await Promise.all([
         this.connectionController.cleanup(),
-        this.eventController.cleanup(),
-        this.messagingController.cleanup(),
+        this.agoraController.cleanup(),
         this.audioController.cleanup(),
         this.videoController.cleanup(),
       ]);

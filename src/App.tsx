@@ -9,7 +9,7 @@ import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
 import { NotificationContainer } from './components/NotificationContainer';
 
-import { useStreamingContext } from './contexts/StreamingContext';
+import { useStreamingContext } from './hooks/useStreamingContext';
 import { useNotifications } from './contexts/NotificationContext';
 import { useProviderAudioControls } from './hooks/useProviderAudioControls';
 import { useStreamingSession } from './hooks/useStreamingSession';
@@ -171,8 +171,6 @@ const App: React.FC = () => {
         />
 
         <ChatInterface
-          // Note: These props will need to be updated for provider-agnostic usage
-          client={null} // Will be removed when ChatInterface is updated
           connected={connected}
           micEnabled={micEnabled}
           setMicEnabled={setMicEnabled}

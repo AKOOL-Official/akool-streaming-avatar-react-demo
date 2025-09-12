@@ -2,11 +2,10 @@ import { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
-import { Session, SessionCredentials } from '../../../types/api.schemas';
+import { SessionCredentials } from '../../../types/api.schemas';
 
 export interface AgoraConnectionConfig {
   credentials: SessionCredentials;
-  session: Session;
 }
 
 export interface ConnectionEventCallbacks {
@@ -20,7 +19,6 @@ export interface ConnectionEventCallbacks {
 export class AgoraConnectionController {
   private client: IAgoraRTCClient;
   private isConnected = false;
-  private currentSession: Session | null = null;
   private callbacks: ConnectionEventCallbacks = {};
 
   constructor(client: IAgoraRTCClient) {
@@ -30,12 +28,13 @@ export class AgoraConnectionController {
   async connect(config: AgoraConnectionConfig, callbacks: ConnectionEventCallbacks = {}): Promise<void> {
     try {
       logger.info('Starting Agora connection', {
-        channelName: config.credentials.agora_channel,
-        userId: config.credentials.agora_uid,
+        agora_channel: config.credentials.agora_channel,
+        agora_uid: config.credentials.agora_uid,
+        agora_app_id: config.credentials.agora_app_id,
+        agora_token: config.credentials.agora_token,
       });
 
       this.callbacks = callbacks;
-      this.currentSession = config.session;
 
       // Set up event listeners before connecting
       this.setupEventListeners();
@@ -89,7 +88,6 @@ export class AgoraConnectionController {
       }
 
       this.isConnected = false;
-      this.currentSession = null;
 
       logger.info('Successfully disconnected from Agora channel');
       this.callbacks.onDisconnected?.();
@@ -177,10 +175,6 @@ export class AgoraConnectionController {
   // Getters
   get connected(): boolean {
     return this.isConnected && this.client.connectionState === 'CONNECTED';
-  }
-
-  get session(): Session | null {
-    return this.currentSession;
   }
 
   get connectionState(): string {

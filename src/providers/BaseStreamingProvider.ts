@@ -29,6 +29,7 @@ export abstract class BaseStreamingProvider implements StreamingProvider {
   abstract unpublishAudio(): Promise<void>;
   abstract sendMessage(content: string): Promise<void>;
   abstract sendInterrupt(): Promise<void>;
+  abstract setAvatarParameters(metadata: Record<string, unknown>): Promise<void>;
 
   // Common implementation for all providers
   updateState(partialState: Partial<StreamingState>): void {

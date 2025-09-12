@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { RTCClient } from '../agoraHelper';
-import { sendMessageToAvatar } from '../agoraHelper';
+import { useStreamingContext } from './useStreamingContext';
 
 // System event types enum
 export enum SystemEventType {
@@ -54,9 +53,7 @@ export interface Message {
 }
 
 interface UseMessageStateProps {
-  client?: RTCClient | null; // Optional during migration to provider-agnostic system
   connected: boolean;
-  onStreamMessage?: (uid: number, body: Uint8Array) => void;
 }
 
 interface UseMessageStateReturn {
@@ -109,27 +106,16 @@ const shouldShowTimeSeparator = (currentMessage: Message, previousMessage: Messa
   return currentMinute > previousMinute;
 };
 
-export const useMessageState = ({
-  client,
-  connected,
-  onStreamMessage,
-}: UseMessageStateProps): UseMessageStateReturn => {
+export const useMessageState = ({ connected }: UseMessageStateProps): UseMessageStateReturn => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Set up stream message listener
-  useEffect(() => {
-    if (connected && onStreamMessage) {
-      // Store the handler reference so we can remove only this specific listener
-      const messageHandler = onStreamMessage;
-      client?.on('stream-message', messageHandler);
-      return () => {
-        // Remove only this specific listener, not all listeners
-        client?.off('stream-message', messageHandler);
-      };
-    }
-  }, [client, connected, onStreamMessage]);
+  // Get provider-agnostic send function
+  const { sendMessage: sendMessageToProvider } = useStreamingContext();
+
+  // Stream message listening is now handled by the provider's event system
+  // No direct client dependency needed
 
   const sendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !connected || sending) return;
@@ -150,19 +136,15 @@ export const useMessageState = ({
     setInputMessage('');
 
     try {
-      if (client) {
-        await sendMessageToAvatar(client, messageId, inputMessage);
-      } else {
-        throw new Error('No client available for sending messages');
-      }
+      await sendMessageToProvider(inputMessage);
     } catch (error) {
-      console.error('Failed to send message:', error);
-      // Optionally remove the message from state if sending failed
+      // Remove the message from state if sending failed
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      throw error; // Re-throw so calling component can handle it
     } finally {
       setSending(false);
     }
-  }, [client, connected, inputMessage, sending]);
+  }, [sendMessageToProvider, connected, inputMessage, sending]);
 
   const addMessage = useCallback(
     (

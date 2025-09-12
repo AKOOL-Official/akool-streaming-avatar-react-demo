@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RTCClient, interruptResponse } from '../../agoraHelper';
+// Removed Agora-specific imports - now using provider-agnostic streaming context
 import {
   useMessageState,
   SystemEventType,
@@ -8,11 +8,10 @@ import {
   MessageType,
   Message,
 } from '../../hooks/useMessageState';
-import { useStreamingContext } from '../../contexts/StreamingContext';
+import { useStreamingContext } from '../../hooks/useStreamingContext';
 import './styles.css';
 
 interface ChatInterfaceProps {
-  client?: RTCClient | null; // Optional during migration to provider-agnostic system
   connected: boolean;
   micEnabled: boolean;
   setMicEnabled: (enabled: boolean) => void;
@@ -31,7 +30,6 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
-  client,
   connected,
   micEnabled,
   setMicEnabled,
@@ -48,8 +46,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Check if debug features should be shown (default: false)
   const showDebugFeatures = import.meta.env.VITE_DEBUG_FEATURES === 'true';
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { setIsAvatarSpeaking } = useStreamingContext();
-  const [hasAvatarStartedSpeaking, setHasAvatarStartedSpeaking] = useState(false);
+  const { sendInterrupt } = useStreamingContext();
 
   // Add state for resizable height
   const [chatHeight, setChatHeight] = useState(400);
@@ -96,16 +93,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     inputMessage,
     setInputMessage,
     sendMessage,
-    addMessage,
-    addChatMessage,
     addSystemMessage,
+    addChatMessage,
     clearMessages,
     formatTime,
     shouldShowTimeSeparator,
   } = useMessageState({
-    client,
     connected,
   });
+
+  // Listen for received messages from the provider
+  const { onMessageReceived } = useStreamingContext();
 
   // Handle mouse down on resize handle
   const handleMouseDown = useCallback(
@@ -174,101 +172,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowTooltip(false);
   }, []);
 
-  const handleStreamMessage = useCallback(
-    (_: number, body: Uint8Array) => {
-      try {
-        const msg = new TextDecoder().decode(body);
-        const { v, type, mid, pld } = JSON.parse(msg);
-        if (v !== 2) {
-          return;
-        }
+  // Stream message handling is now done by the provider's messaging controller
+  // This removes the direct Agora client dependency
 
-        if (type === 'chat') {
-          const { text, from } = pld;
-          const sender = from === 'user' ? MessageSender.USER : MessageSender.AVATAR;
-          addChatMessage(`${type}_${mid}`, text, sender);
-        } else if (type === 'event') {
-          const { event } = pld;
-          if (event === 'audio_start') {
-            setIsAvatarSpeaking(true);
-            setHasAvatarStartedSpeaking(true);
-            console.log('Avatar started speaking - will now show "finished speaking" messages');
-            addSystemMessage(`event_${mid}`, '🎤 Avatar started speaking', SystemEventType.AVATAR_AUDIO_START);
-          } else if (event === 'audio_end') {
-            setIsAvatarSpeaking(false);
-            // Only show "Avatar finished speaking" message if:
-            // 1. The avatar has actually started speaking in this session, AND
-            // 2. There are actual chat messages in the conversation (not just system messages)
-            const hasChatMessages = messages.some((msg) => msg.messageType === MessageType.CHAT);
-            if (hasAvatarStartedSpeaking && hasChatMessages) {
-              addSystemMessage(`event_${mid}`, '✅ Avatar finished speaking', SystemEventType.AVATAR_AUDIO_END);
-            } else {
-              console.log('Suppressing "Avatar finished speaking" message:', {
-                hasAvatarStartedSpeaking,
-                hasChatMessages,
-                messageCount: messages.length,
-                chatMessageCount: messages.filter((msg) => msg.messageType === MessageType.CHAT).length,
-              });
-            }
-          }
-          // Log any other events for debugging
-          else {
-            addMessage(`event_${mid}`, `📋 Event: ${event}`, MessageSender.SYSTEM, MessageType.EVENT);
-          }
-        } else if (type === 'command') {
-          // Handle command acknowledgments
-          const { cmd, code, msg } = pld;
-          if (code !== undefined) {
-            // This is a command acknowledgment
-            const status = code === 1000 ? '✅' : '❌';
-            const statusText = code === 1000 ? 'Success' : 'Failed';
-            const systemType = cmd === 'interrupt' ? SystemEventType.INTERRUPT_ACK : SystemEventType.SET_PARAMS_ACK;
-            addSystemMessage(`cmd_ack_${mid}`, `${status} ${cmd}: ${statusText}${msg ? ` (${msg})` : ''}`, systemType);
-          } else {
-            // This is a command being sent
-            const { data } = pld;
-            const dataStr = data ? ` with data: ${JSON.stringify(data)}` : '';
-            const systemType = cmd === 'interrupt' ? SystemEventType.INTERRUPT : SystemEventType.SET_PARAMS;
-            const messageText = cmd === 'set-params' && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
+  // Stream message listening is now handled by the provider's event system
+  // No direct client listener setup needed
 
-            const metadata = cmd === 'set-params' && data ? { fullParams: data } : undefined;
-            console.log('Creating set-params message:', {
-              cmd,
-              data,
-              metadata,
-              messageText,
-            });
-
-            addSystemMessage(`cmd_send_${mid}`, messageText, systemType, metadata);
-          }
-        }
-      } catch (error) {
-        console.error('Error handling stream message:', error);
-        console.error('Message body:', body);
-      }
-    },
-    [setIsAvatarSpeaking, addChatMessage, addSystemMessage, addMessage, hasAvatarStartedSpeaking, messages],
-  );
-
-  // Set up stream message listener
-  useEffect(() => {
-    if (connected) {
-      // Store the handler reference so we can remove only this specific listener
-      const messageHandler = handleStreamMessage;
-      client?.on('stream-message', messageHandler);
-      return () => {
-        // Remove only this specific listener, not all listeners
-        client?.off('stream-message', messageHandler);
-      };
-    }
-  }, [client, connected, handleStreamMessage]);
-
-  // Reset avatar speaking state when connection is established
-  useEffect(() => {
-    if (connected) {
-      setHasAvatarStartedSpeaking(false);
-    }
-  }, [connected]);
+  // Avatar speaking state is now managed by the provider
 
   // Set up system message callback
   useEffect(() => {
@@ -279,6 +189,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [onSystemMessageCallback, addSystemMessage]);
 
+  // Listen for received messages from the provider
+  useEffect(() => {
+    const unsubscribe = onMessageReceived((message) => {
+      // Convert ChatMessage to Message format and add to state
+      addChatMessage(message.id, message.content, MessageSender.AVATAR);
+    });
+
+    return unsubscribe;
+  }, [onMessageReceived, addChatMessage]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -287,8 +207,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     if (!connected) {
       clearMessages();
-      // Reset the avatar speaking state when connection is lost
-      setHasAvatarStartedSpeaking(false);
     }
   }, [connected, clearMessages]);
 
@@ -438,15 +356,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <span className="material-icons">send</span>
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 // Add system message for interrupt
                 addSystemMessage(`interrupt_${Date.now()}`, '🛑 User interrupted response', SystemEventType.INTERRUPT);
-                if (client) {
-                  interruptResponse(client, (cmd) => {
-                    console.log(`Interrupt command sent: ${cmd}`);
-                  });
-                } else {
-                  console.error('No client available for interrupt');
+                try {
+                  await sendInterrupt();
+                } catch (error) {
+                  console.error('Failed to send interrupt:', error);
                 }
               }}
               disabled={!connected}

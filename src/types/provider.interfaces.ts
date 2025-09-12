@@ -9,10 +9,36 @@ import {
 } from './streaming.types';
 import { StreamingError } from './error.types';
 
+// Generic streaming credentials interface
 export interface StreamingCredentials {
-  channelName: string;
-  userId: string;
-  [key: string]: unknown; // Provider-specific credentials
+  [key: string]: unknown;
+}
+
+// Message event types for provider-agnostic messaging
+export interface SystemMessageEvent {
+  messageId: string;
+  text: string;
+  eventType:
+    | 'avatar_audio_start'
+    | 'avatar_audio_end'
+    | 'set_params'
+    | 'set_params_ack'
+    | 'interrupt'
+    | 'interrupt_ack';
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatMessageEvent {
+  messageId: string;
+  text: string;
+  from: 'user' | 'avatar';
+}
+
+export interface CommandEvent {
+  command: string;
+  data?: Record<string, unknown>;
+  success?: boolean;
+  message?: string;
 }
 
 export interface StreamingEventHandlers {
@@ -22,6 +48,9 @@ export interface StreamingEventHandlers {
   onError?: (error: StreamingError) => void;
   onMessageReceived?: (message: ChatMessage) => void;
   onSpeakingStateChanged?: (isSpeaking: boolean) => void;
+  onSystemMessage?: (event: SystemMessageEvent) => void;
+  onChatMessage?: (event: ChatMessageEvent) => void;
+  onCommand?: (event: CommandEvent) => void;
 }
 
 export interface StreamingProvider {
@@ -41,6 +70,7 @@ export interface StreamingProvider {
   // Communication
   sendMessage(content: string): Promise<void>;
   sendInterrupt(): Promise<void>;
+  setAvatarParameters(metadata: Record<string, unknown>): Promise<void>;
 
   // State management
   updateState(partialState: Partial<StreamingState>): void;

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiService, Session, SessionOptions } from '../apiService';
 import { StreamingCredentials } from '../types/provider.interfaces';
 import { StreamProviderType, VideoTrack } from '../types/streaming.types';
-import { useStreamingContext } from '../contexts/StreamingContext';
+import { useStreamingContext } from './useStreamingContext';
 import { logger } from '../core/Logger';
 
 /**
@@ -134,12 +134,11 @@ export const useStreamingSession = ({
     const credentials = session.credentials;
 
     return {
-      channelName: credentials.agora_channel,
-      userId: credentials.agora_uid.toString(),
-      // Provider-specific credentials will be added by the factory
-      appId: credentials.agora_app_id,
-      token: credentials.agora_token,
-      uid: credentials.agora_uid,
+      // Agora-specific credentials with correct property names
+      agora_app_id: credentials.agora_app_id,
+      agora_channel: credentials.agora_channel,
+      agora_token: credentials.agora_token,
+      agora_uid: credentials.agora_uid,
     };
   }, []);
 
@@ -155,7 +154,7 @@ export const useStreamingSession = ({
       // Create session
       const sessionOptions: SessionOptions = {
         avatar_id: avatarId,
-        duration: sessionDuration,
+        duration: sessionDuration * 60,
         knowledge_id: knowledgeId,
         voice_id: voiceId,
         voice_url: voiceUrl,

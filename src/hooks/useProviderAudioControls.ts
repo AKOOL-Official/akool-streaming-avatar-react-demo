@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { AudioTrack } from '../types/streaming.types';
-import { useStreamingContext } from '../contexts/StreamingContext';
+import { useStreamingContext } from './useStreamingContext';
 import { logger } from '../core/Logger';
 
 // Provider-agnostic audio controls interface

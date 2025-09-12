@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { VideoTrack } from '../../types/streaming.types';
-import { useStreamingContext } from '../../contexts/StreamingContext';
+import { useStreamingContext } from '../../hooks/useStreamingContext';
 import './styles.css';
 import { logger } from '../../core/Logger';
 

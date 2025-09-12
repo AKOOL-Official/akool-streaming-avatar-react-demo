@@ -1,10 +1,10 @@
-import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
+import React, { createContext, ReactNode, useState, useCallback, useEffect, useRef } from 'react';
 import type { StreamingProvider, StreamingCredentials, StreamingEventHandlers } from '../types/provider.interfaces';
-import { StreamProviderType, StreamingState, VideoTrack, AudioTrack } from '../types/streaming.types';
+import { StreamProviderType, StreamingState, VideoTrack, AudioTrack, ChatMessage } from '../types/streaming.types';
 import { providerManager } from '../providers/ProviderManager';
 import { logger } from '../core/Logger';
 
-interface StreamingContextType {
+export interface StreamingContextType {
   // Current provider state
   provider: StreamingProvider | null;
   providerType: StreamProviderType;
@@ -30,9 +30,13 @@ interface StreamingContextType {
   // Avatar state
   isAvatarSpeaking: boolean;
   setIsAvatarSpeaking: (speaking: boolean) => void;
+
+  // Message handling
+  onMessageReceived: (callback: (message: ChatMessage) => void) => () => void;
 }
 
-const StreamingContext = createContext<StreamingContextType | undefined>(undefined);
+// eslint-disable-next-line react-refresh/only-export-components
+export const StreamingContext = createContext<StreamingContextType | undefined>(undefined);
 
 interface StreamingContextProviderProps {
   children: ReactNode;
@@ -52,6 +56,9 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
 
   // Avatar speaking state
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+
+  // Message callback system
+  const messageCallbacks = useRef<Set<(message: ChatMessage) => void>>(new Set());
 
   // Subscribe to provider manager events
   useEffect(() => {
@@ -105,6 +112,11 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
           logger.error('Provider error', { error });
           setError(error);
         },
+        onMessageReceived: (message) => {
+          // Notify all registered message callbacks
+          logger.debug('Message received from provider', { message });
+          messageCallbacks.current.forEach((callback) => callback(message));
+        },
       };
 
       await providerManager.switchProvider(type, credentials, eventHandlers);
@@ -131,6 +143,11 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
           onError: (error) => {
             logger.error('Connection error', { error });
             setError(error);
+          },
+          onMessageReceived: (message) => {
+            // Notify all registered message callbacks
+            logger.debug('Message received from provider', { message });
+            messageCallbacks.current.forEach((callback) => callback(message));
           },
         };
 
@@ -207,6 +224,14 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
     setIsAvatarSpeaking(speaking);
   }, []);
 
+  // Message handling
+  const onMessageReceived = useCallback((callback: (message: ChatMessage) => void) => {
+    messageCallbacks.current.add(callback);
+    return () => {
+      messageCallbacks.current.delete(callback);
+    };
+  }, []);
+
   return (
     <StreamingContext.Provider
       value={{
@@ -230,6 +255,8 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
 
         isAvatarSpeaking,
         setIsAvatarSpeaking: handleSetIsAvatarSpeaking,
+
+        onMessageReceived,
       }}
     >
       {children}
@@ -237,11 +264,5 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
   );
 };
 
-// Custom hook to use the streaming context
-export const useStreamingContext = (): StreamingContextType => {
-  const context = useContext(StreamingContext);
-  if (context === undefined) {
-    throw new Error('useStreamingContext must be used within a StreamingProvider');
-  }
-  return context;
-};
+// Default export for Fast Refresh compatibility
+export default StreamingContextProvider;
