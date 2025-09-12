@@ -117,8 +117,11 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
 
   const connect = useCallback(
     async (credentials: StreamingCredentials) => {
+      // If no provider is available, switch to the default provider first
       if (!provider) {
-        throw new Error('No provider available for connection');
+        logger.info('No provider available, switching to default provider', { providerType });
+        await switchProvider(providerType, credentials);
+        return;
       }
 
       setIsLoading(true);
@@ -139,7 +142,7 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
         setIsLoading(false);
       }
     },
-    [provider],
+    [provider, providerType, switchProvider],
   );
 
   const disconnect = useCallback(async () => {
