@@ -48,6 +48,7 @@ export interface AgoraControllerCallbacks {
   onMessageReceived?: (message: ChatMessage) => void;
   onNetworkStatsUpdate?: (stats: NetworkStats) => void;
   onError?: (error: StreamingError) => void;
+  onSpeakingStateChanged?: (isSpeaking: boolean) => void;
 
   // Messaging callbacks
   onCommandSent?: (cmd: string, data?: Record<string, unknown>) => void;
@@ -294,7 +295,7 @@ export class AgoraController {
 
     this.callbacks.onChatMessage?.(event);
 
-    // Also create legacy ChatMessage for backward compatibility
+    // Create legacy ChatMessage for backward compatibility
     const chatMessage: ChatMessage = {
       id: messageId || `msg-${Date.now()}`,
       content: payload.text,
@@ -315,10 +316,14 @@ export class AgoraController {
       case 'audio_start':
         eventType = 'avatar_audio_start';
         text = '🎤 Avatar started speaking';
+        // Update speaking state
+        this.callbacks.onSpeakingStateChanged?.(true);
         break;
       case 'audio_end':
         eventType = 'avatar_audio_end';
         text = '✅ Avatar finished speaking';
+        // Update speaking state
+        this.callbacks.onSpeakingStateChanged?.(false);
         break;
       default:
         logger.debug('Unknown system event received', { event });
@@ -420,7 +425,15 @@ export class AgoraController {
       await (
         this.client as unknown as { sendStreamMessage: (data: string, reliable: boolean) => Promise<void> }
       ).sendStreamMessage(jsonData, false);
+
+      // Trigger both onCommandSent and onCommand callbacks
       this.callbacks.onCommandSent?.('set-params', cleanedMeta);
+
+      const commandEvent: CommandEvent = {
+        command: 'set-params',
+        data: cleanedMeta,
+      };
+      this.callbacks.onCommand?.(commandEvent);
     } catch (error) {
       const streamingError = ErrorMapper.mapAgoraError(error);
       logger.error('Failed to set avatar parameters', {
@@ -456,7 +469,14 @@ export class AgoraController {
       await (
         this.client as unknown as { sendStreamMessage: (data: string, reliable: boolean) => Promise<void> }
       ).sendStreamMessage(jsonData, false);
+
+      // Trigger both onCommandSent and onCommand callbacks
       this.callbacks.onCommandSent?.('interrupt');
+
+      const commandEvent: CommandEvent = {
+        command: 'interrupt',
+      };
+      this.callbacks.onCommand?.(commandEvent);
     } catch (error) {
       const streamingError = ErrorMapper.mapAgoraError(error);
       logger.error('Failed to send interrupt command', {

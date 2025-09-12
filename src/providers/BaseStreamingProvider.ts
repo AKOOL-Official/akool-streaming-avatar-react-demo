@@ -1,5 +1,5 @@
 import { StreamingProvider, StreamingEventHandlers, StreamingCredentials } from '../types/provider.interfaces';
-import { StreamingState, StreamProviderType, VideoTrack, AudioTrack } from '../types/streaming.types';
+import { StreamingState, StreamProviderType, VideoTrack, AudioTrack, VideoConfig } from '../types/streaming.types';
 import { EventBus } from '../core/EventBus';
 import { logger } from '../core/Logger';
 import { globalResourceManager } from '../core/ResourceManager';
@@ -23,6 +23,10 @@ export abstract class BaseStreamingProvider implements StreamingProvider {
   // Abstract methods that must be implemented by concrete providers
   abstract connect(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): Promise<void>;
   abstract disconnect(): Promise<void>;
+  abstract enableVideo(config?: VideoConfig): Promise<VideoTrack>;
+  abstract disableVideo(): Promise<void>;
+  abstract playVideo(elementId: string): Promise<void>;
+  abstract stopVideo(): Promise<void>;
   abstract publishVideo(track: VideoTrack): Promise<void>;
   abstract unpublishVideo(): Promise<void>;
   abstract publishAudio(track: AudioTrack): Promise<void>;

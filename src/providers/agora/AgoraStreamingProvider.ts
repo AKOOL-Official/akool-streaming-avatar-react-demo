@@ -2,7 +2,7 @@ import { ILocalVideoTrack } from 'agora-rtc-sdk-ng';
 import { logger } from '../../core/Logger';
 import { globalResourceManager } from '../../core/ResourceManager';
 import { StreamingProvider, StreamingCredentials, StreamingEventHandlers } from '../../types/provider.interfaces';
-import { StreamingState, VideoTrack, AudioTrack, StreamProviderType } from '../../types/streaming.types';
+import { StreamingState, VideoTrack, AudioTrack, VideoConfig, StreamProviderType } from '../../types/streaming.types';
 import { AvatarMetadata, Session, SessionCredentials } from '../../types/api.schemas';
 import { StreamingError, ErrorCode } from '../../types/error.types';
 
@@ -192,6 +192,55 @@ export class AgoraStreamingProvider implements StreamingProvider {
         participants: [],
         localParticipant: null,
       });
+    }
+  }
+
+  async enableVideo(config?: VideoConfig): Promise<VideoTrack> {
+    try {
+      logger.info('Enabling video through Agora provider');
+      return await this.videoController.enableVideo(config);
+    } catch (error) {
+      logger.error('Failed to enable video', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableVideo(): Promise<void> {
+    try {
+      logger.info('Disabling video through Agora provider');
+      await this.videoController.disableVideo();
+    } catch (error) {
+      logger.error('Failed to disable video', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async playVideo(elementId: string): Promise<void> {
+    try {
+      logger.info('Playing video through Agora provider', { elementId });
+      await this.videoController.playVideo(elementId);
+    } catch (error) {
+      logger.error('Failed to play video', {
+        error: error instanceof Error ? error.message : String(error),
+        elementId,
+      });
+      throw error;
+    }
+  }
+
+  async stopVideo(): Promise<void> {
+    try {
+      logger.info('Stopping video through Agora provider');
+      await this.videoController.stopVideo();
+    } catch (error) {
+      logger.error('Failed to stop video', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 
@@ -391,6 +440,19 @@ export class AgoraStreamingProvider implements StreamingProvider {
       onError: (error) => {
         this.updateState({ error });
         this.eventHandlers.onError?.(error);
+      },
+      onSpeakingStateChanged: (isSpeaking) => {
+        this.eventHandlers.onSpeakingStateChanged?.(isSpeaking);
+      },
+      // Command and messaging callbacks
+      onSystemMessage: (event) => {
+        this.eventHandlers.onSystemMessage?.(event);
+      },
+      onChatMessage: (event) => {
+        this.eventHandlers.onChatMessage?.(event);
+      },
+      onCommand: (event) => {
+        this.eventHandlers.onCommand?.(event);
       },
     };
 

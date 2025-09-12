@@ -14,7 +14,7 @@ export interface UseProviderVideoCameraReturn {
 }
 
 export const useProviderVideoCamera = (): UseProviderVideoCameraReturn => {
-  const { provider, publishVideo, unpublishVideo } = useStreamingContext();
+  const { provider } = useStreamingContext();
 
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [localVideoTrack, setLocalVideoTrack] = useState<VideoTrack | null>(null);
@@ -34,34 +34,18 @@ export const useProviderVideoCamera = (): UseProviderVideoCameraReturn => {
       setCameraError(null);
       logger.info('Enabling camera through provider', { providerType: provider.providerType });
 
-      // Check if we already have a track
-      if (videoTrackRef.current && localVideoTrack) {
-        // Re-enable existing track
-        const updatedTrack: VideoTrack = {
-          ...localVideoTrack,
-          enabled: true,
-        };
-
-        setLocalVideoTrack(updatedTrack);
-        await publishVideo(updatedTrack);
-        setCameraEnabled(true);
-        logger.info('Camera re-enabled successfully');
+      // Check if we already have a track and it's enabled
+      if (videoTrackRef.current && localVideoTrack && cameraEnabled) {
+        logger.debug('Camera already enabled');
         return;
       }
 
-      // Create new video track through provider
-      // TODO: Implement provider-specific video track creation
-      const track: VideoTrack = {
-        id: `video-${Date.now()}`,
-        kind: 'video',
-        enabled: true,
-        muted: false,
-        source: 'camera',
-      };
+      // Create new video track through provider's video controller
+      const track = await provider.enableVideo();
 
       setLocalVideoTrack(track);
-      await publishVideo(track);
       setCameraEnabled(true);
+      videoTrackRef.current = track;
 
       logger.info('Camera enabled successfully');
     } catch (error) {
@@ -70,29 +54,26 @@ export const useProviderVideoCamera = (): UseProviderVideoCameraReturn => {
       setCameraError(errorMessage);
       throw error;
     }
-  }, [provider, localVideoTrack, publishVideo]);
+  }, [provider, localVideoTrack, cameraEnabled]);
 
   const disableCamera = useCallback(async () => {
     try {
       logger.info('Disabling camera through provider');
 
-      if (localVideoTrack) {
-        await unpublishVideo();
-
-        const updatedTrack: VideoTrack = {
-          ...localVideoTrack,
-          enabled: false,
-        };
-        setLocalVideoTrack(updatedTrack);
+      if (provider && cameraEnabled) {
+        await provider.disableVideo();
       }
 
       setCameraEnabled(false);
+      setLocalVideoTrack(null);
+      videoTrackRef.current = null;
+
       logger.info('Camera disabled successfully');
     } catch (error) {
       logger.error('Failed to disable camera', { error });
       throw error;
     }
-  }, [localVideoTrack, unpublishVideo]);
+  }, [provider, cameraEnabled]);
 
   const toggleCamera = useCallback(async () => {
     try {
@@ -111,12 +92,9 @@ export const useProviderVideoCamera = (): UseProviderVideoCameraReturn => {
     try {
       logger.info('Cleaning up video camera');
 
-      if (cameraEnabled && localVideoTrack) {
-        await unpublishVideo();
+      if (provider && cameraEnabled) {
+        await provider.disableVideo();
       }
-
-      // Stop and close the video track
-      // TODO: Implement provider-specific track cleanup
 
       setCameraEnabled(false);
       setLocalVideoTrack(null);
@@ -127,7 +105,7 @@ export const useProviderVideoCamera = (): UseProviderVideoCameraReturn => {
     } catch (error) {
       logger.error('Failed to cleanup video camera', { error });
     }
-  }, [cameraEnabled, localVideoTrack, unpublishVideo]);
+  }, [provider, cameraEnabled]);
 
   return {
     cameraEnabled,

@@ -103,7 +103,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   });
 
   // Listen for received messages from the provider
-  const { onMessageReceived, onSystemMessage, onChatMessage, onCommand } = useStreamingContext();
+  const { onSystemMessage, onChatMessage, onCommand } = useStreamingContext();
 
   // Handle mouse down on resize handle
   const handleMouseDown = useCallback(
@@ -189,15 +189,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [onSystemMessageCallback, addSystemMessage]);
 
-  // Listen for received messages from the provider
-  useEffect(() => {
-    const unsubscribe = onMessageReceived((message) => {
-      // Convert ChatMessage to Message format and add to state
-      addChatMessage(message.id, message.content, MessageSender.AVATAR);
-    });
-
-    return unsubscribe;
-  }, [onMessageReceived, addChatMessage]);
+  // Note: onMessageReceived is handled by onChatMessage below to avoid duplicates
 
   // Listen for system messages from the provider
   useEffect(() => {
@@ -256,13 +248,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const toggleMicInternal = async () => {
     if (toggleMic) {
-      await toggleMic();
-      // Add system message for user audio state change
+      // Add system message for user audio state change (before toggle)
       if (micEnabled) {
         addSystemMessage(`mic_${Date.now()}`, '🔇 User microphone disabled', SystemEventType.MIC_END);
       } else {
         addSystemMessage(`mic_${Date.now()}`, '🎤 User microphone enabled', SystemEventType.MIC_START);
       }
+      await toggleMic();
       return;
     }
 
@@ -280,7 +272,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (!connected) return;
 
     try {
-      // Add system message for video state change
+      // Add system message for video state change (before toggle)
       if (cameraEnabled) {
         addSystemMessage(`camera_${Date.now()}`, '📷 User camera disabled', SystemEventType.CAMERA_END);
       } else {

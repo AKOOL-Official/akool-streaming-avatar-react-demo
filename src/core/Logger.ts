@@ -84,7 +84,7 @@ export class NoOpLogOutput implements LogOutput {
 
 export class Logger {
   private static instance: Logger;
-  private logLevel: LogLevel = parseInt(import.meta.env.VITE_LOG_LEVEL) || LogLevel.INFO;
+  private logLevel: LogLevel = this.parseLogLevel(import.meta.env.VITE_LOG_LEVEL) || LogLevel.INFO;
   private outputs: LogOutput[] = [];
   private memoryOutput?: MemoryLogOutput;
 
@@ -103,6 +103,32 @@ export class Logger {
     // Add console output in development
     if (process.env.NODE_ENV === 'development') {
       this.outputs.push(new ConsoleLogOutput());
+    }
+  }
+
+  private parseLogLevel(levelString?: string): LogLevel | null {
+    if (!levelString) return null;
+
+    const normalizedLevel = levelString.toLowerCase().trim();
+
+    switch (normalizedLevel) {
+      case 'debug':
+        return LogLevel.DEBUG;
+      case 'info':
+        return LogLevel.INFO;
+      case 'warn':
+      case 'warning':
+        return LogLevel.WARN;
+      case 'error':
+        return LogLevel.ERROR;
+      default: {
+        // Try to parse as number for backward compatibility
+        const numericLevel = parseInt(levelString);
+        if (!isNaN(numericLevel) && numericLevel >= 0 && numericLevel <= 3) {
+          return numericLevel as LogLevel;
+        }
+        return null;
+      }
     }
   }
 

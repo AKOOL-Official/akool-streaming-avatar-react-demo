@@ -129,16 +129,16 @@
     left: 10px;
     max-width: none;
   }
-  
+
   .notification {
     margin-bottom: 8px;
     padding: 12px;
   }
-  
+
   .notification__title {
     font-size: 13px;
   }
-  
+
   .notification__message {
     font-size: 12px;
   }

@@ -18,6 +18,15 @@ export interface AudioTrack {
   volume: number;
 }
 
+export interface VideoConfig {
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  bitrate?: number;
+  facingMode?: 'user' | 'environment';
+  deviceId?: string;
+}
+
 export interface Participant {
   id: string;
   displayName?: string;

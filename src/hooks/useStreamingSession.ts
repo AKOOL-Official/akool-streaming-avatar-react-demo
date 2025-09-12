@@ -317,6 +317,13 @@ export const useStreamingSession = ({
     }
   }, [state.connected, setAvatarParams]);
 
+  // Re-send avatar params when parameters change (if connected)
+  useEffect(() => {
+    if (state.connected && initialParamsSentRef.current) {
+      setAvatarParams(true); // Force update when params change
+    }
+  }, [voiceId, voiceUrl, language, modeType, backgroundUrl, voiceParams, state.connected, setAvatarParams]);
+
   return {
     // State
     ...state,

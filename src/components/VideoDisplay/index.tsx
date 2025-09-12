@@ -3,6 +3,7 @@ import { VideoTrack } from '../../types/streaming.types';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
 import { useRemoteVideoState } from '../../hooks/useRemoteVideoState';
 import './styles.css';
+import { logger } from '../../core';
 
 interface VideoDisplayProps {
   isJoined: boolean;
@@ -15,7 +16,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   const localVideoRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isAvatarSpeaking } = useStreamingContext();
+  const { isAvatarSpeaking, provider } = useStreamingContext();
 
   // State for dragging, resizing, and view switching
   const [isDragging, setIsDragging] = useState(false);
@@ -240,11 +241,12 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
 
   // Handle local video track playback based on view switching
   useEffect(() => {
-    if (localVideoTrack && cameraEnabled) {
+    if (localVideoTrack && cameraEnabled && provider) {
       try {
         // Always stop the track first to avoid conflicts
-        // TODO: Implement provider-agnostic video track stop
-        // localVideoTrack.stop();
+        provider.stopVideo().catch((error) => {
+          logger.error('Failed to stop video track:', { error });
+        });
 
         // Add a small delay to ensure the stop operation completes
         setTimeout(() => {
@@ -252,38 +254,41 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
             if (!isViewSwitched) {
               // Normal mode, local video in overlay
               if (localVideoRef.current) {
-                // TODO: Implement provider-agnostic video track play
-                // localVideoTrack.play(localVideoRef.current);
+                provider.playVideo(localVideoRef.current.id).catch((error) => {
+                  logger.error('Failed to play local video track in overlay:', { error });
+                });
               }
             } else {
               // When switched, local video goes to a main video element
               const mainLocalVideo = document.getElementById('main-local-video');
               if (mainLocalVideo) {
-                // TODO: Implement provider-agnostic video track play
-                // localVideoTrack.play(mainLocalVideo);
+                provider.playVideo('main-local-video').catch((error) => {
+                  logger.error('Failed to play local video track in main view:', { error });
+                });
               }
             }
           } catch (error) {
-            console.error('Failed to play local video track after delay:', error);
+            logger.error('Failed to play local video track after delay:', { error });
           }
         }, 50);
       } catch (error) {
-        console.error('Failed to stop local video track:', error);
+        logger.error('Failed to stop local video track:', { error });
       }
     }
 
     // Cleanup when track is removed, camera is disabled, or component unmounts
     return () => {
-      if (localVideoTrack) {
+      if (provider) {
         try {
-          // TODO: Implement provider-agnostic video track stop
-          // localVideoTrack.stop();
+          provider.stopVideo().catch((error) => {
+            logger.error('Failed to stop local video track in cleanup:', { error });
+          });
         } catch (error) {
-          console.error('Failed to stop local video track in cleanup:', error);
+          logger.error('Failed to stop local video track in cleanup:', { error });
         }
       }
     };
-  }, [localVideoTrack, cameraEnabled, isViewSwitched]);
+  }, [localVideoTrack, cameraEnabled, isViewSwitched, provider]);
 
   // Additional cleanup when camera is disabled
   useEffect(() => {
@@ -292,7 +297,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
         // TODO: Implement provider-agnostic video track stop
         // localVideoTrack.stop();
       } catch (error) {
-        console.error('Failed to stop video track when camera disabled:', error);
+        logger.error('Failed to stop video track when camera disabled:', { error });
       }
     }
   }, [cameraEnabled, localVideoTrack]);
@@ -462,7 +467,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
             title="Drag to resize"
           />
 
-          <div ref={localVideoRef} className="local-video-container">
+          <div ref={localVideoRef} id="local-video-overlay" className="local-video-container">
             {isViewSwitched && (
               // When switched, show avatar in the overlay
               <>

@@ -2,6 +2,7 @@ import {
   StreamingState,
   VideoTrack,
   AudioTrack,
+  VideoConfig,
   ChatMessage,
   Participant,
   ConnectionQuality,
@@ -62,6 +63,10 @@ export interface StreamingProvider {
   disconnect(): Promise<void>;
 
   // Media management
+  enableVideo(config?: VideoConfig): Promise<VideoTrack>;
+  disableVideo(): Promise<void>;
+  playVideo(elementId: string): Promise<void>;
+  stopVideo(): Promise<void>;
   publishVideo(track: VideoTrack): Promise<void>;
   unpublishVideo(): Promise<void>;
   publishAudio(track: AudioTrack): Promise<void>;

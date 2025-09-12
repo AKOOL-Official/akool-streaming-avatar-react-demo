@@ -93,26 +93,29 @@ const App: React.FC = () => {
     providerType,
   });
 
-  // Auto-cleanup media devices when streaming stops
+  // Auto-cleanup media devices when streaming stops or component unmounts
   useEffect(() => {
     if (!connected) {
       // Cleanup both audio and video when streaming stops
-      if (micEnabled) {
-        cleanupAudio();
-      }
-      if (cameraEnabled) {
-        cleanupCamera();
-      }
-    }
-  }, [connected, micEnabled, cameraEnabled, cleanupAudio, cleanupCamera]);
-
-  // Cleanup on component unmount
-  useEffect(() => {
-    return () => {
       cleanupAudio();
       cleanupCamera();
+    }
+  }, [connected, cleanupAudio, cleanupCamera]);
+
+  // Cleanup on component unmount only
+  const cleanupAudioRef = useRef(cleanupAudio);
+  const cleanupCameraRef = useRef(cleanupCamera);
+
+  // Update refs when cleanup functions change
+  cleanupAudioRef.current = cleanupAudio;
+  cleanupCameraRef.current = cleanupCamera;
+
+  useEffect(() => {
+    return () => {
+      cleanupAudioRef.current();
+      cleanupCameraRef.current();
     };
-  }, [cleanupAudio, cleanupCamera]);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   // Handle provider selection
   const handleProviderChange = async (newProviderType: StreamProviderType) => {
