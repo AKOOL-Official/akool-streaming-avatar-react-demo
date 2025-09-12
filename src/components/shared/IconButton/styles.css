@@ -1,0 +1,165 @@
+/* Base icon button styles */
+.icon-button {
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
+.icon-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.icon-button:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  border-color: #e0e0e0;
+}
+
+.icon-button.disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  border-color: #e0e0e0;
+}
+
+.icon-button .material-icons {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Loading state */
+.icon-button.loading {
+  pointer-events: none;
+}
+
+.icon-button.loading .material-icons {
+  animation: spin 1s linear infinite;
+}
+
+/* Error variant */
+.icon-button.error {
+  background-color: #ffebee;
+  color: #d32f2f;
+  border-color: #ffcdd2;
+}
+
+.icon-button.error:hover:not(:disabled) {
+  background-color: #ffcdd2;
+}
+
+/* Noise reduction variant */
+.icon-button.noise-reduction {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  color: #7b1fa2;
+  border: 1px solid #ce93d8;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(123, 31, 162, 0.1);
+}
+
+.icon-button.noise-reduction:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e1bee7, #ce93d8);
+  color: #6a1b9a;
+  border-color: #ba68c8;
+  box-shadow: 0 4px 8px rgba(123, 31, 162, 0.2);
+  transform: translateY(-1px);
+}
+
+.icon-button.noise-reduction.active {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  color: #2e7d32;
+  border-color: #4caf50;
+  box-shadow: 0 3px 6px rgba(46, 125, 50, 0.2);
+}
+
+.icon-button.noise-reduction.active:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+  color: #1b5e20;
+  border-color: #388e3c;
+  box-shadow: 0 5px 10px rgba(46, 125, 50, 0.3);
+  transform: translateY(-1px);
+}
+
+.icon-button.noise-reduction:disabled {
+  background: linear-gradient(135deg, #f5f5f5, #eeeeee);
+  color: #bdbdbd;
+  border-color: #e0e0e0;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Audio dump variant */
+.icon-button.audio-dump {
+  background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+  color: #ef6c00;
+  border: 1px solid #ffb74d;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(239, 108, 0, 0.1);
+}
+
+.icon-button.audio-dump:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+  color: #e65100;
+  border-color: #ff9800;
+  box-shadow: 0 4px 8px rgba(239, 108, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+.icon-button.audio-dump.active {
+  background: linear-gradient(135deg, #fff8e1, #ffecb3);
+  color: #f57c00;
+  border-color: #ffa726;
+  box-shadow: 0 3px 6px rgba(245, 124, 0, 0.3);
+  animation: dumpPulse 1.2s ease-in-out infinite;
+}
+
+.icon-button.audio-dump:disabled {
+  background: linear-gradient(135deg, #f5f5f5, #eeeeee);
+  color: #bdbdbd;
+  border-color: #e0e0e0;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Animations */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dumpPulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 3px 6px rgba(245, 124, 0, 0.3);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+    box-shadow: 0 5px 12px rgba(245, 124, 0, 0.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 3px 6px rgba(245, 124, 0, 0.3);
+  }
+}
