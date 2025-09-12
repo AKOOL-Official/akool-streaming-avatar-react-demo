@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { VideoTrack } from '../../types/streaming.types';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
 import { useRemoteVideoState } from '../../hooks/useRemoteVideoState';
+import { MainVideoArea } from './MainVideoArea';
+import { VideoOverlay } from './VideoOverlay';
 import './styles.css';
 import { logger } from '../../core';
 
@@ -13,18 +15,11 @@ interface VideoDisplayProps {
 }
 
 const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, localVideoTrack, cameraEnabled }) => {
-  const localVideoRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { isAvatarSpeaking, provider } = useStreamingContext();
 
-  // State for dragging, resizing, and view switching
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
+  // State for view switching
   const [isViewSwitched, setIsViewSwitched] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const [justFinishedOperation, setJustFinishedOperation] = useState(false);
 
   // Remote video state management
   const { isRemoteVideoPlaying } = useRemoteVideoState({
@@ -40,204 +35,10 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
   };
 
-  // Render placeholder for empty avatar URL
-  const renderEmptyPlaceholder = () => (
-    <div
-      className="empty-placeholder"
-      style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#1a1a1a',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        color: '#666',
-        fontSize: '16px',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 1,
-      }}
-    >
-      <div style={{ marginBottom: '15px', fontSize: '48px' }}>🤖</div>
-      <div style={{ textAlign: 'center', fontWeight: '500', lineHeight: '1.4' }}>No image or video for avatar</div>
-    </div>
-  );
-
-  // Render loading placeholder
-  const renderLoadingPlaceholder = () => (
-    <div
-      className="loading-placeholder"
-      style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(26, 26, 26, 0.9)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        color: '#666',
-        fontSize: '16px',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 2,
-      }}
-    >
-      <div style={{ marginBottom: '15px', fontSize: '32px' }}>⏳</div>
-      <div
-        className="loading-spinner"
-        style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid #333',
-          borderTop: '3px solid #007bff',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          marginBottom: '15px',
-        }}
-      ></div>
-      <div style={{ fontWeight: '500' }}>Loading avatar...</div>
-    </div>
-  );
-
-  // Render error placeholder
-  const renderErrorPlaceholder = () => (
-    <div
-      className="error-placeholder"
-      style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#1a1a1a',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        color: '#ff6b6b',
-        fontSize: '16px',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 1,
-      }}
-    >
-      <div style={{ marginBottom: '15px', fontSize: '48px' }}>⚠️</div>
-      <div style={{ textAlign: 'center', fontWeight: '500', lineHeight: '1.4' }}>Failed to load avatar</div>
-    </div>
-  );
-
-  // Drag handlers
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if (!overlayRef.current || !containerRef.current) return;
-
-    const overlay = overlayRef.current;
-    const overlayRect = overlay.getBoundingClientRect();
-
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - overlayRect.left,
-      y: e.clientY - overlayRect.top,
-    });
-
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  // Resize handlers
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    if (!overlayRef.current || !containerRef.current) return;
-
-    const overlay = overlayRef.current;
-
-    setIsResizing(true);
-    setResizeStart({
-      x: e.clientX,
-      y: e.clientY,
-      width: overlay.offsetWidth,
-      height: overlay.offsetHeight,
-    });
-
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!overlayRef.current || !containerRef.current) return;
-
-      const container = containerRef.current;
-      const overlay = overlayRef.current;
-      const containerRect = container.getBoundingClientRect();
-
-      if (isDragging) {
-        const newX = e.clientX - containerRect.left - dragOffset.x;
-        const newY = e.clientY - containerRect.top - dragOffset.y;
-
-        // Constrain within container bounds
-        const maxX = container.offsetWidth - overlay.offsetWidth;
-        const maxY = container.offsetHeight - overlay.offsetHeight;
-
-        const constrainedX = Math.max(0, Math.min(newX, maxX));
-        const constrainedY = Math.max(0, Math.min(newY, maxY));
-
-        overlay.style.left = `${constrainedX}px`;
-        overlay.style.top = `${constrainedY}px`;
-        overlay.style.right = 'auto';
-        overlay.style.bottom = 'auto';
-      } else if (isResizing) {
-        const deltaX = e.clientX - resizeStart.x;
-        const deltaY = e.clientY - resizeStart.y;
-
-        const newWidth = Math.max(160, Math.min(resizeStart.width + deltaX, container.offsetWidth * 0.5));
-        const newHeight = Math.max(120, Math.min(resizeStart.height + deltaY, container.offsetHeight * 0.5));
-
-        overlay.style.width = `${newWidth}px`;
-        overlay.style.height = `${newHeight}px`;
-      }
-    },
-    [isDragging, isResizing, dragOffset, resizeStart],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    const wasDraggingOrResizing = isDragging || isResizing;
-
-    setIsDragging(false);
-    setIsResizing(false);
-
-    // If we were dragging or resizing, prevent click events for a short time
-    if (wasDraggingOrResizing) {
-      setJustFinishedOperation(true);
-      setTimeout(() => setJustFinishedOperation(false), 100);
-    }
-  }, [isDragging, isResizing]);
-
   // View switching handler
-  const handleViewSwitch = useCallback(
-    (e: React.MouseEvent) => {
-      // Prevent switching if we just finished a drag or resize operation
-      if (justFinishedOperation || isDragging || isResizing) {
-        e.preventDefault();
-        return;
-      }
-
-      setIsViewSwitched(!isViewSwitched);
-    },
-    [isViewSwitched, justFinishedOperation, isDragging, isResizing],
-  );
-
-  // Handle mouse events for dragging and resizing
-  useEffect(() => {
-    if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
+  const handleViewSwitch = useCallback(() => {
+    setIsViewSwitched(!isViewSwitched);
+  }, [isViewSwitched]);
 
   // Handle local video track playback based on view switching
   useEffect(() => {
@@ -253,8 +54,9 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
           try {
             if (!isViewSwitched) {
               // Normal mode, local video in overlay
-              if (localVideoRef.current) {
-                provider.playVideo(localVideoRef.current.id).catch((error) => {
+              const localVideoRef = document.getElementById('local-video-overlay');
+              if (localVideoRef) {
+                provider.playVideo(localVideoRef.id).catch((error) => {
                   logger.error('Failed to play local video track in overlay:', { error });
                 });
               }
@@ -346,175 +148,25 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
 
   return (
     <div ref={containerRef} className="video-container">
-      {/* Main video area - shows avatar or local camera based on switch state */}
-      {!isViewSwitched ? (
-        <>
-          {/* Remote video - positioned above everything else */}
-          <video
-            id="remote-video"
-            style={{
-              display: isRemoteVideoPlaying ? 'block' : 'none',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              zIndex: 10,
-              backgroundColor: '#000',
-            }}
-            playsInline
-            muted
-          ></video>
+      <MainVideoArea
+        isViewSwitched={isViewSwitched}
+        isRemoteVideoPlaying={isRemoteVideoPlaying}
+        isAvatarSpeaking={isAvatarSpeaking}
+        avatarVideoUrl={avatarVideoUrl}
+        isPlaceholderVideoLoading={isPlaceholderVideoLoading}
+        placeholderVideoError={placeholderVideoError}
+      />
 
-          {/* Avatar content with placeholders - positioned below remote video */}
-          <div style={{ width: '100%', height: '100%', position: 'relative', zIndex: 1 }}>
-            {!avatarVideoUrl ? (
-              // Show empty placeholder when no URL
-              <div hidden={isRemoteVideoPlaying}>{renderEmptyPlaceholder()}</div>
-            ) : placeholderVideoError ? (
-              // Show error placeholder when video failed to load
-              <div hidden={isRemoteVideoPlaying}>{renderErrorPlaceholder()}</div>
-            ) : isImageUrl(avatarVideoUrl) ? (
-              // Show image
-              <img
-                id="placeholder-image"
-                hidden={isRemoteVideoPlaying}
-                src={avatarVideoUrl}
-                alt="Avatar placeholder"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            ) : (
-              // Show video with loading placeholder
-              <>
-                <video
-                  id="placeholder-video"
-                  hidden={isRemoteVideoPlaying}
-                  src={avatarVideoUrl}
-                  loop
-                  muted
-                  playsInline
-                  autoPlay
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                ></video>
-                {isPlaceholderVideoLoading && !isRemoteVideoPlaying && renderLoadingPlaceholder()}
-              </>
-            )}
-          </div>
-
-          {/* Speaking indicator overlay */}
-          {isAvatarSpeaking && (
-            <div className="speaking-indicator">
-              <div className="speaking-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <span className="speaking-text">Speaking...</span>
-            </div>
-          )}
-        </>
-      ) : (
-        // When switched, show local camera in main area
-        <>
-          {/* Remote video - positioned above everything else */}
-          <video
-            id="remote-video"
-            style={{
-              display: 'none',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              zIndex: 10,
-              backgroundColor: '#000',
-            }}
-            playsInline
-            muted
-          ></video>
-
-          <div
-            id="main-local-video"
-            style={{ width: '100%', height: '100%', background: '#000', position: 'relative', zIndex: 1 }}
-          >
-            {/* Local video will be played here via effect */}
-          </div>
-        </>
-      )}
-
-      {/* Local camera preview overlay - shows avatar when switched */}
       {cameraEnabled && localVideoTrack && (
-        <div
-          ref={overlayRef}
-          className={`local-video-overlay ${isDragging ? 'dragging' : ''} ${isResizing ? 'resizing' : ''} ${isViewSwitched ? 'switching' : ''}`}
-          onClick={handleViewSwitch}
-        >
-          {/* Custom drag handle */}
-          <div
-            className="drag-handle"
-            onMouseDown={handleDragStart}
-            onClick={(e) => e.stopPropagation()}
-            title="Drag to move"
-          />
-
-          {/* Custom resize handle */}
-          <div
-            className="resize-handle"
-            onMouseDown={handleResizeStart}
-            onClick={(e) => e.stopPropagation()}
-            title="Drag to resize"
-          />
-
-          <div ref={localVideoRef} id="local-video-overlay" className="local-video-container">
-            {isViewSwitched && (
-              // When switched, show avatar in the overlay
-              <>
-                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                  {!avatarVideoUrl ? (
-                    // Show empty placeholder when no URL
-                    renderEmptyPlaceholder()
-                  ) : placeholderVideoError ? (
-                    // Show error placeholder when video failed to load
-                    renderErrorPlaceholder()
-                  ) : isImageUrl(avatarVideoUrl) ? (
-                    // Show image
-                    <img
-                      src={avatarVideoUrl}
-                      alt="Avatar"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                    />
-                  ) : (
-                    // Show video with loading placeholder
-                    <>
-                      <video
-                        src={avatarVideoUrl}
-                        loop
-                        muted
-                        playsInline
-                        autoPlay
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      ></video>
-                      {isPlaceholderVideoLoading && renderLoadingPlaceholder()}
-                    </>
-                  )}
-                </div>
-                <div
-                  id="remote-video-overlay"
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    display: isRemoteVideoPlaying ? 'block' : 'none',
-                  }}
-                ></div>
-              </>
-            )}
-          </div>
-        </div>
+        <VideoOverlay
+          isViewSwitched={isViewSwitched}
+          isRemoteVideoPlaying={isRemoteVideoPlaying}
+          avatarVideoUrl={avatarVideoUrl}
+          isPlaceholderVideoLoading={isPlaceholderVideoLoading}
+          placeholderVideoError={placeholderVideoError}
+          onViewSwitch={handleViewSwitch}
+          containerRef={containerRef}
+        />
       )}
     </div>
   );

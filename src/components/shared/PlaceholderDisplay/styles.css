@@ -1,0 +1,64 @@
+/* Placeholder Display Component */
+.placeholder-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: #1a1a1a;
+  color: #666;
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.placeholder-icon {
+  margin-bottom: 15px;
+  line-height: 1;
+}
+
+.placeholder-message {
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Loading specific styles */
+.placeholder-loading {
+  background-color: rgba(26, 26, 26, 0.9);
+  z-index: 2;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #333;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+/* Error specific styles */
+.placeholder-error {
+  color: #ff6b6b;
+}
+
+/* Empty specific styles */
+.placeholder-empty {
+  color: #666;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

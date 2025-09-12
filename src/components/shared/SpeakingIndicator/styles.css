@@ -1,0 +1,71 @@
+/* Speaking Indicator Component */
+.speaking-indicator {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 20;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.speaking-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.speaking-dots span {
+  width: 6px;
+  height: 6px;
+  background: #4caf50;
+  border-radius: 50%;
+  animation: speakingPulse 1.4s ease-in-out infinite both;
+}
+
+.speaking-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.speaking-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.speaking-dots span:nth-child(3) {
+  animation-delay: 0s;
+}
+
+.speaking-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4caf50;
+}
+
+@keyframes speakingPulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
