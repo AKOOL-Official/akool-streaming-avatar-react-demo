@@ -64,10 +64,15 @@ export type SessionOptions = {
 export class ApiService {
   private openapiHost: string;
   private openapiToken: string;
+  private notificationCallback?: (message: string, title?: string) => void;
 
   constructor(openapiHost: string, openapiToken: string) {
     this.openapiHost = openapiHost;
     this.openapiToken = openapiToken;
+  }
+
+  setNotificationCallback(callback: (message: string, title?: string) => void): void {
+    this.notificationCallback = callback;
   }
 
   private async fetchApi(endpoint: string, method: string, body?: object) {
@@ -81,7 +86,9 @@ export class ApiService {
     });
     const responseBody = await response.json();
     if (responseBody.code != 1000) {
-      alert(responseBody.msg);
+      if (this.notificationCallback) {
+        this.notificationCallback(responseBody.msg, 'API Error');
+      }
       throw new Error(responseBody.msg);
     }
     return responseBody.data;

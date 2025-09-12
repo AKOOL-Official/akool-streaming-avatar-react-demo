@@ -1,6 +1,7 @@
 import React from 'react';
 import { StreamProviderType } from '../../types/streaming.types';
 import { useStreamingContext } from '../../contexts/StreamingContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { logger } from '../../core/Logger';
 import './styles.css';
 
@@ -35,6 +36,7 @@ interface ProviderSelectorProps {
 
 export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ disabled = false, onProviderChange }) => {
   const { providerType, isLoading } = useStreamingContext();
+  const { showWarning, showError } = useNotifications();
 
   const handleProviderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedType = event.target.value as StreamProviderType;
@@ -46,7 +48,10 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ disabled = f
     const selectedProvider = PROVIDER_OPTIONS.find((p) => p.type === selectedType);
 
     if (!selectedProvider?.available) {
-      alert(`${selectedProvider?.name} is not yet implemented. Only Agora is currently available.`);
+      showWarning(
+        `${selectedProvider?.name} is not yet implemented. Only Agora is currently available.`,
+        'Provider Not Available',
+      );
       // Reset to current provider
       event.target.value = providerType;
       return;
@@ -57,8 +62,9 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ disabled = f
       onProviderChange?.(selectedType);
     } catch (error) {
       logger.error('Failed to switch provider', { error, selectedType });
-      alert(
+      showError(
         `Failed to switch to ${selectedProvider?.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'Provider Switch Failed',
       );
     }
   };

@@ -7,8 +7,10 @@ import ConfigurationPanel from './components/ConfigurationPanel';
 import NetworkQualityDisplay, { NetworkStats } from './components/NetworkQuality';
 import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
+import { NotificationContainer } from './components/NotificationContainer';
 
 import { useStreamingContext } from './contexts/StreamingContext';
+import { useNotifications } from './contexts/NotificationContext';
 import { useProviderAudioControls } from './hooks/useProviderAudioControls';
 import { useStreamingSession } from './hooks/useStreamingSession';
 import { useProviderVideoCamera } from './hooks/useProviderVideoCamera';
@@ -16,6 +18,9 @@ import { useProviderVideoCamera } from './hooks/useProviderVideoCamera';
 const App: React.FC = () => {
   // Provider context
   const { providerType } = useStreamingContext();
+
+  // Notifications
+  const { showError } = useNotifications();
 
   // Media controls (now provider-agnostic)
   const {
@@ -54,9 +59,14 @@ const App: React.FC = () => {
   // Initialize API service
   useEffect(() => {
     if (openapiHost && openapiToken) {
-      setApi(new ApiService(openapiHost, openapiToken));
+      const apiService = new ApiService(openapiHost, openapiToken);
+      // Set up notification callback for API errors
+      apiService.setNotificationCallback((message, title) => {
+        showError(message, title);
+      });
+      setApi(apiService);
     }
-  }, [openapiHost, openapiToken]);
+  }, [openapiHost, openapiToken, showError]);
 
   // Camera controls (now provider-agnostic)
   const {
@@ -185,6 +195,8 @@ const App: React.FC = () => {
           </div>
         ) : null}
       </div>
+
+      <NotificationContainer />
     </>
   );
 };
