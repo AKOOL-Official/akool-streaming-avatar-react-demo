@@ -3,15 +3,10 @@
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;
 }
 
-.main-video-area.normal {
-  /* Normal mode styles */
-}
-
-.main-video-area.switched {
-  /* Switched mode styles */
-}
+/* Normal and switched modes use default styles */
 
 /* Remote video styles */
 #remote-video {
@@ -23,6 +18,13 @@
   object-fit: contain;
   z-index: 10;
   background: #000;
+  transition: opacity 0.3s ease-in-out;
+  opacity: 1;
+}
+
+#remote-video.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Avatar content styles */
@@ -33,11 +35,28 @@
   z-index: 1;
 }
 
+.avatar-content .placeholder-content {
+  transition: opacity 0.3s ease-in-out;
+  opacity: 1;
+}
+
+.avatar-content .placeholder-content.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 #placeholder-video,
 #placeholder-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transition: opacity 0.3s ease-in-out;
+}
+
+#placeholder-video.hidden,
+#placeholder-image.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Main local video when views are switched */

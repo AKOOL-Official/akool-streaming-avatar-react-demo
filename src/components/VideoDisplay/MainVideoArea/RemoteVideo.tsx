@@ -10,9 +10,8 @@ export const RemoteVideo: React.FC<RemoteVideoProps> = ({ isVisible, className =
   return (
     <video
       id="remote-video"
-      className={className}
+      className={`${className} ${!isVisible ? 'hidden' : ''}`}
       style={{
-        display: isVisible ? 'block' : 'none',
         position: 'absolute',
         top: 0,
         left: 0,

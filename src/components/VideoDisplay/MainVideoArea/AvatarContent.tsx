@@ -36,13 +36,13 @@ export const AvatarContent: React.FC<AvatarContentProps> = ({
       style={{ width: '100%', height: '100%', position: 'relative', zIndex: 1, ...style }}
     >
       {placeholderType ? (
-        <div hidden={isRemoteVideoPlaying}>
+        <div className={`placeholder-content ${isRemoteVideoPlaying ? 'hidden' : ''}`}>
           <PlaceholderDisplay type={placeholderType} />
         </div>
       ) : isImageUrl(avatarVideoUrl) ? (
         <img
           id="placeholder-image"
-          hidden={isRemoteVideoPlaying}
+          className={isRemoteVideoPlaying ? 'hidden' : ''}
           src={avatarVideoUrl}
           alt="Avatar placeholder"
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
@@ -51,7 +51,7 @@ export const AvatarContent: React.FC<AvatarContentProps> = ({
         <>
           <video
             id="placeholder-video"
-            hidden={isRemoteVideoPlaying}
+            className={isRemoteVideoPlaying ? 'hidden' : ''}
             src={avatarVideoUrl}
             loop
             muted
