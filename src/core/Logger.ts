@@ -170,7 +170,13 @@ export class Logger {
           const line = lines[i];
           if (line && !line.includes('Logger.ts') && !line.includes('logger.ts')) {
             const match = line.match(/\/([^/]+):\d+:\d+/);
-            return match ? match[1] : 'unknown';
+            if (match) {
+              // Remove query parameters (e.g., ?t=1757646098104) from filename
+              const filename = match[1];
+              const cleanFilename = filename.split('?')[0];
+              return cleanFilename;
+            }
+            return 'unknown';
           }
         }
       }
