@@ -87,8 +87,12 @@ export class AgoraAudioController {
 
       const trackId = this.currentTrack.getTrackId();
 
-      // Unpublish the track
-      await this.client.unpublish(this.currentTrack);
+      // Only unpublish if client is connected to channel
+      if (this.client.connectionState === 'CONNECTED') {
+        await this.client.unpublish(this.currentTrack);
+      } else {
+        logger.debug('Client not connected, skipping unpublish for audio track');
+      }
 
       // Stop and close the track
       this.currentTrack.stop();

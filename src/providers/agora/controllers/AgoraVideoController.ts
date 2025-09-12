@@ -175,7 +175,13 @@ export class AgoraVideoController {
         trackId: this.currentTrack.getTrackId(),
       });
 
-      await this.client.unpublish(this.currentTrack);
+      // Only unpublish if client is connected to channel
+      if (this.client.connectionState === 'CONNECTED') {
+        await this.client.unpublish(this.currentTrack);
+      } else {
+        logger.debug('Client not connected, skipping unpublish for video track');
+      }
+
       this.isPublished = false;
 
       logger.info('Video track unpublished successfully');

@@ -196,9 +196,13 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
 
     try {
       await provider.disconnect();
+      // Clear speaking state when disconnecting
+      setIsAvatarSpeaking(false);
     } catch (err) {
       logger.error('Failed to disconnect', { err });
       setError(err as Error);
+      // Clear speaking state even on error
+      setIsAvatarSpeaking(false);
     }
   }, [provider]);
 

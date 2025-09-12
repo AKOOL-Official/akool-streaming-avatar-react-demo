@@ -170,6 +170,9 @@ export class AgoraStreamingProvider implements StreamingProvider {
       this.stopEventListening();
       await this.connectionController.disconnect();
 
+      // Clear speaking state when disconnecting
+      this.eventHandlers.onSpeakingStateChanged?.(false);
+
       this.updateState({
         isJoined: false,
         isConnecting: false,
@@ -184,6 +187,9 @@ export class AgoraStreamingProvider implements StreamingProvider {
       logger.error('Error during Agora provider disconnect', {
         error: error instanceof Error ? error.message : String(error),
       });
+
+      // Clear speaking state even on error
+      this.eventHandlers.onSpeakingStateChanged?.(false);
 
       // Still update state to reflect disconnection
       this.updateState({
@@ -502,6 +508,9 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async cleanup(): Promise<void> {
     try {
       logger.info('Cleaning up Agora streaming provider');
+
+      // Clear speaking state during cleanup
+      this.eventHandlers.onSpeakingStateChanged?.(false);
 
       // Stop event listening
       this.stopEventListening();
