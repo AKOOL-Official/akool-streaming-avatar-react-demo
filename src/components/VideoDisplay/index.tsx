@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { VideoTrack } from '../../types/streaming.types';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
+import { useRemoteVideoState } from '../../hooks/useRemoteVideoState';
 import './styles.css';
-import { logger } from '../../core/Logger';
 
 interface VideoDisplayProps {
   isJoined: boolean;
@@ -25,8 +25,11 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [justFinishedOperation, setJustFinishedOperation] = useState(false);
 
-  // State for remote video playing status
-  const [isRemoteVideoPlaying, setIsRemoteVideoPlaying] = useState(false);
+  // Remote video state management
+  const { isRemoteVideoPlaying } = useRemoteVideoState({
+    isJoined,
+    videoElementId: 'remote-video',
+  });
 
   // State for placeholder video loading
   const [isPlaceholderVideoLoading, setIsPlaceholderVideoLoading] = useState(false);
@@ -294,46 +297,6 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     }
   }, [cameraEnabled, localVideoTrack]);
 
-  // Monitor remote video playing state
-  useEffect(() => {
-    const remoteVideo = document.getElementById('remote-video') as HTMLVideoElement;
-    if (!remoteVideo) return;
-
-    const checkVideoReady = () => {
-      // Only show remote video if it's playing AND has loaded displayable data
-      const isReady = !remoteVideo.paused && remoteVideo.readyState >= 2;
-      setIsRemoteVideoPlaying(isReady);
-      if (isReady) {
-        logger.info('remote video is ready');
-      }
-    };
-
-    const handleStop = () => setIsRemoteVideoPlaying(false);
-
-    // Check when video can start playing with data
-    remoteVideo.addEventListener('canplay', checkVideoReady);
-    remoteVideo.addEventListener('playing', checkVideoReady);
-    remoteVideo.addEventListener('pause', handleStop);
-    remoteVideo.addEventListener('ended', handleStop);
-    remoteVideo.addEventListener('loadstart', handleStop);
-
-    return () => {
-      remoteVideo.removeEventListener('canplay', checkVideoReady);
-      remoteVideo.removeEventListener('playing', checkVideoReady);
-      remoteVideo.removeEventListener('pause', handleStop);
-      remoteVideo.removeEventListener('ended', handleStop);
-      remoteVideo.removeEventListener('loadstart', handleStop);
-    };
-  }, [isJoined]);
-
-  // Reset remote video state when stream disconnects
-  useEffect(() => {
-    if (!isJoined) {
-      setIsRemoteVideoPlaying(false);
-      logger.info('Stream disconnected, switching back to local video');
-    }
-  }, [isJoined]);
-
   // Monitor placeholder video loading state
   useEffect(() => {
     const placeholderVideo = document.getElementById('placeholder-video') as HTMLVideoElement;
@@ -381,8 +344,26 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
       {/* Main video area - shows avatar or local camera based on switch state */}
       {!isViewSwitched ? (
         <>
-          {/* Avatar content with placeholders */}
-          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          {/* Remote video - positioned above everything else */}
+          <video
+            id="remote-video"
+            style={{
+              display: isRemoteVideoPlaying ? 'block' : 'none',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              zIndex: 10,
+              backgroundColor: '#000',
+            }}
+            playsInline
+            muted
+          ></video>
+
+          {/* Avatar content with placeholders - positioned below remote video */}
+          <div style={{ width: '100%', height: '100%', position: 'relative', zIndex: 1 }}>
             {!avatarVideoUrl ? (
               // Show empty placeholder when no URL
               <div hidden={isRemoteVideoPlaying}>{renderEmptyPlaceholder()}</div>
@@ -416,8 +397,6 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
             )}
           </div>
 
-          <video id="remote-video" style={{ display: isRemoteVideoPlaying ? 'block' : 'none' }}></video>
-
           {/* Speaking indicator overlay */}
           {isAvatarSpeaking && (
             <div className="speaking-indicator">
@@ -433,11 +412,30 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
       ) : (
         // When switched, show local camera in main area
         <>
-          <div id="main-local-video" style={{ width: '100%', height: '100%', background: '#000' }}>
+          {/* Remote video - positioned above everything else */}
+          <video
+            id="remote-video"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              zIndex: 10,
+              backgroundColor: '#000',
+            }}
+            playsInline
+            muted
+          ></video>
+
+          <div
+            id="main-local-video"
+            style={{ width: '100%', height: '100%', background: '#000', position: 'relative', zIndex: 1 }}
+          >
             {/* Local video will be played here via effect */}
           </div>
-          {/* Still keep remote video playing in background, even when switched */}
-          <video id="remote-video" style={{ display: 'none' }}></video>
         </>
       )}
 
