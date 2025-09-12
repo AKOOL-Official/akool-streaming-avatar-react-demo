@@ -58,6 +58,9 @@
     "vitest": "^1.6.1"
   },
   "lint-staged": {
+    "*.{css,scss,sass,less,styl}": [
+      "prettier --write"
+    ],
     "*.{ts,tsx}": [
       "prettier --write",
       "eslint --fix"
