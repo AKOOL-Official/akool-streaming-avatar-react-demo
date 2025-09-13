@@ -62,6 +62,9 @@ export interface SessionCredentials {
   // LiveKit-specific
   livekit_url?: string;
   livekit_token?: string;
+  livekit_room_name?: string;
+  livekit_client_identity?: string;
+  livekit_server_identity?: string;
 
   // TRTC-specific
   trtc_sdk_app_id?: number;

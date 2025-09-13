@@ -1,5 +1,5 @@
 import { Room } from 'livekit-client';
-import { LiveKitStreamingProvider } from './LiveKitStreamingProvider';
+import { LiveKitStreamingProvider, LiveKitProviderConfig } from './LiveKitStreamingProvider';
 import { StreamingProvider } from '../../types/provider.interfaces';
 import { logger } from '../../core/Logger';
 
@@ -12,13 +12,29 @@ export function createProvider(): StreamingProvider {
     dynacast: true,
   });
 
-  return new LiveKitStreamingProvider(room);
+  // Create provider config with the room
+  const config: LiveKitProviderConfig = {
+    room,
+  };
+
+  return new LiveKitStreamingProvider(config);
 }
 
 // Export all LiveKit-specific types and classes
 export * from './LiveKitStreamingProvider';
-export * from './types';
+export type {
+  LiveKitCredentials,
+  LiveKitConfig,
+  LiveKitAudioControllerCallbacks,
+  LiveKitVideoControllerCallbacks,
+  LiveKitConnectionControllerCallbacks,
+} from './types';
 export * from './controllers/LiveKitAudioController';
 export * from './controllers/LiveKitVideoController';
 export * from './controllers/LiveKitConnectionController';
+export * from './controllers/LiveKitController';
 export * from './controllers/LiveKitEventHandler';
+
+// Strategies
+export { LiveKitAudioStrategy } from './strategies/LiveKitAudioStrategy';
+export { LiveKitVideoStrategy } from './strategies/LiveKitVideoStrategy';

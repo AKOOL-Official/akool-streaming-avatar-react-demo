@@ -211,6 +211,7 @@ export const useMessageState = ({ connected }: UseMessageStateProps): UseMessage
 
   const addSystemMessage = useCallback(
     (messageId: string, text: string, systemType: SystemEventType, metadata?: Message['metadata']) => {
+      console.log('Adding system message:', { messageId, text, systemType, metadata });
       addMessage(messageId, text, MessageSender.SYSTEM, MessageType.SYSTEM, systemType, metadata);
     },
     [addMessage],

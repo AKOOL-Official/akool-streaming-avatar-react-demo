@@ -134,14 +134,37 @@ export const useStreamingSession = ({
     const session = sessionRef.current;
     const credentials = session.credentials;
 
-    return {
-      // Agora-specific credentials with correct property names
-      agora_app_id: credentials.agora_app_id,
-      agora_channel: credentials.agora_channel,
-      agora_token: credentials.agora_token,
-      agora_uid: credentials.agora_uid,
-    };
-  }, []);
+    // Build credentials based on the provider type
+    switch (providerType) {
+      case 'agora':
+        return {
+          agora_app_id: credentials.agora_app_id,
+          agora_channel: credentials.agora_channel,
+          agora_token: credentials.agora_token,
+          agora_uid: credentials.agora_uid,
+        };
+
+      case 'livekit':
+        return {
+          livekit_url: credentials.livekit_url,
+          livekit_token: credentials.livekit_token,
+          livekit_room_name: credentials.livekit_room_name,
+          livekit_client_identity: credentials.livekit_client_identity,
+          livekit_server_identity: credentials.livekit_server_identity,
+        };
+
+      case 'trtc':
+        return {
+          trtc_sdk_app_id: credentials.trtc_sdk_app_id,
+          trtc_user_id: credentials.trtc_user_id,
+          trtc_user_sig: credentials.trtc_user_sig,
+          trtc_room_id: credentials.trtc_room_id,
+        };
+
+      default:
+        throw new Error(`Unsupported provider type: ${providerType}`);
+    }
+  }, [providerType]);
 
   const startStreaming = useCallback(async () => {
     if (!api) {
@@ -152,7 +175,7 @@ export const useStreamingSession = ({
       setState((prev) => ({ ...prev, connected: false }));
       logger.info('Starting unified streaming', { providerType, avatarId });
 
-      // Create session
+      // Create session with the selected stream type
       const sessionOptions: SessionOptions = {
         avatar_id: avatarId,
         duration: sessionDuration * 60,
@@ -163,6 +186,7 @@ export const useStreamingSession = ({
         mode_type: modeType,
         background_url: backgroundUrl,
         voice_params: voiceParams,
+        stream_type: providerType, // Pass the selected provider type to get appropriate credentials
       };
 
       const session = await api.createSession(sessionOptions);
@@ -170,12 +194,13 @@ export const useStreamingSession = ({
 
       setState((prev) => ({ ...prev, session }));
 
-      // Switch to desired provider if different
+      // Switch to desired provider if different, then connect
       if (currentProviderType !== providerType) {
-        await switchProvider(providerType, buildStreamingCredentials());
-      } else {
-        await connect(buildStreamingCredentials());
+        await switchProvider(providerType);
       }
+
+      // Always connect with the credentials from the session
+      await connect(buildStreamingCredentials());
 
       logger.info('Unified streaming started successfully', { providerType });
     } catch (error) {
@@ -339,7 +364,7 @@ export const useStreamingSession = ({
     // Provider management
     switchProvider: (type: StreamProviderType) => {
       if (sessionRef.current) {
-        return switchProvider(type, buildStreamingCredentials());
+        return switchProvider(type);
       }
       throw new Error('No active session for provider switching');
     },

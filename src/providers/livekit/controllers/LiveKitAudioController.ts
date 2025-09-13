@@ -36,9 +36,7 @@ export class LiveKitAudioController {
 
       const audioTrack = await createLocalAudioTrack(captureOptions);
 
-      // Publish the audio track
-      await this.room.localParticipant.publishTrack(audioTrack);
-
+      // Store the track but don't publish it yet
       this.currentTrack = audioTrack;
       this.isEnabled = true;
 
@@ -49,7 +47,6 @@ export class LiveKitAudioController {
         enabled: audioTrackInfo.enabled,
       });
 
-      this.callbacks.onAudioTrackPublished?.(audioTrackInfo);
       return audioTrackInfo;
     } catch (error) {
       const streamingError =
@@ -81,16 +78,10 @@ export class LiveKitAudioController {
 
       const trackId = this.currentTrack.sid || 'unknown';
 
-      // Unpublish the track if room is connected
-      if (this.room.state === 'connected') {
-        await this.room.localParticipant.unpublishTrack(this.currentTrack);
-      } else {
-        logger.debug('Room not connected, skipping unpublish for audio track');
-      }
-
-      // Stop the track
+      // Stop the track first
       this.currentTrack.stop();
 
+      // Clear references
       this.currentTrack = null;
       this.isEnabled = false;
 
@@ -210,6 +201,15 @@ export class LiveKitAudioController {
         trackId: track.id,
       });
 
+      // Check if track is already published
+      const isPublished = this.room.localParticipant.audioTrackPublications.has(this.currentTrack.sid || '');
+
+      if (isPublished) {
+        logger.debug('Audio track already published, skipping');
+        this.callbacks.onAudioTrackPublished?.(track);
+        return;
+      }
+
       await this.room.localParticipant.publishTrack(this.currentTrack);
 
       logger.info('Audio track published successfully', {
@@ -246,14 +246,15 @@ export class LiveKitAudioController {
 
       logger.info('Unpublishing audio track', { trackId });
 
-      // Only unpublish if room is connected
-      if (this.room.state === 'connected') {
-        await this.room.localParticipant.unpublishTrack(this.currentTrack);
-      } else {
-        logger.debug('Room not connected, skipping unpublish for audio track');
-      }
+      // Check if track is published before trying to unpublish
+      const isPublished = this.room.localParticipant.audioTrackPublications.has(this.currentTrack.sid || '');
 
-      logger.info('Audio track unpublished successfully');
+      if (isPublished && this.room.state === 'connected') {
+        await this.room.localParticipant.unpublishTrack(this.currentTrack);
+        logger.info('Audio track unpublished successfully');
+      } else {
+        logger.debug('Audio track not published or room not connected, skipping unpublish');
+      }
 
       this.callbacks.onAudioTrackUnpublished?.(trackId);
     } catch (error) {

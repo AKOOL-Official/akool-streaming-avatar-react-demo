@@ -35,9 +35,7 @@ export class LiveKitVideoController {
 
       const videoTrack = await createLocalVideoTrack(captureOptions);
 
-      // Publish the video track
-      await this.room.localParticipant.publishTrack(videoTrack);
-
+      // Store the track but don't publish it yet
       this.currentTrack = videoTrack;
       this.isEnabled = true;
 
@@ -48,7 +46,6 @@ export class LiveKitVideoController {
         enabled: videoTrackInfo.enabled,
       });
 
-      this.callbacks.onVideoTrackPublished?.(videoTrackInfo);
       return videoTrackInfo;
     } catch (error) {
       const streamingError =
@@ -80,16 +77,10 @@ export class LiveKitVideoController {
 
       const trackId = this.currentTrack.sid || 'unknown';
 
-      // Unpublish the track if room is connected
-      if (this.room.state === 'connected') {
-        await this.room.localParticipant.unpublishTrack(this.currentTrack);
-      } else {
-        logger.debug('Room not connected, skipping unpublish for video track');
-      }
-
-      // Stop the track
+      // Stop the track first
       this.currentTrack.stop();
 
+      // Clear references
       this.currentTrack = null;
       this.isEnabled = false;
 
@@ -122,17 +113,27 @@ export class LiveKitVideoController {
         throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'No active video track to play');
       }
 
-      const element = document.getElementById(elementId);
-      if (!element) {
-        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, `Video element with id '${elementId}' not found`);
+      const containerElement = document.getElementById(elementId);
+      if (!containerElement) {
+        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, `Container element with id '${elementId}' not found`);
       }
 
-      if (!(element instanceof HTMLVideoElement)) {
-        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, `Element '${elementId}' is not a video element`);
+      // Create a video element if it doesn't exist
+      let videoElement = containerElement.querySelector('video') as HTMLVideoElement;
+
+      if (!videoElement) {
+        videoElement = document.createElement('video');
+        videoElement.autoplay = true;
+        videoElement.muted = true;
+        videoElement.playsInline = true;
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        videoElement.style.objectFit = 'cover';
+        containerElement.appendChild(videoElement);
       }
 
       // Attach the track to the video element
-      this.currentTrack.attach(element);
+      this.currentTrack.attach(videoElement);
 
       logger.debug('Video track attached to element', {
         elementId,
@@ -194,6 +195,15 @@ export class LiveKitVideoController {
         trackId: track.id,
       });
 
+      // Check if track is already published
+      const isPublished = this.room.localParticipant.videoTrackPublications.has(this.currentTrack.sid || '');
+
+      if (isPublished) {
+        logger.debug('Video track already published, skipping');
+        this.callbacks.onVideoTrackPublished?.(track);
+        return;
+      }
+
       await this.room.localParticipant.publishTrack(this.currentTrack);
 
       logger.info('Video track published successfully', {
@@ -230,14 +240,15 @@ export class LiveKitVideoController {
 
       logger.info('Unpublishing video track', { trackId });
 
-      // Only unpublish if room is connected
-      if (this.room.state === 'connected') {
-        await this.room.localParticipant.unpublishTrack(this.currentTrack);
-      } else {
-        logger.debug('Room not connected, skipping unpublish for video track');
-      }
+      // Check if track is published before trying to unpublish
+      const isPublished = this.room.localParticipant.videoTrackPublications.has(this.currentTrack.sid || '');
 
-      logger.info('Video track unpublished successfully');
+      if (isPublished && this.room.state === 'connected') {
+        await this.room.localParticipant.unpublishTrack(this.currentTrack);
+        logger.info('Video track unpublished successfully');
+      } else {
+        logger.debug('Video track not published or room not connected, skipping unpublish');
+      }
 
       this.callbacks.onVideoTrackUnpublished?.(trackId);
     } catch (error) {

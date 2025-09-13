@@ -20,7 +20,7 @@ export interface StreamingContextType {
   error: Error | null;
 
   // Provider management
-  switchProvider: (type: StreamProviderType, credentials: StreamingCredentials) => Promise<void>;
+  switchProvider: (type: StreamProviderType) => Promise<void>;
   connect: (credentials: StreamingCredentials) => Promise<void>;
   disconnect: () => Promise<void>;
 
@@ -115,58 +115,76 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
     };
   }, []);
 
-  const switchProvider = useCallback(async (type: StreamProviderType, credentials: StreamingCredentials) => {
+  const switchProvider = useCallback(async (type: StreamProviderType) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const eventHandlers: StreamingEventHandlers = {
-        onSpeakingStateChanged: setIsAvatarSpeaking,
-        onError: (error) => {
-          logger.error('Provider error', { error });
-          setError(error);
-        },
-        onMessageReceived: (message) => {
-          // Notify all registered message callbacks
-          logger.debug('Message received from provider', { message });
-          messageCallbacks.current.forEach((callback) => callback(message));
-        },
-        onSystemMessage: (event) => {
-          // Notify all registered system message callbacks
-          logger.debug('System message received from provider', { event });
-          systemMessageCallbacks.current.forEach((callback) => callback(event));
-        },
-        onChatMessage: (event) => {
-          // Notify all registered chat message callbacks
-          logger.debug('Chat message received from provider', { event });
-          chatMessageCallbacks.current.forEach((callback) => callback(event));
-        },
-        onCommand: (event) => {
-          // Notify all registered command callbacks
-          logger.debug('Command event received from provider', { event });
-          commandCallbacks.current.forEach((callback) => callback(event));
-        },
-      };
+      // Simply update the provider type - no actual provider switching yet
+      // The real provider creation will happen when a session is created with credentials
+      setProviderType(type);
+      setProvider(null); // Clear current provider
+      setState(null); // Clear current state
 
-      await providerManager.switchProvider(type, credentials, eventHandlers);
+      logger.info('Provider type updated', { type });
+      setIsLoading(false);
     } catch (err) {
-      logger.error('Failed to switch provider', { err, type });
+      logger.error('Failed to update provider type', { err, type });
       setError(err as Error);
       setIsLoading(false);
+      throw err;
     }
   }, []);
 
   const connect = useCallback(
     async (credentials: StreamingCredentials) => {
-      // If no provider is available, switch to the default provider first
-      if (!provider) {
-        logger.info('No provider available, switching to default provider', { providerType });
-        await switchProvider(providerType, credentials);
-        return;
-      }
-
       setIsLoading(true);
+      setError(null);
+
       try {
+        // If no provider is available, create one using the provider manager
+        if (!provider) {
+          logger.info('No provider available, creating provider', { providerType });
+
+          const eventHandlers: StreamingEventHandlers = {
+            onSpeakingStateChanged: setIsAvatarSpeaking,
+            onError: (error) => {
+              logger.error('Provider error', { error });
+              setError(error);
+            },
+            onMessageReceived: (message) => {
+              logger.info('Message received from provider', {
+                messageId: message.id,
+                content: message.content.substring(0, 100),
+                fromParticipant: message.fromParticipant,
+                type: message.type,
+              });
+              messageCallbacks.current.forEach((callback) => callback(message));
+            },
+            onSystemMessage: (event) => {
+              logger.debug('System message received from provider', { event });
+              systemMessageCallbacks.current.forEach((callback) => callback(event));
+            },
+            onChatMessage: (event) => {
+              logger.info('Chat message received from provider', {
+                messageId: event.messageId,
+                text: event.text.substring(0, 100),
+                from: event.from,
+              });
+              chatMessageCallbacks.current.forEach((callback) => callback(event));
+            },
+            onCommand: (event) => {
+              logger.debug('Command event received from provider', { event });
+              commandCallbacks.current.forEach((callback) => callback(event));
+            },
+          };
+
+          // Use provider manager to create and connect the provider
+          await providerManager.switchProvider(providerType, credentials, eventHandlers);
+          return;
+        }
+
+        // Provider exists, just connect it
         const eventHandlers: StreamingEventHandlers = {
           onSpeakingStateChanged: setIsAvatarSpeaking,
           onError: (error) => {
@@ -174,9 +192,29 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
             setError(error);
           },
           onMessageReceived: (message) => {
-            // Notify all registered message callbacks
-            logger.debug('Message received from provider', { message });
+            logger.info('Message received from provider', {
+              messageId: message.id,
+              content: message.content.substring(0, 100),
+              fromParticipant: message.fromParticipant,
+              type: message.type,
+            });
             messageCallbacks.current.forEach((callback) => callback(message));
+          },
+          onSystemMessage: (event) => {
+            logger.debug('System message received from provider', { event });
+            systemMessageCallbacks.current.forEach((callback) => callback(event));
+          },
+          onChatMessage: (event) => {
+            logger.info('Chat message received from provider', {
+              messageId: event.messageId,
+              text: event.text.substring(0, 100),
+              from: event.from,
+            });
+            chatMessageCallbacks.current.forEach((callback) => callback(event));
+          },
+          onCommand: (event) => {
+            logger.debug('Command event received from provider', { event });
+            commandCallbacks.current.forEach((callback) => callback(event));
           },
         };
 
@@ -188,7 +226,7 @@ export const StreamingContextProvider: React.FC<StreamingContextProviderProps> =
         setIsLoading(false);
       }
     },
-    [provider, providerType, switchProvider],
+    [provider, providerType],
   );
 
   const disconnect = useCallback(async () => {

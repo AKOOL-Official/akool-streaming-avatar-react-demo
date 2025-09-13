@@ -46,3 +46,9 @@ export interface LiveKitConnectionControllerCallbacks {
 
 // Import shared types
 import { AudioTrack, VideoTrack } from '../../types/streaming.types';
+import { Room } from 'livekit-client';
+
+// LiveKit provider configuration
+export interface LiveKitProviderConfig {
+  room: Room;
+}

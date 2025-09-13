@@ -20,7 +20,7 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
   {
     type: 'livekit',
     name: 'LiveKit',
-    available: false,
+    available: true,
   },
   {
     type: 'trtc',
@@ -48,10 +48,7 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ disabled = f
     const selectedProvider = PROVIDER_OPTIONS.find((p) => p.type === selectedType);
 
     if (!selectedProvider?.available) {
-      showWarning(
-        `${selectedProvider?.name} is not yet implemented. Only Agora is currently available.`,
-        'Provider Not Available',
-      );
+      showWarning(`${selectedProvider?.name} is not yet implemented.`, 'Provider Not Available');
       // Reset to current provider
       event.target.value = providerType;
       return;

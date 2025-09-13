@@ -17,7 +17,7 @@ import { useProviderVideoCamera } from './hooks/useProviderVideoCamera';
 
 const App: React.FC = () => {
   // Provider context
-  const { providerType } = useStreamingContext();
+  const { providerType, switchProvider } = useStreamingContext();
 
   // Notifications
   const { showError } = useNotifications();
@@ -126,8 +126,13 @@ const App: React.FC = () => {
       await closeStreaming();
     }
 
-    // Provider switching will be handled by the unified streaming hook
-    console.log(`Provider selected: ${newProviderType}`);
+    // Provider switching is handled by updating the provider type in the context
+    // When startStreaming is called next, it will create a session with the new stream_type
+    try {
+      await switchProvider(newProviderType);
+    } catch (error) {
+      showError(`Failed to switch to ${newProviderType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   return (

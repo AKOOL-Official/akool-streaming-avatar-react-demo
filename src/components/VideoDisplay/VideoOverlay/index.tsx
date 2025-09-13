@@ -36,12 +36,31 @@ export const VideoOverlay: React.FC<VideoOverlayProps> = ({
     // Size change handled by DraggableOverlay
   };
 
+  // Calculate initial position for bottom-right corner
+  const getInitialPosition = () => {
+    if (!containerRef.current) {
+      return { x: 0, y: 0 };
+    }
+
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const overlayWidth = 200; // initialSize.width
+    const overlayHeight = 150; // initialSize.height
+
+    // Position in bottom-right corner with some margin
+    const margin = 20;
+    const x = containerRect.width - overlayWidth - margin;
+    const y = containerRect.height - overlayHeight - margin;
+
+    return { x: Math.max(0, x), y: Math.max(0, y) };
+  };
+
   const overlayClasses = ['video-overlay', isViewSwitched && 'switching', className].filter(Boolean).join(' ');
 
   return (
     <DraggableOverlay
       containerRef={containerRef}
-      initialPosition={{ x: 0, y: 0 }}
+      initialPosition={getInitialPosition()}
       initialSize={{ width: 200, height: 150 }}
       minSize={{ width: 160, height: 120 }}
       maxSize={{ width: 500, height: 400 }}

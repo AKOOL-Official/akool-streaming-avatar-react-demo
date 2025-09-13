@@ -1,4 +1,4 @@
-import { Room } from 'livekit-client';
+import { Room, RemoteVideoTrack, RemoteAudioTrack } from 'livekit-client';
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { isLiveKitCredentials, LiveKitConnectionControllerCallbacks } from '../types';
@@ -45,6 +45,11 @@ export class LiveKitConnectionController {
         roomName: livekit_room_name,
         state: this.room.state,
       });
+
+      // Check for existing remote tracks as fallback
+      setTimeout(() => {
+        this.attachExistingRemoteTracks();
+      }, 1000);
 
       this.callbacks.onConnectionStateChanged?.(this.room.state);
     } catch (error) {
@@ -281,6 +286,44 @@ export class LiveKitConnectionController {
   // Check if room is ready for messages
   isReadyForMessages(): boolean {
     return this.connected && this.room.localParticipant !== undefined;
+  }
+
+  // Attach existing remote tracks (video and audio)
+  private attachExistingRemoteTracks(): void {
+    this.room.remoteParticipants.forEach((participant) => {
+      participant.trackPublications.forEach((publication) => {
+        if (publication.kind === 'video' && publication.track instanceof RemoteVideoTrack) {
+          const remoteVideoElement = document.getElementById('remote-video') as HTMLVideoElement;
+          if (remoteVideoElement) {
+            try {
+              publication.track.attach(remoteVideoElement);
+              remoteVideoElement.play().catch(() => {
+                // Autoplay might fail in some browsers, this is normal
+              });
+              logger.info('Attached existing remote video track');
+            } catch (error) {
+              logger.error('Failed to attach existing remote video track', { error });
+            }
+          }
+        } else if (publication.kind === 'audio' && publication.track instanceof RemoteAudioTrack) {
+          try {
+            // For audio tracks, we need to attach to an audio element
+            const audioElement = document.createElement('audio');
+            audioElement.autoplay = true;
+            audioElement.volume = 1.0;
+            document.body.appendChild(audioElement);
+
+            publication.track.attach(audioElement);
+            logger.info('Started playing existing remote audio track', {
+              trackSid: publication.trackSid,
+              participant: participant.identity,
+            });
+          } catch (error) {
+            logger.error('Failed to play existing remote audio track', { error });
+          }
+        }
+      });
+    });
   }
 
   // Clean up method for proper resource management
