@@ -414,6 +414,13 @@ export class LiveKitStreamingProvider implements StreamingProvider {
         this.updateState({ networkQuality: quality });
         this.eventHandlers.onConnectionQualityChanged?.(quality);
       },
+      onNetworkStatsUpdate: (stats) => {
+        // Store both connection quality and detailed stats
+        this.updateState({
+          networkQuality: stats.connectionQuality,
+          detailedNetworkStats: stats.detailedStats,
+        });
+      },
       onMessageReceived: (message) => {
         this.eventHandlers.onMessageReceived?.(message);
       },
