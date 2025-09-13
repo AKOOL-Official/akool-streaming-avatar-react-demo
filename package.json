@@ -23,6 +23,7 @@
     "agora-extension-ai-denoiser": "^1.1.0",
     "agora-rtc-sdk-ng": "latest",
     "chart.js": "^4.4.7",
+    "livekit-client": "^2.15.7",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
