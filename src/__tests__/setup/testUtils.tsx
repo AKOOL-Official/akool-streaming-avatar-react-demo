@@ -2,7 +2,6 @@ import React from 'react';
 import { vi } from 'vitest';
 import { render, RenderOptions, RenderResult } from '@testing-library/react';
 import { StreamingContextProvider } from '../../contexts/StreamingContext';
-import { AgoraProvider } from '../../contexts/AgoraContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { StreamProviderType } from '../../types/streaming.types';
 import { createMockStreamingProvider, createMockEventHandlers } from './mockProviders';
@@ -25,24 +24,13 @@ interface ProviderWrapperProps {
 }
 
 const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children, options }) => {
-  const {
-    providerType = 'agora',
-    providerProps = {},
-    withNotifications = true,
-    withAgoraProvider = true,
-    withStreamingProvider = true,
-  } = options;
+  const { providerType = 'agora', withNotifications = true, withStreamingProvider = true } = options;
 
   let wrappedChildren = children;
 
   // Wrap with NotificationProvider if requested
   if (withNotifications) {
     wrappedChildren = <NotificationProvider>{wrappedChildren}</NotificationProvider>;
-  }
-
-  // Wrap with AgoraProvider if requested
-  if (withAgoraProvider) {
-    wrappedChildren = <AgoraProvider {...providerProps}>{wrappedChildren}</AgoraProvider>;
   }
 
   // Wrap with StreamingContextProvider if requested
