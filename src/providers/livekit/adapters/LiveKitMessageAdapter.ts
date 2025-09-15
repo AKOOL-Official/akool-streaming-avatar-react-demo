@@ -12,19 +12,50 @@ export class LiveKitMessageAdapter implements MessageAdapter {
 
   async sendData(data: Uint8Array): Promise<void> {
     try {
+      // Check if room is connected and local participant is ready
+      if (this.room.state !== 'connected') {
+        throw new Error(`Room not connected, current state: ${this.room.state}`);
+      }
+
+      // Check if local participant exists and is ready
+      if (!this.room.localParticipant) {
+        throw new Error('Local participant not available');
+      }
+
+      // Check if local participant can publish data
+      if (!this.room.localParticipant.permissions?.canPublish) {
+        throw new Error('Local participant does not have publish permissions');
+      }
+
+      // Connection quality check is optional - we'll proceed even if unknown
+      // as it can be 'unknown' briefly after connection establishment
+
       await this.room.localParticipant.publishData(data, { reliable: true });
       logger.debug('Message sent via LiveKit', { dataSize: data.length });
     } catch (error) {
       logger.error('Failed to send data via LiveKit', {
         error: error instanceof Error ? error.message : String(error),
         dataSize: data.length,
+        roomState: this.room.state,
+        localParticipant: this.room.localParticipant
+          ? {
+              identity: this.room.localParticipant.identity,
+              permissions: this.room.localParticipant.permissions,
+              connectionQuality: this.room.localParticipant.connectionQuality,
+            }
+          : 'not available',
       });
       throw error;
     }
   }
 
   isReady(): boolean {
-    return this.room.state === 'connected';
+    return (
+      this.room.state === 'connected' &&
+      this.room.localParticipant !== null &&
+      this.room.localParticipant.permissions?.canPublish === true
+      // Removed connectionQuality check as it can be 'unknown' briefly after connection
+    );
   }
 
   setupMessageListener(callback: (data: Uint8Array) => void): void {

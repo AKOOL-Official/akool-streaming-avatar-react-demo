@@ -16,7 +16,7 @@ function toErrorDetails(value: unknown): Record<string, unknown> {
 
 export class ErrorMapper {
   static mapAgoraError(agoraError: unknown): StreamingError {
-    const error = agoraError as { code?: string; name?: string; message?: string };
+    const error = agoraError as { code?: string | number; name?: string; message?: string };
     const errorCode = error?.code || error?.name;
 
     switch (errorCode) {
@@ -58,6 +58,27 @@ export class ErrorMapper {
           provider: 'agora',
           details: toErrorDetails(agoraError),
         });
+
+      // Handle specific Agora error codes
+      case 2002: // AUDIO_OUTPUT_LEVEL_TOO_LOW
+        return new StreamingError(
+          ErrorCode.MEDIA_DEVICE_ERROR,
+          'Audio output level is too low - this is a warning, not an error',
+          {
+            provider: 'agora',
+            details: toErrorDetails(agoraError),
+          },
+        );
+
+      case 4002: // AUDIO_OUTPUT_LEVEL_TOO_LOW_RECOVER
+        return new StreamingError(
+          ErrorCode.MEDIA_DEVICE_ERROR,
+          'Audio output level recovered - this is a warning, not an error',
+          {
+            provider: 'agora',
+            details: toErrorDetails(agoraError),
+          },
+        );
 
       default:
         return new StreamingError(ErrorCode.UNKNOWN_ERROR, error?.message || 'Unknown Agora error', {

@@ -154,13 +154,26 @@ export class AgoraConnectionController {
 
     // Exception handling
     this.client.on('exception', (e) => {
+      const streamingError = ErrorMapper.mapAgoraError(e);
+
+      // Handle audio level warnings as non-critical errors
+      if (e.code === 2002 || e.code === 4002) {
+        // AUDIO_OUTPUT_LEVEL_TOO_LOW and AUDIO_OUTPUT_LEVEL_TOO_LOW_RECOVER
+        logger.warn('Agora audio level warning (non-critical)', {
+          code: e.code,
+          message: e.msg,
+          uid: e.uid,
+        });
+        // Don't call onConnectionFailed for audio level warnings
+        return;
+      }
+
       logger.error('Agora exception occurred', {
         code: e.code,
         message: e.msg,
         uid: e.uid,
       });
 
-      const streamingError = ErrorMapper.mapAgoraError(e);
       this.callbacks.onConnectionFailed?.(streamingError);
     });
   }

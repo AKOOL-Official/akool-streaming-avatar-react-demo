@@ -10,10 +10,11 @@ import {
   AudioConfig,
   StreamProviderType,
 } from '../../types/streaming.types';
-import { AvatarMetadata, Session, SessionCredentials } from '../../types/api.schemas';
+import { Session, SessionCredentials } from '../../types/api.schemas';
 import { StreamingError, ErrorCode } from '../../types/error.types';
 import { SystemMessageEvent, ChatMessageEvent, CommandEvent } from '../../types/provider.interfaces';
-import { ChatMessage } from '../../types/streaming.types';
+import { ChatMessage, Participant } from '../../types/streaming.types';
+import { NetworkStats } from '../../components/NetworkQuality';
 
 // Import controllers
 import {
@@ -21,9 +22,13 @@ import {
   AgoraConnectionConfig,
   ConnectionEventCallbacks,
 } from './controllers/AgoraConnectionController';
-import { AgoraController, AgoraControllerCallbacks } from './controllers/AgoraController';
+import { AgoraEventController, AgoraEventControllerCallbacks } from './controllers/AgoraEventController';
+import { AgoraStatsController, StatsControllerCallbacks } from './controllers/AgoraStatsController';
+import { AgoraParticipantController, ParticipantControllerCallbacks } from './controllers/AgoraParticipantController';
 import { AgoraAudioController, AudioControllerCallbacks } from './controllers/AgoraAudioController';
 import { AgoraVideoController, VideoControllerCallbacks } from './controllers/AgoraVideoController';
+import { CommonMessageController } from '../common/CommonMessageController';
+import { AgoraMessageAdapter } from './adapters/AgoraMessageAdapter';
 import { RTCClient } from './types';
 
 // Agora-specific credential types
@@ -63,7 +68,10 @@ export class AgoraStreamingProvider implements StreamingProvider {
 
   // Controllers
   private connectionController: AgoraConnectionController;
-  private agoraController: AgoraController;
+  private eventController: AgoraEventController;
+  private statsController: AgoraStatsController;
+  private participantController: AgoraParticipantController;
+  private messageController: CommonMessageController;
   private audioController: AgoraAudioController;
   private videoController: AgoraVideoController;
 
@@ -74,7 +82,13 @@ export class AgoraStreamingProvider implements StreamingProvider {
 
     // Initialize controllers
     this.connectionController = new AgoraConnectionController(this.client);
-    this.agoraController = new AgoraController(this.client);
+    this.participantController = new AgoraParticipantController(this.client);
+    this.eventController = new AgoraEventController(this.client, this.participantController);
+    this.statsController = new AgoraStatsController(this.client);
+    this.messageController = new CommonMessageController(new AgoraMessageAdapter(this.client), {
+      maxEncodedSize: 1024 * 1024, // 1MB
+      bytesPerSecond: 1024 * 100, // 100KB/s
+    });
     this.audioController = new AgoraAudioController(this.client);
     this.videoController = new AgoraVideoController(this.client);
 
@@ -349,7 +363,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
     try {
       const messageId = `msg-${Date.now()}`;
 
-      await this.agoraController.sendMessage(messageId, content);
+      await this.messageController.sendMessage(messageId, content);
     } catch (error) {
       logger.error('Failed to send message', {
         error: error instanceof Error ? error.message : String(error),
@@ -362,7 +376,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async sendInterrupt(): Promise<void> {
     try {
       logger.info('Sending interrupt command');
-      await this.agoraController.interruptResponse();
+      await this.messageController.interruptResponse();
     } catch (error) {
       logger.error('Failed to send interrupt', {
         error: error instanceof Error ? error.message : String(error),
@@ -375,7 +389,7 @@ export class AgoraStreamingProvider implements StreamingProvider {
   async setAvatarParameters(metadata: Record<string, unknown>): Promise<void> {
     try {
       logger.info('Setting avatar parameters', { metadata });
-      await this.agoraController.setAvatarParameters(metadata as unknown as AvatarMetadata);
+      await this.messageController.setAvatarParameters(metadata);
     } catch (error) {
       logger.error('Failed to set avatar parameters', {
         error: error instanceof Error ? error.message : String(error),
@@ -493,11 +507,12 @@ export class AgoraStreamingProvider implements StreamingProvider {
 
     this.audioController.setCallbacks(audioCallbacks);
     this.videoController.setCallbacks(videoCallbacks);
-    // AgoraController callbacks are set in startEventListening()
+    // Event, stats, participant, and message controller callbacks are set in startEventListening()
   }
 
   private startEventListening(): void {
-    const eventCallbacks: AgoraControllerCallbacks = {
+    // Event controller callbacks
+    const eventCallbacks: AgoraEventControllerCallbacks = {
       onParticipantJoined: (participant) => {
         const participants = [...this._state.participants];
         const existingIndex = participants.findIndex((p) => p.id === participant.id);
@@ -520,16 +535,6 @@ export class AgoraStreamingProvider implements StreamingProvider {
         this.updateState({ networkQuality: quality });
         this.eventHandlers.onConnectionQualityChanged?.(quality);
       },
-      onNetworkStatsUpdate: (stats) => {
-        // Store both connection quality and detailed stats
-        this.updateState({
-          networkQuality: stats.connectionQuality,
-          detailedNetworkStats: stats.detailedStats,
-        });
-      },
-      onMessageReceived: (message) => {
-        this.eventHandlers.onMessageReceived?.(message as ChatMessage);
-      },
       onError: (error) => {
         const streamingError =
           error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
@@ -539,23 +544,89 @@ export class AgoraStreamingProvider implements StreamingProvider {
       onSpeakingStateChanged: (isSpeaking) => {
         this.eventHandlers.onSpeakingStateChanged?.(isSpeaking);
       },
-      // Command and messaging callbacks
-      onSystemMessage: (event) => {
-        this.eventHandlers.onSystemMessage?.(event as SystemMessageEvent);
+    };
+
+    // Stats controller callbacks
+    const statsCallbacks: StatsControllerCallbacks = {
+      onNetworkStatsUpdate: (stats: NetworkStats) => {
+        this.updateState({
+          networkQuality: stats.connectionQuality,
+          detailedNetworkStats: stats.detailedStats,
+        });
       },
-      onChatMessage: (event) => {
-        this.eventHandlers.onChatMessage?.(event as ChatMessageEvent);
-      },
-      onCommand: (event) => {
-        this.eventHandlers.onCommand?.(event as CommandEvent);
+      onError: (error: Error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
       },
     };
 
-    this.agoraController.setCallbacks(eventCallbacks);
+    // Participant controller callbacks
+    const participantCallbacks: ParticipantControllerCallbacks = {
+      onParticipantJoined: (participant: Participant) => {
+        const participants = [...this._state.participants];
+        const existingIndex = participants.findIndex((p) => p.id === participant.id);
+
+        if (existingIndex >= 0) {
+          participants[existingIndex] = participant;
+        } else {
+          participants.push(participant);
+        }
+
+        this.updateState({ participants });
+        this.eventHandlers.onParticipantJoined?.(participant);
+      },
+      onParticipantLeft: (participantId: string) => {
+        const participants = this._state.participants.filter((p) => p.id !== participantId);
+        this.updateState({ participants });
+        this.eventHandlers.onParticipantLeft?.(participantId);
+      },
+      onError: (error: Error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
+      },
+    };
+
+    // Message controller callbacks
+    const messageCallbacks = {
+      onMessageReceived: (message: unknown) => {
+        this.eventHandlers.onMessageReceived?.(message as ChatMessage);
+      },
+      onSystemMessage: (event: unknown) => {
+        this.eventHandlers.onSystemMessage?.(event as SystemMessageEvent);
+      },
+      onChatMessage: (event: unknown) => {
+        this.eventHandlers.onChatMessage?.(event as ChatMessageEvent);
+      },
+      onCommand: (event: unknown) => {
+        this.eventHandlers.onCommand?.(event as CommandEvent);
+      },
+      onError: (error: Error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
+      },
+    };
+
+    // Set up all controllers
+    this.eventController.setCallbacks(eventCallbacks);
+    this.statsController.setCallbacks(statsCallbacks);
+    this.participantController.setCallbacks(participantCallbacks);
+    this.messageController.setCallbacks(messageCallbacks);
+
+    // Start event listening and stats collection
+    this.eventController.setupEventListeners();
+    this.statsController.startStatsCollection();
   }
 
   private stopEventListening(): void {
-    this.agoraController.cleanup();
+    this.eventController.removeEventListeners();
+    this.statsController.stopStatsCollection();
+    this.messageController.cleanup();
   }
 
   private mapCredentials(credentials: StreamingCredentials): SessionCredentials {
@@ -607,7 +678,10 @@ export class AgoraStreamingProvider implements StreamingProvider {
       // Cleanup all controllers
       await Promise.all([
         this.connectionController.cleanup(),
-        this.agoraController.cleanup(),
+        this.eventController.cleanup(),
+        this.statsController.cleanup(),
+        this.participantController.cleanup(),
+        this.messageController.cleanup(),
         this.audioController.cleanup(),
         this.videoController.cleanup(),
       ]);

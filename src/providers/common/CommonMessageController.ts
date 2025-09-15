@@ -297,8 +297,21 @@ export class CommonMessageController {
     try {
       logger.info('Setting avatar parameters', { metadata });
 
-      if (!this.adapter.isReady()) {
-        throw new StreamingError(ErrorCode.CONNECTION_FAILED, 'Adapter not ready for sending messages');
+      // Retry mechanism for adapter readiness
+      const maxRetries = 3;
+      const retryDelay = 100; // 100ms
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (this.adapter.isReady()) {
+          break;
+        }
+
+        if (attempt === maxRetries) {
+          throw new StreamingError(ErrorCode.CONNECTION_FAILED, 'Adapter not ready for sending messages after retries');
+        }
+
+        logger.debug(`Adapter not ready, retrying in ${retryDelay}ms (attempt ${attempt}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
       }
 
       const cleanedMeta = Object.fromEntries(

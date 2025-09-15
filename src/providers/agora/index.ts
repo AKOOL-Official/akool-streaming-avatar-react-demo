@@ -10,7 +10,6 @@ import { RTCClient } from './types';
 
 // Controllers
 export { AgoraConnectionController } from './controllers/AgoraConnectionController';
-export { AgoraController } from './controllers/AgoraController';
 export { AgoraAudioController } from './controllers/AgoraAudioController';
 export { AgoraVideoController } from './controllers/AgoraVideoController';
 
@@ -20,7 +19,6 @@ export { AgoraVideoStrategy } from './strategies/AgoraVideoStrategy';
 
 // Type exports for external use
 export type { AgoraConnectionConfig, ConnectionEventCallbacks } from './controllers/AgoraConnectionController';
-export type { AgoraControllerCallbacks } from './controllers/AgoraController';
 export type { AudioControllerCallbacks, AudioConfig } from './controllers/AgoraAudioController';
 export type { VideoControllerCallbacks, VideoConfig } from './controllers/AgoraVideoController';
 

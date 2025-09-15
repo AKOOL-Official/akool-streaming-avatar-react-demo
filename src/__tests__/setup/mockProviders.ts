@@ -71,6 +71,7 @@ export const createMockStreamingProvider = (type: StreamProviderType): Streaming
                 rtt: 50,
                 packetLoss: 0.01,
               },
+              isSpeaking: false,
             });
           }, 100);
         }
@@ -166,6 +167,7 @@ export const createMockParticipant = (overrides: Partial<Participant> = {}): Par
     rtt: 50,
     packetLoss: 0.01,
   },
+  isSpeaking: false,
   ...overrides,
 });
 

@@ -32,8 +32,6 @@ export type {
 export * from './controllers/LiveKitAudioController';
 export * from './controllers/LiveKitVideoController';
 export * from './controllers/LiveKitConnectionController';
-export * from './controllers/LiveKitController';
-export * from './controllers/LiveKitEventHandler';
 
 // Strategies
 export { LiveKitAudioStrategy } from './strategies/LiveKitAudioStrategy';

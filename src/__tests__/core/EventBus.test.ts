@@ -377,6 +377,7 @@ describe('EventBus', () => {
             rtt: 50,
             packetLoss: 0.01,
           },
+          isSpeaking: false,
         },
       };
 

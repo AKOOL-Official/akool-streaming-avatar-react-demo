@@ -41,6 +41,7 @@ export interface Participant {
   videoTracks: VideoTrack[];
   audioTracks: AudioTrack[];
   connectionQuality: ConnectionQuality;
+  isSpeaking: boolean;
 }
 
 export interface ConnectionQuality {

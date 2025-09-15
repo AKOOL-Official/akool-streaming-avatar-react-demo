@@ -37,6 +37,10 @@ export interface NetworkStats {
       volume?: number;
       rtt?: number;
     };
+    network?: {
+      rtt?: number;
+      packetLoss?: number;
+    };
   };
 }
 
@@ -96,10 +100,14 @@ const NetworkQualityDisplay: React.FC<NetworkQualityProps> = ({ stats: propStats
     const now = Date.now();
 
     setLatencyData((prevData) => {
+      // Use detailed stats RTT values if available, otherwise fall back to networkQuality RTT
+      const videoRtt = detailedStats?.video?.rtt ?? networkQuality.rtt ?? 0;
+      const audioRtt = detailedStats?.audio?.rtt ?? networkQuality.rtt ?? 0;
+
       const newDataPoint = {
         timestamp: now,
-        video: detailedStats?.video?.rtt || networkQuality.rtt || 0,
-        audio: detailedStats?.audio?.rtt || networkQuality.rtt || 0,
+        video: videoRtt,
+        audio: audioRtt,
         index: prevData.length + 1,
       };
 

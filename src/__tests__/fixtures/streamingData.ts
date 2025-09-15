@@ -99,6 +99,7 @@ export const mockParticipants: Participant[] = [
     videoTracks: [mockVideoTrack],
     audioTracks: [mockAudioTrack],
     connectionQuality: mockConnectionQuality,
+    isSpeaking: false,
   },
   {
     id: 'remote-user-2',
@@ -107,6 +108,7 @@ export const mockParticipants: Participant[] = [
     videoTracks: [],
     audioTracks: [mockAudioTrackMuted],
     connectionQuality: mockConnectionQualityFair,
+    isSpeaking: false,
   },
   {
     id: 'remote-user-3',
@@ -115,6 +117,7 @@ export const mockParticipants: Participant[] = [
     videoTracks: [mockVideoTrackDisabled],
     audioTracks: [],
     connectionQuality: mockConnectionQualityPoor,
+    isSpeaking: false,
   },
 ];
 
@@ -125,6 +128,7 @@ export const mockLocalParticipant: Participant = {
   videoTracks: [mockVideoTrack],
   audioTracks: [mockAudioTrack],
   connectionQuality: mockConnectionQuality,
+  isSpeaking: false,
 };
 
 // Default streaming state fixtures
@@ -292,6 +296,7 @@ export function createMockParticipant(overrides: Partial<Participant> = {}): Par
     videoTracks: [],
     audioTracks: [],
     connectionQuality: mockConnectionQuality,
+    isSpeaking: false,
     ...overrides,
   };
 }
