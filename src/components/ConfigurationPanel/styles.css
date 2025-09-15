@@ -1,25 +1,56 @@
 /* Left side panel */
 .left-side {
-  flex: 0 0 420px;
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  flex: 0 0 450px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 20px;
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.08),
+    0 4px 10px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  height: fit-content;
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
 }
 
 .left-side h3 {
-  margin: 0 0 16px 0;
-  color: #1a1a1a;
-  font-size: 24px;
-  font-weight: 600;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 12px;
+  margin: 0 0 24px 0;
+  color: #1f2937;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.left-side h3::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 2px;
+}
+
+/* Scrollable content area */
+.left-side .scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+  padding-bottom: 16px;
+}
+
+/* Fixed button area */
+.left-side .fixed-button-area {
+  flex: 0 0 auto;
+  padding: 16px 32px 32px 32px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Form controls */
@@ -56,36 +87,66 @@
 
 /* Buttons */
 .buttons {
-  margin-top: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .button-on,
 .button-off {
   width: 100%;
-  padding: 12px;
+  padding: 16px 24px;
   border: none;
-  border-radius: 8px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .button-on {
-  background: #4096ff;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
 .button-on:hover {
-  background: #1677ff;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.button-on:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+.button-on:disabled {
+  background: #9ca3af;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .button-off {
-  background: #ff4d4f;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
 }
 
 .button-off:hover {
-  background: #f5222d;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+  transform: translateY(-2px);
+}
+
+.button-off:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
 }
 
 .icon-button {
@@ -217,4 +278,266 @@
 
 .config-group .buttons {
   margin-top: 4px;
+}
+
+/* Form row layout */
+.form-row {
+  margin-bottom: 16px;
+}
+
+.form-row label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.form-row input,
+.form-row select {
+  width: 100%;
+  margin-bottom: 0;
+  height: 40px;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.form-row input:focus,
+.form-row select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-row input:disabled,
+.form-row select:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Input with buttons */
+.input-with-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-with-buttons input,
+.input-with-buttons select {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.input-with-buttons .icon-button {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-with-buttons .icon-button:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.input-with-buttons .icon-button:disabled {
+  background: #f9fafb;
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
+/* Edit JSON button */
+.edit-json-button {
+  flex: 0 0 auto;
+  padding: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+}
+
+.edit-json-button:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: scale(1.05);
+}
+
+.edit-json-button:disabled {
+  background: #9ca3af;
+  border-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Small icon buttons */
+.icon-button-small {
+  flex: 0 0 auto;
+  padding: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 32px;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.icon-button-small:hover {
+  background: #e5e7eb;
+  color: #374151;
+  transform: scale(1.05);
+}
+
+.icon-button-small:disabled {
+  background: #f9fafb;
+  color: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Section headers */
+.config-group h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 20px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e5e7eb;
+  position: relative;
+}
+
+.config-group h4::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background: #3b82f6;
+}
+
+/* Enhanced config group spacing */
+.config-group {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.config-group::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.config-group:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.config-group:hover::before {
+  opacity: 1;
+}
+
+.config-group:last-of-type {
+  margin-bottom: 24px;
+}
+
+/* Add subtle animation to form elements */
+.form-row {
+  animation: fadeInUp 0.6s ease forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.form-row:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.form-row:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.form-row:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.form-row:nth-child(5) {
+  animation-delay: 0.4s;
+}
+.form-row:nth-child(6) {
+  animation-delay: 0.5s;
+}
+.form-row:nth-child(7) {
+  animation-delay: 0.6s;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced scrollbar */
+.left-side::-webkit-scrollbar {
+  width: 6px;
+}
+
+.left-side::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.left-side::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+  border-radius: 3px;
+}
+
+.left-side::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2563eb, #7c3aed);
 }

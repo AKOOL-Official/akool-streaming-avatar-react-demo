@@ -68,22 +68,19 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ disabled = f
 
   return (
     <div className="provider-selector">
-      <label>
-        Provider:
-        <select
-          value={providerType}
-          onChange={handleProviderChange}
-          disabled={disabled || isLoading}
-          className="provider-select"
-        >
-          {PROVIDER_OPTIONS.map((option) => (
-            <option key={option.type} value={option.type} disabled={!option.available}>
-              {option.name}
-              {!option.available ? ' (Coming Soon)' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
+      <select
+        value={providerType}
+        onChange={handleProviderChange}
+        disabled={disabled || isLoading}
+        className="provider-select"
+      >
+        {PROVIDER_OPTIONS.map((option) => (
+          <option key={option.type} value={option.type} disabled={!option.available}>
+            {option.name}
+            {!option.available ? ' (Coming Soon)' : ''}
+          </option>
+        ))}
+      </select>
     </div>
   );
 };
