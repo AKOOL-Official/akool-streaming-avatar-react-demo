@@ -11,6 +11,8 @@ import {
   StreamProviderType,
 } from '../../types/streaming.types';
 import { StreamingError, ErrorCode } from '../../types/error.types';
+import { SystemMessageEvent, ChatMessageEvent, CommandEvent } from '../../types/provider.interfaces';
+import { ChatMessage } from '../../types/streaming.types';
 
 // Import controllers
 import { LiveKitConnectionController } from './controllers/LiveKitConnectionController';
@@ -422,24 +424,26 @@ export class LiveKitStreamingProvider implements StreamingProvider {
         });
       },
       onMessageReceived: (message) => {
-        this.eventHandlers.onMessageReceived?.(message);
+        this.eventHandlers.onMessageReceived?.(message as ChatMessage);
       },
       onError: (error) => {
-        this.updateState({ error });
-        this.eventHandlers.onError?.(error);
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
       },
       onSpeakingStateChanged: (isSpeaking) => {
         this.eventHandlers.onSpeakingStateChanged?.(isSpeaking);
       },
       // Command and messaging callbacks
       onSystemMessage: (event) => {
-        this.eventHandlers.onSystemMessage?.(event);
+        this.eventHandlers.onSystemMessage?.(event as SystemMessageEvent);
       },
       onChatMessage: (event) => {
-        this.eventHandlers.onChatMessage?.(event);
+        this.eventHandlers.onChatMessage?.(event as ChatMessageEvent);
       },
       onCommand: (event) => {
-        this.eventHandlers.onCommand?.(event);
+        this.eventHandlers.onCommand?.(event as CommandEvent);
       },
     };
 

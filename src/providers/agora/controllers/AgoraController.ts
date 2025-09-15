@@ -1,43 +1,13 @@
 import { IAgoraRTCClient, IAgoraRTCRemoteUser, NetworkQuality } from 'agora-rtc-sdk-ng';
 import { UID } from 'agora-rtc-sdk-ng/esm';
 import { logger } from '../../../core/Logger';
-import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
-import { Participant, ConnectionQuality, ChatMessage } from '../../../types/streaming.types';
+import { Participant, ConnectionQuality } from '../../../types/streaming.types';
 import { NetworkStats } from '../../../components/NetworkQuality';
 import { AvatarMetadata } from '../../../types/api.schemas';
-import { SystemMessageEvent, ChatMessageEvent, CommandEvent } from '../../../types/provider.interfaces';
-
-// Stream message interfaces
-export interface StreamMessage {
-  v: number;
-  type: string;
-  mid?: string;
-  idx?: number;
-  fin?: boolean;
-  pld: CommandPayload | ChatPayload | CommandResponsePayload | ChatResponsePayload;
-}
-
-export interface CommandPayload {
-  cmd: string;
-  data?: Record<string, unknown>;
-}
-
-export interface ChatPayload {
-  text: string;
-  meta?: Record<string, unknown>;
-}
-
-export interface CommandResponsePayload {
-  cmd: string;
-  code: number;
-  msg?: string;
-}
-
-export interface ChatResponsePayload {
-  text: string;
-  from: 'bot' | 'user';
-}
+import { CommonMessageController } from '../../common/CommonMessageController';
+import { AgoraMessageAdapter } from '../adapters/AgoraMessageAdapter';
+import { MessageProviderConfig } from '../../common/types/message.types';
 
 // Unified callback interface
 export interface AgoraControllerCallbacks {
@@ -45,38 +15,61 @@ export interface AgoraControllerCallbacks {
   onParticipantJoined?: (participant: Participant) => void;
   onParticipantLeft?: (participantId: string) => void;
   onConnectionQualityChanged?: (quality: ConnectionQuality) => void;
-  onMessageReceived?: (message: ChatMessage) => void;
   onNetworkStatsUpdate?: (stats: NetworkStats) => void;
-  onError?: (error: StreamingError) => void;
+  onError?: (error: Error) => void;
   onSpeakingStateChanged?: (isSpeaking: boolean) => void;
 
-  // Messaging callbacks
+  // Messaging callbacks (delegated to CommonMessageController)
   onCommandSent?: (cmd: string, data?: Record<string, unknown>) => void;
   onCommandResponse?: (cmd: string, code: number, message?: string) => void;
-  onMessageResponse?: (response: ChatResponsePayload) => void;
-  onSystemMessage?: (event: SystemMessageEvent) => void;
-  onChatMessage?: (event: ChatMessageEvent) => void;
-  onCommand?: (event: CommandEvent) => void;
+  onMessageResponse?: (response: { text: string; from: 'bot' | 'user' }) => void;
+  onSystemMessage?: (event: unknown) => void;
+  onChatMessage?: (event: unknown) => void;
+  onCommand?: (event: unknown) => void;
+  onMessageReceived?: (message: unknown) => void;
 }
 
 export class AgoraController {
   private client: IAgoraRTCClient;
   private callbacks: AgoraControllerCallbacks = {};
   private isListening = false;
-  private isListeningToMessages = false;
+  private messageController: CommonMessageController;
 
-  // Constants for message size limits
-  private static readonly MAX_ENCODED_SIZE = 950;
-  private static readonly BYTES_PER_SECOND = 6000;
+  // Agora-specific configuration
+  private static readonly AGORA_CONFIG: MessageProviderConfig = {
+    maxEncodedSize: 950,
+    bytesPerSecond: 6000,
+  };
 
   constructor(client: IAgoraRTCClient) {
     this.client = client;
+    const messageAdapter = new AgoraMessageAdapter(client);
+    this.messageController = new CommonMessageController(messageAdapter, AgoraController.AGORA_CONFIG);
   }
 
   setCallbacks(callbacks: AgoraControllerCallbacks): void {
     this.callbacks = callbacks;
     this.setupEventListeners();
-    this.setupStreamMessageListener();
+
+    // Delegate message callbacks to CommonMessageController
+    this.messageController.setCallbacks({
+      onParticipantJoined: callbacks.onParticipantJoined
+        ? (participant) => callbacks.onParticipantJoined?.(participant as Participant)
+        : undefined,
+      onParticipantLeft: callbacks.onParticipantLeft,
+      onConnectionQualityChanged: callbacks.onConnectionQualityChanged
+        ? (quality) => callbacks.onConnectionQualityChanged?.(quality as ConnectionQuality)
+        : undefined,
+      onMessageReceived: callbacks.onMessageReceived,
+      onError: callbacks.onError,
+      onSpeakingStateChanged: callbacks.onSpeakingStateChanged,
+      onCommandSent: callbacks.onCommandSent,
+      onCommandResponse: callbacks.onCommandResponse,
+      onMessageResponse: callbacks.onMessageResponse,
+      onSystemMessage: callbacks.onSystemMessage,
+      onChatMessage: callbacks.onChatMessage,
+      onCommand: callbacks.onCommand,
+    });
   }
 
   private setupEventListeners(): void {
@@ -98,14 +91,6 @@ export class AgoraController {
     logger.info('Started listening to Agora events');
   }
 
-  private setupStreamMessageListener(): void {
-    if (this.isListeningToMessages) return;
-
-    this.client.on('stream-message', this.handleStreamMessage);
-    this.isListeningToMessages = true;
-    logger.debug('Stream message listener setup complete');
-  }
-
   private removeEventListeners(): void {
     if (!this.isListening) return;
 
@@ -118,14 +103,6 @@ export class AgoraController {
 
     this.isListening = false;
     logger.info('Stopped listening to Agora events');
-  }
-
-  private removeStreamMessageListener(): void {
-    if (!this.isListeningToMessages) return;
-
-    this.client.off('stream-message', this.handleStreamMessage);
-    this.isListeningToMessages = false;
-    logger.debug('Stream message listener removed');
   }
 
   // Event handling methods
@@ -278,351 +255,19 @@ export class AgoraController {
     this.callbacks.onError?.(streamingError);
   }
 
-  // Stream message handling methods
-  private handleStreamMessage = (_: number, body: Uint8Array): void => {
-    try {
-      const msg = new TextDecoder().decode(body);
-      const { v, type, mid, pld } = JSON.parse(msg);
+  // Message handling is now delegated to CommonMessageController
 
-      if (v !== 2) {
-        logger.debug('Ignoring message with unsupported version', { version: v });
-        return;
-      }
-
-      logger.debug('Processing stream message', { type, mid });
-
-      if (type === 'chat') {
-        this.handleChatMessage(mid, pld as ChatResponsePayload);
-      } else if (type === 'event') {
-        this.handleSystemEvent(mid, pld);
-      } else if (type === 'command') {
-        this.handleCommandMessage(mid, pld as CommandPayload | CommandResponsePayload);
-      } else {
-        logger.debug('Unknown message type received', { type, mid });
-      }
-    } catch (error) {
-      logger.error('Error handling stream message:', { error });
-    }
-  };
-
-  private handleChatMessage(messageId: string, payload: ChatResponsePayload): void {
-    const { text, from } = payload;
-    const event: ChatMessageEvent = {
-      messageId: `chat_${messageId}`,
-      text,
-      from: from === 'bot' ? 'avatar' : from,
-    };
-
-    this.callbacks.onChatMessage?.(event);
-
-    // Create legacy ChatMessage for backward compatibility
-    const chatMessage: ChatMessage = {
-      id: messageId || `msg-${Date.now()}`,
-      content: payload.text,
-      timestamp: Date.now(),
-      fromParticipant: 'avatar',
-      type: 'text',
-    };
-    this.callbacks.onMessageReceived?.(chatMessage);
-  }
-
-  private handleSystemEvent(messageId: string, payload: { event: string }): void {
-    const { event } = payload;
-
-    let eventType: SystemMessageEvent['eventType'];
-    let text: string;
-
-    switch (event) {
-      case 'audio_start':
-        eventType = 'avatar_audio_start';
-        text = '🎤 Avatar started speaking';
-        // Update speaking state
-        this.callbacks.onSpeakingStateChanged?.(true);
-        break;
-      case 'audio_end':
-        eventType = 'avatar_audio_end';
-        text = '✅ Avatar finished speaking';
-        // Update speaking state
-        this.callbacks.onSpeakingStateChanged?.(false);
-        break;
-      default:
-        logger.debug('Unknown system event received', { event });
-        return;
-    }
-
-    const systemEvent: SystemMessageEvent = {
-      messageId: `event_${messageId}`,
-      text,
-      eventType,
-    };
-
-    this.callbacks.onSystemMessage?.(systemEvent);
-  }
-
-  private handleCommandMessage(messageId: string, payload: CommandPayload | CommandResponsePayload): void {
-    if ('code' in payload) {
-      // This is a command acknowledgment
-      const { cmd, code, msg } = payload;
-      const success = code === 1000;
-      const statusText = success ? 'Success' : 'Failed';
-      const eventType = cmd === 'interrupt' ? 'interrupt_ack' : 'set_params_ack';
-
-      const systemEvent: SystemMessageEvent = {
-        messageId: `cmd_ack_${messageId}`,
-        text: `${success ? '✅' : '❌'} ${cmd}: ${statusText}${msg ? ` (${msg})` : ''}`,
-        eventType,
-      };
-
-      this.callbacks.onSystemMessage?.(systemEvent);
-
-      const commandEvent: CommandEvent = {
-        command: cmd,
-        success,
-        message: msg,
-      };
-
-      this.callbacks.onCommand?.(commandEvent);
-      this.callbacks.onCommandResponse?.(cmd, code, msg);
-    } else {
-      // This is a command being sent
-      const { cmd, data } = payload;
-      const eventType = cmd === 'interrupt' ? 'interrupt' : 'set_params';
-      const dataStr = data ? ` with data: ${JSON.stringify(data)}` : '';
-      const messageText = cmd === 'set-params' && data ? `📤 ${cmd}${dataStr} ℹ️` : `📤 ${cmd}${dataStr}`;
-
-      const metadata = cmd === 'set-params' && data ? { fullParams: data } : undefined;
-
-      const systemEvent: SystemMessageEvent = {
-        messageId: `cmd_send_${messageId}`,
-        text: messageText,
-        eventType,
-        metadata,
-      };
-
-      this.callbacks.onSystemMessage?.(systemEvent);
-
-      const commandEvent: CommandEvent = {
-        command: cmd,
-        data,
-      };
-
-      this.callbacks.onCommand?.(commandEvent);
-      this.callbacks.onCommandSent?.(cmd, data);
-    }
-  }
-
-  // Messaging methods
+  // Messaging methods - delegated to CommonMessageController
   async setAvatarParameters(metadata: AvatarMetadata): Promise<void> {
-    try {
-      logger.info('Setting avatar parameters', { metadata });
-
-      if (!this.isClientReady()) {
-        throw new StreamingError(ErrorCode.CONNECTION_FAILED, 'Client not ready for sending messages', {
-          details: { connectionState: this.client.connectionState, uid: this.client.uid },
-        });
-      }
-
-      const cleanedMeta = Object.fromEntries(
-        Object.entries(metadata).filter(([_, value]) => value !== undefined && value !== null && value !== ''),
-      );
-
-      const message: StreamMessage = {
-        v: 2,
-        type: 'command',
-        mid: `msg-${Date.now()}`,
-        pld: {
-          cmd: 'set-params',
-          data: cleanedMeta,
-        },
-      };
-
-      const jsonData = JSON.stringify(message);
-      logger.debug('Sending avatar parameters', {
-        messageSize: jsonData.length,
-        cleanedParameters: cleanedMeta,
-      });
-
-      await (
-        this.client as unknown as { sendStreamMessage: (data: string, reliable: boolean) => Promise<void> }
-      ).sendStreamMessage(jsonData, false);
-
-      // Trigger both onCommandSent and onCommand callbacks
-      this.callbacks.onCommandSent?.('set-params', cleanedMeta);
-
-      const commandEvent: CommandEvent = {
-        command: 'set-params',
-        data: cleanedMeta,
-      };
-      this.callbacks.onCommand?.(commandEvent);
-    } catch (error) {
-      const streamingError = ErrorMapper.mapAgoraError(error);
-      logger.error('Failed to set avatar parameters', {
-        error: streamingError.message,
-        metadata,
-      });
-      throw streamingError;
-    }
+    return this.messageController.setAvatarParameters(metadata as unknown as Record<string, unknown>);
   }
 
   async interruptResponse(): Promise<void> {
-    try {
-      logger.info('Sending interrupt command');
-
-      if (!this.isClientReady()) {
-        throw new StreamingError(ErrorCode.CONNECTION_FAILED, 'Client not ready for sending messages', {
-          details: { connectionState: this.client.connectionState, uid: this.client.uid },
-        });
-      }
-
-      const message: StreamMessage = {
-        v: 2,
-        type: 'command',
-        mid: `msg-${Date.now()}`,
-        pld: {
-          cmd: 'interrupt',
-        },
-      };
-
-      const jsonData = JSON.stringify(message);
-      logger.debug('Sending interrupt command', { messageSize: jsonData.length });
-
-      await (
-        this.client as unknown as { sendStreamMessage: (data: string, reliable: boolean) => Promise<void> }
-      ).sendStreamMessage(jsonData, false);
-
-      // Trigger both onCommandSent and onCommand callbacks
-      this.callbacks.onCommandSent?.('interrupt');
-
-      const commandEvent: CommandEvent = {
-        command: 'interrupt',
-      };
-      this.callbacks.onCommand?.(commandEvent);
-    } catch (error) {
-      const streamingError = ErrorMapper.mapAgoraError(error);
-      logger.error('Failed to send interrupt command', {
-        error: streamingError.message,
-      });
-      throw streamingError;
-    }
+    return this.messageController.interruptResponse();
   }
 
   async sendMessage(messageId: string, content: string): Promise<void> {
-    try {
-      logger.info('Sending message to avatar', { messageId, contentLength: content.length });
-
-      if (!this.isClientReady()) {
-        throw new StreamingError(ErrorCode.CONNECTION_FAILED, 'Client not ready for sending messages', {
-          details: { connectionState: this.client.connectionState, uid: this.client.uid },
-        });
-      }
-
-      if (!content) {
-        throw new StreamingError(ErrorCode.INVALID_CONFIGURATION, 'Message content cannot be empty');
-      }
-
-      const chunks = this.splitMessageIntoChunks(content, messageId);
-      logger.debug('Message split into chunks', {
-        totalChunks: chunks.length,
-        messageId,
-      });
-
-      await this.sendMessageChunks(chunks, messageId);
-    } catch (error) {
-      const streamingError = error instanceof StreamingError ? error : ErrorMapper.mapAgoraError(error);
-
-      logger.error('Failed to send message', {
-        error: streamingError.message,
-        messageId,
-        contentLength: content.length,
-      });
-      throw streamingError;
-    }
-  }
-
-  private splitMessageIntoChunks(content: string, messageId: string): string[] {
-    const baseEncoded = this.encodeMessage('', 0, false, messageId);
-    const maxQuestionLength = Math.floor((AgoraController.MAX_ENCODED_SIZE - baseEncoded.length) / 4);
-
-    const chunks: string[] = [];
-    let remainingMessage = content;
-    let chunkIndex = 0;
-
-    while (remainingMessage.length > 0) {
-      let chunk = remainingMessage.slice(0, maxQuestionLength);
-      let encoded = this.encodeMessage(chunk, chunkIndex, false, messageId);
-
-      while (encoded.length > AgoraController.MAX_ENCODED_SIZE && chunk.length > 1) {
-        chunk = chunk.slice(0, Math.ceil(chunk.length / 2));
-        encoded = this.encodeMessage(chunk, chunkIndex, false, messageId);
-      }
-
-      if (encoded.length > AgoraController.MAX_ENCODED_SIZE) {
-        throw new StreamingError(ErrorCode.INVALID_CONFIGURATION, 'Message content too large for chunking', {
-          details: { chunkSize: encoded.length, maxSize: AgoraController.MAX_ENCODED_SIZE },
-        });
-      }
-
-      chunks.push(chunk);
-      remainingMessage = remainingMessage.slice(chunk.length);
-      chunkIndex++;
-    }
-
-    return chunks;
-  }
-
-  private async sendMessageChunks(chunks: string[], messageId: string): Promise<void> {
-    for (let i = 0; i < chunks.length; i++) {
-      const isLastChunk = i === chunks.length - 1;
-      const encodedChunk = this.encodeMessage(chunks[i], i, isLastChunk, messageId);
-      const chunkSize = encodedChunk.length;
-
-      const minimumTimeMs = Math.ceil((1000 * chunkSize) / AgoraController.BYTES_PER_SECOND);
-      const startTime = Date.now();
-
-      logger.debug('Sending message chunk', {
-        chunkIndex: i + 1,
-        totalChunks: chunks.length,
-        chunkSize,
-        isLastChunk,
-        messageId,
-      });
-
-      try {
-        await (
-          this.client as unknown as { sendStreamMessage: (data: Uint8Array, reliable: boolean) => Promise<void> }
-        ).sendStreamMessage(encodedChunk, false);
-      } catch (error) {
-        throw new StreamingError(ErrorCode.API_REQUEST_FAILED, `Failed to send chunk ${i + 1}/${chunks.length}`, {
-          details: { chunkIndex: i, messageId, originalError: error },
-        });
-      }
-
-      if (!isLastChunk) {
-        const elapsedMs = Date.now() - startTime;
-        const remainingDelay = Math.max(0, minimumTimeMs - elapsedMs);
-        if (remainingDelay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, remainingDelay));
-        }
-      }
-    }
-  }
-
-  private encodeMessage(text: string, idx: number, fin: boolean, messageId: string): Uint8Array {
-    const message: StreamMessage = {
-      v: 2,
-      type: 'chat',
-      mid: messageId,
-      idx,
-      fin,
-      pld: {
-        text,
-      },
-    };
-    return new TextEncoder().encode(JSON.stringify(message));
-  }
-
-  private isClientReady(): boolean {
-    return this.client.connectionState === 'CONNECTED' && this.client.uid !== undefined;
+    return this.messageController.sendMessage(messageId, content);
   }
 
   // Utility methods
@@ -678,7 +323,7 @@ export class AgoraController {
   // Clean up method for proper resource management
   cleanup(): void {
     this.removeEventListeners();
-    this.removeStreamMessageListener();
+    this.messageController.cleanup();
     this.callbacks = {};
   }
 }
