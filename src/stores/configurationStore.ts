@@ -73,7 +73,7 @@ export const useConfigurationStore = create<ConfigurationState>()(
   persist(
     (set, get) => ({
       // Initial state - matching App.tsx defaults with environment variable fallbacks
-      selectedProvider: 'agora',
+      selectedProvider: import.meta.env.VITE_STREAM_TYPE || 'agora',
       openapiHost: import.meta.env.VITE_OPENAPI_HOST || '',
       openapiToken: import.meta.env.VITE_OPENAPI_TOKEN || '',
       avatarId: import.meta.env.VITE_AVATAR_ID || '',

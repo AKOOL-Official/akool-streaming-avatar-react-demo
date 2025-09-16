@@ -142,7 +142,14 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
           {/* Provider Selection */}
           <div className="form-row">
             <label>Provider:</label>
-            <ProviderSelector disabled={isJoined} onProviderChange={switchProvider} />
+            <ProviderSelector
+              disabled={isJoined}
+              onProviderChange={(providerType) => {
+                // Update configuration store (already handled in ProviderSelector)
+                // Also update streaming context for immediate UI feedback
+                switchProvider(providerType);
+              }}
+            />
           </div>
 
           {/* Host */}

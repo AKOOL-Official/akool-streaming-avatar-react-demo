@@ -16,12 +16,6 @@ import { useProviderVideoCamera } from './hooks/useProviderVideoCamera';
 import { useConfigurationStore } from './stores/configurationStore';
 
 const App: React.FC = () => {
-  // Provider context
-  const { providerType } = useStreamingContext();
-
-  // Notifications
-  const { showError } = useNotifications();
-
   // Configuration from store
   const {
     openapiHost,
@@ -36,6 +30,12 @@ const App: React.FC = () => {
     modeType,
     voiceParams,
   } = useConfigurationStore();
+
+  // Provider context
+  const { providerType } = useStreamingContext();
+
+  // Notifications
+  const { showError } = useNotifications();
 
   // Media controls (now provider-agnostic)
   const {

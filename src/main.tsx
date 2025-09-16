@@ -4,13 +4,28 @@ import App from './App.tsx';
 import './index.css';
 import { StreamingContextProvider } from './contexts/StreamingContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { useConfigurationStore } from './stores/configurationStore';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+// Wrapper component to access configuration store
+export const AppWithProvider: React.FC = () => {
+  const selectedProvider = useConfigurationStore((state) => state.selectedProvider);
+
+  return (
+    <StreamingContextProvider defaultProvider={selectedProvider}>
+      <App />
+    </StreamingContextProvider>
+  );
+};
+
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <NotificationProvider>
-      <StreamingContextProvider defaultProvider="agora">
-        <App />
-      </StreamingContextProvider>
+      <AppWithProvider />
     </NotificationProvider>
   </React.StrictMode>,
 );
