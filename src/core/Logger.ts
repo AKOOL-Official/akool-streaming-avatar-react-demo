@@ -199,8 +199,10 @@ export class Logger {
             if (match) {
               // Remove query parameters (e.g., ?t=1757646098104) from filename
               const filename = match[1];
-              const cleanFilename = filename.split('?')[0];
-              return cleanFilename;
+              if (filename) {
+                const cleanFilename = filename.split('?')[0];
+                return cleanFilename || 'unknown';
+              }
             }
             return 'unknown';
           }

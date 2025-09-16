@@ -168,6 +168,9 @@ export const DraggableOverlay: React.FC<DraggableOverlayProps> = ({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
+
+    // Return undefined when condition is false
+    return undefined;
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
 
   // Handle click with operation prevention

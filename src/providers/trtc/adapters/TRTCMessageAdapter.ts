@@ -46,7 +46,7 @@ export class TRTCMessageAdapter implements MessageAdapter {
       }
 
       // Convert Uint8Array to ArrayBuffer as required by TRTC SDK
-      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 
       await this.client.sendCustomCmdMsg(
         this.config.defaultCmdId,
@@ -81,7 +81,7 @@ export class TRTCMessageAdapter implements MessageAdapter {
       }
 
       // Convert Uint8Array to ArrayBuffer as required by TRTC SDK
-      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 
       await this.client.sendSEIMsg(arrayBuffer, repeatCount);
 

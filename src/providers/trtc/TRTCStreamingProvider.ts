@@ -37,8 +37,8 @@ interface TRTCClient {
   startLocalVideo(config?: Record<string, unknown>): Promise<void>;
   stopLocalVideo(): void;
   muteLocalVideo(mute: boolean): void;
-  sendCustomCmdMsg(cmdId: number, data: Uint8Array, reliable?: boolean, ordered?: boolean): Promise<void>;
-  sendSEIMsg(data: Uint8Array, repeatCount?: number): Promise<void>;
+  sendCustomCmdMsg(cmdId: number, data: ArrayBuffer, reliable?: boolean, ordered?: boolean): Promise<void>;
+  sendSEIMsg(data: ArrayBuffer, repeatCount?: number): Promise<void>;
   on(event: string, callback: (...args: unknown[]) => void): void;
   off(event: string, callback?: (...args: unknown[]) => void): void;
   getConnectionState(): 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING';

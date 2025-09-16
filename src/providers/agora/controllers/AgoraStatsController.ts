@@ -47,12 +47,12 @@ export class AgoraStatsController extends BaseStatsController {
       const videoStats = this.client.getRemoteVideoStats();
       const audioStats = this.client.getRemoteAudioStats();
 
-      const firstVideoStats = Object.values(videoStats)[0] || {};
-      const firstAudioStats = Object.values(audioStats)[0] || {};
+      const firstVideoStats = (Object.values(videoStats)[0] as any) || {};
+      const firstAudioStats = (Object.values(audioStats)[0] as any) || {};
 
       // Calculate RTT from video/audio stats (end2EndDelay is the most accurate RTT measurement)
-      const videoRtt = firstVideoStats.end2EndDelay || 0;
-      const audioRtt = firstAudioStats.end2EndDelay || 0;
+      const videoRtt = firstVideoStats?.end2EndDelay || 0;
+      const audioRtt = firstAudioStats?.end2EndDelay || 0;
       const avgRtt = videoRtt > 0 && audioRtt > 0 ? (videoRtt + audioRtt) / 2 : Math.max(videoRtt, audioRtt);
 
       // Use Agora's network quality values directly
@@ -61,7 +61,7 @@ export class AgoraStatsController extends BaseStatsController {
         uplink: this.mapQualityToString(stats.uplinkNetworkQuality || 0),
         downlink: this.mapQualityToString(stats.downlinkNetworkQuality || 0),
         rtt: avgRtt,
-        packetLoss: ((firstVideoStats.packetLossRate || 0) + (firstAudioStats.packetLossRate || 0)) / 2,
+        packetLoss: ((firstVideoStats?.packetLossRate || 0) + (firstAudioStats?.packetLossRate || 0)) / 2,
       };
 
       const detailedStats: {
@@ -85,26 +85,26 @@ export class AgoraStatsController extends BaseStatsController {
       // Add video stats if available
       if (Object.keys(videoStats).length > 0) {
         detailedStats.video = {
-          codec: firstVideoStats.codecType,
-          bitrate: firstVideoStats.receiveBitrate,
-          frameRate: firstVideoStats.receiveFrameRate,
+          codec: firstVideoStats?.codecType,
+          bitrate: firstVideoStats?.receiveBitrate,
+          frameRate: firstVideoStats?.receiveFrameRate,
           resolution: {
-            width: firstVideoStats.receiveResolutionWidth,
-            height: firstVideoStats.receiveResolutionHeight,
+            width: firstVideoStats?.receiveResolutionWidth,
+            height: firstVideoStats?.receiveResolutionHeight,
           },
-          packetLoss: firstVideoStats.packetLossRate,
-          rtt: firstVideoStats.end2EndDelay,
+          packetLoss: firstVideoStats?.packetLossRate,
+          rtt: firstVideoStats?.end2EndDelay,
         };
       }
 
       // Add audio stats if available
       if (Object.keys(audioStats).length > 0) {
         detailedStats.audio = {
-          codec: firstAudioStats.codecType,
-          bitrate: firstAudioStats.receiveBitrate,
-          packetLoss: firstAudioStats.packetLossRate,
-          volume: firstAudioStats.receiveLevel,
-          rtt: firstAudioStats.end2EndDelay,
+          codec: firstAudioStats?.codecType,
+          bitrate: firstAudioStats?.receiveBitrate,
+          packetLoss: firstAudioStats?.packetLossRate,
+          volume: firstAudioStats?.receiveLevel,
+          rtt: firstAudioStats?.end2EndDelay,
         };
       }
 
@@ -122,10 +122,10 @@ export class AgoraStatsController extends BaseStatsController {
         rtt: avgRtt,
         hasVideo: Object.keys(videoStats).length > 0,
         hasAudio: Object.keys(audioStats).length > 0,
-        videoBitrate: firstVideoStats.receiveBitrate,
-        audioBitrate: firstAudioStats.receiveBitrate,
-        videoRtt: firstVideoStats.end2EndDelay,
-        audioRtt: firstAudioStats.end2EndDelay,
+        videoBitrate: firstVideoStats?.receiveBitrate,
+        audioBitrate: firstAudioStats?.receiveBitrate,
+        videoRtt: firstVideoStats?.end2EndDelay,
+        audioRtt: firstAudioStats?.end2EndDelay,
       });
     } catch (error) {
       this.handleStatsError(error, 'handleNetworkQuality');

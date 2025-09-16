@@ -306,7 +306,9 @@ export const generateSystemEventStream = (count: number): SystemMessageEvent[] =
 
   for (let i = 0; i < count; i++) {
     const eventType = eventTypes[i % eventTypes.length];
-    events.push(createSystemMessageEvent(eventType));
+    if (eventType) {
+      events.push(createSystemMessageEvent(eventType));
+    }
   }
 
   return events;

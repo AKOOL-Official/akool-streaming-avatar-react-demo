@@ -166,9 +166,9 @@ export const useMessageState = ({ connected }: UseMessageStateProps): UseMessage
               text,
               sender,
               messageType,
-              systemType,
+              systemType: systemType!,
               timestamp: currentTime,
-              metadata,
+              metadata: metadata || {},
             },
           ];
         }
@@ -178,11 +178,14 @@ export const useMessageState = ({ connected }: UseMessageStateProps): UseMessage
         if (existingMessageIndex !== -1) {
           // Update existing message
           const newMessages = [...prev];
-          newMessages[existingMessageIndex] = {
-            ...newMessages[existingMessageIndex],
-            text: newMessages[existingMessageIndex].text + text,
-            metadata,
-          };
+          const existingMessage = newMessages[existingMessageIndex];
+          if (existingMessage) {
+            newMessages[existingMessageIndex] = {
+              ...existingMessage,
+              text: existingMessage.text + text,
+              metadata: metadata || existingMessage.metadata,
+            };
+          }
           return newMessages;
         }
         // Add new message
@@ -194,7 +197,7 @@ export const useMessageState = ({ connected }: UseMessageStateProps): UseMessage
             sender,
             messageType,
             timestamp: currentTime,
-            metadata,
+            metadata: metadata || {},
           },
         ];
       });

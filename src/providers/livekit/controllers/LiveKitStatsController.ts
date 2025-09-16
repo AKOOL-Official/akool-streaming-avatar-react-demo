@@ -60,7 +60,8 @@ export class LiveKitStatsController extends BaseStatsController {
         // Get video track stats - using correct LiveKit API
         const videoTracks = Array.from(localParticipant.videoTrackPublications.values());
         if (videoTracks.length > 0) {
-          const videoTrack = videoTracks[0].track;
+          const videoTrackPublication = videoTracks[0];
+          const videoTrack = videoTrackPublication?.track;
           if (videoTrack) {
             // Get video track stats from the underlying MediaStreamTrack
             const videoStats = await this.getTrackStats(videoTrack as unknown as MediaStreamTrack);
@@ -83,7 +84,8 @@ export class LiveKitStatsController extends BaseStatsController {
         // Get audio track stats - using correct LiveKit API
         const audioTracks = Array.from(localParticipant.audioTrackPublications.values());
         if (audioTracks.length > 0) {
-          const audioTrack = audioTracks[0].track;
+          const audioTrackPublication = audioTracks[0];
+          const audioTrack = audioTrackPublication?.track;
           if (audioTrack) {
             // Get audio track stats from the underlying MediaStreamTrack
             const audioStats = await this.getTrackStats(audioTrack as unknown as MediaStreamTrack);

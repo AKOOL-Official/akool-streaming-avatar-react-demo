@@ -400,7 +400,12 @@ export class CommonMessageController {
   private async sendMessageChunks(chunks: string[], messageId: string): Promise<void> {
     for (let i = 0; i < chunks.length; i++) {
       const isLastChunk = i === chunks.length - 1;
-      const encodedChunk = this.encodeMessage(chunks[i], i, isLastChunk, messageId);
+      const chunk = chunks[i];
+      if (!chunk) {
+        logger.warn('Skipping undefined chunk', { index: i, totalChunks: chunks.length });
+        continue;
+      }
+      const encodedChunk = this.encodeMessage(chunk, i, isLastChunk, messageId);
       const chunkSize = encodedChunk.length;
 
       const minimumTimeMs = Math.ceil((1000 * chunkSize) / this.config.bytesPerSecond);
