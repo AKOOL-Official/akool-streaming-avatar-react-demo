@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { ApiService, Language, Voice, Avatar } from '../../apiService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ApiService, Language, Avatar } from '../../apiService';
 import { useConfigurationStore } from '../../stores/configurationStore';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
-import JsonEditorModal from '../JsonEditorModal';
+import { useModal } from '../../contexts/ModalContext';
 import { ProviderSelector } from '../ProviderSelector';
 import './styles.css';
 
@@ -17,6 +17,7 @@ interface ConfigurationPanelProps {
 const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, startStreaming, closeStreaming }) => {
   const { showError } = useNotifications();
   const { switchProvider } = useStreamingContext();
+  const { openVoiceDialog, openJsonEditor } = useModal();
 
   // Configuration from store
   const {
@@ -30,7 +31,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
     avatarId,
     setAvatarId,
     voiceId,
-    setVoiceId,
     knowledgeId,
     setKnowledgeId,
 
@@ -57,12 +57,11 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
 
   // Local state for API data and UI
   const [languages, setLanguages] = useState<Language[]>([]);
-  const [voices, setVoices] = useState<Voice[]>([]);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [backgroundUrlInput, setBackgroundUrlInput] = useState(backgroundUrl);
-  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
 
   // Load API data when API service is available
   useEffect(() => {
@@ -70,13 +69,8 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
 
     const loadData = async () => {
       try {
-        const [languagesData, voicesData, avatarsData] = await Promise.all([
-          api.getLangList(),
-          api.getVoiceList(),
-          api.getAvatarList(),
-        ]);
+        const [languagesData, avatarsData] = await Promise.all([api.getLangList(), api.getAvatarList()]);
         setLanguages(languagesData);
-        setVoices(voicesData);
         setAvatars(avatarsData);
       } catch (error) {
         showError('Failed to load configuration data', 'API Error');
@@ -96,6 +90,35 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
   useEffect(() => {
     setBackgroundUrlInput(backgroundUrl);
   }, [backgroundUrl]);
+
+  // Get selected voice name
+  const getSelectedVoiceName = useCallback(async () => {
+    if (!voiceId || !api) {
+      setSelectedVoiceName('');
+      return;
+    }
+
+    try {
+      const voiceGroups = await api.getAllVoices();
+      for (const group of voiceGroups) {
+        if (group.voices) {
+          const selectedVoice = group.voices.find((voice) => voice.voice_id === voiceId);
+          if (selectedVoice) {
+            setSelectedVoiceName(selectedVoice.name || 'Unnamed Voice');
+            return;
+          }
+        }
+      }
+      setSelectedVoiceName(voiceId); // Fallback to ID if name not found
+    } catch (error) {
+      setSelectedVoiceName(voiceId); // Fallback to ID on error
+    }
+  }, [voiceId, api]);
+
+  // Update selected voice name when voiceId changes
+  useEffect(() => {
+    getSelectedVoiceName();
+  }, [getSelectedVoiceName]);
 
   // Handle start streaming
   const handleStartStreaming = async () => {
@@ -236,20 +259,27 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
             </select>
           </div>
 
-          {/* Voice */}
+          {/* Voice Selection */}
           <div className="form-row">
             <label>Voice:</label>
             <div className="input-with-buttons">
-              <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} disabled={isJoined}>
-                <option value="">Select a voice</option>
-                {voices.map((voice) => (
-                  <option key={voice.voice_id} value={voice.voice_id}>
-                    {voice.name}
-                  </option>
-                ))}
-              </select>
-              <button type="button" disabled={isJoined} className="icon-button-small" title="Edit voice">
-                ✏️
+              <input
+                type="text"
+                value={selectedVoiceName || 'Select a voice'}
+                placeholder="Select a voice"
+                readOnly
+                disabled={isJoined}
+                className="voice-display-input"
+              />
+              <button
+                type="button"
+                onClick={openVoiceDialog}
+                disabled={isJoined || !api}
+                className="btn btn-secondary btn-sm"
+                title="Select voice"
+              >
+                <span className="material-icons">mic</span>
+                Select Voice
               </button>
             </div>
           </div>
@@ -262,6 +292,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
               placeholder="Enter voice URL"
               value={voiceUrl}
               onChange={(e) => setVoiceUrl(e.target.value)}
+              disabled={isJoined}
             />
           </div>
 
@@ -272,7 +303,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
               <input type="text" value={JSON.stringify(voiceParams)} readOnly placeholder="{}" />
               <button
                 type="button"
-                onClick={() => setIsJsonModalOpen(true)}
+                onClick={() => openJsonEditor(voiceParams, handleVoiceParamsChange, 'Voice Parameters')}
                 disabled={isJoined}
                 className="edit-json-button"
                 title="Edit JSON parameters"
@@ -387,15 +418,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
           )}
         </div>
       </div>
-
-      {/* JSON Editor Modal */}
-      <JsonEditorModal
-        isOpen={isJsonModalOpen}
-        onClose={() => setIsJsonModalOpen(false)}
-        value={voiceParams}
-        onChange={handleVoiceParamsChange}
-        title="Voice Parameters"
-      />
     </div>
   );
 };

@@ -1,0 +1,90 @@
+.voice-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.voice-preview:hover {
+  background: #f0f0f0;
+  border-color: #d0d0d0;
+}
+
+.voice-preview.disabled {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+  opacity: 0.6;
+}
+
+.preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preview-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: #4096ff;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.preview-button:hover:not(:disabled) {
+  background: #1677ff;
+  transform: scale(1.05);
+}
+
+.preview-button:disabled {
+  background: #d0d0d0;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.stop-button {
+  background: #ff4d4f;
+}
+
+.stop-button:hover:not(:disabled) {
+  background: #ff7875;
+}
+
+.preview-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.preview-text {
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-loading {
+  color: #4096ff;
+  font-style: italic;
+}
+
+.preview-error {
+  color: #ff4d4f;
+  font-size: 11px;
+}
+
+.material-icons {
+  font-size: 16px;
+  line-height: 1;
+}

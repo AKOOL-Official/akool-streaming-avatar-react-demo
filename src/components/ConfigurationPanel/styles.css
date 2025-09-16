@@ -363,6 +363,108 @@
   cursor: not-allowed;
 }
 
+/* Voice Display Input */
+.voice-display-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #f8f9fa;
+  color: #262626;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.voice-display-input:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #d0d0d0;
+}
+
+.voice-display-input:focus {
+  outline: none;
+  border-color: #4096ff;
+  box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.1);
+  background: white;
+}
+
+.voice-display-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.voice-display-input[value='Select a voice'] {
+  color: #8c8c8c;
+  font-style: italic;
+}
+
+.voice-display-input[value=''] {
+  color: #8c8c8c;
+  font-style: italic;
+}
+
+/* Button System for Configuration Panel */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: #4096ff;
+  color: white;
+  border-color: #4096ff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1677ff;
+  border-color: #1677ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary {
+  background: white;
+  color: #595959;
+  border-color: #d9d9d9;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #4096ff;
+  color: #4096ff;
+  background: #e6f7ff;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 11px;
+  min-height: 28px;
+}
+
+.material-icons {
+  font-size: 16px;
+  line-height: 1;
+}
+
 /* Edit JSON button */
 .edit-json-button {
   flex: 0 0 auto;

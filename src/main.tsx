@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { StreamingContextProvider } from './contexts/StreamingContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ModalProvider } from './contexts/ModalContext';
 import { useConfigurationStore } from './stores/configurationStore';
 
 // Wrapper component to access configuration store
@@ -25,7 +26,9 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <NotificationProvider>
-      <AppWithProvider />
+      <ModalProvider>
+        <AppWithProvider />
+      </ModalProvider>
     </NotificationProvider>
   </React.StrictMode>,
 );

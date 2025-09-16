@@ -9,12 +9,35 @@ export interface ApiResponse<T> {
 
 // Avatar system schemas
 export interface Voice {
-  accent: string;
-  description: string;
-  language: string;
-  preview: string;
+  _id: string;
   voice_id: string;
+  support_stream: boolean;
+  style: string[];
+  scenario: string[];
+  age: string[];
+  gender: string;
   name: string;
+  preview: string;
+  text: string;
+  locale: string;
+  language: string;
+  voice_model_name: string;
+}
+
+// Enhanced voice interface with additional properties
+export interface EnhancedVoice extends Voice {
+  type: 1 | 2; // Voice type: 1 for VoiceClone, 2 for Akool Voices
+  uid?: number;
+  create_time?: number;
+  duration?: number;
+  status?: number;
+}
+
+// Voice grouping interface
+export interface VoiceGroup {
+  type: 1 | 2;
+  label: string;
+  voices: EnhancedVoice[];
 }
 
 export interface Language {

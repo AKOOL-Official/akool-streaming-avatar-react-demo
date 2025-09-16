@@ -7,6 +7,7 @@ import NetworkQualityDisplay from './components/NetworkQuality';
 import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
 import { NotificationContainer } from './components/NotificationContainer';
+import ModalContainer from './components/ModalContainer';
 
 import { useStreamingContext } from './hooks/useStreamingContext';
 import { useNotifications } from './contexts/NotificationContext';
@@ -159,6 +160,9 @@ const App: React.FC = () => {
       </div>
 
       <NotificationContainer />
+
+      {/* Modal Container - Renders all modals at App level for proper centering */}
+      <ModalContainer api={api} isJoined={isJoined} />
     </>
   );
 };

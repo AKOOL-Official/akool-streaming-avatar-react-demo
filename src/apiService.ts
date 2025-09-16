@@ -1,8 +1,27 @@
 // Import types for use in implementation
-import type { Voice, Language, Avatar, Knowledge, SessionOptions, Session } from './types/api.schemas';
+import type {
+  Voice,
+  EnhancedVoice,
+  VoiceGroup,
+  Language,
+  Avatar,
+  Knowledge,
+  SessionOptions,
+  Session,
+} from './types/api.schemas';
 
 // Re-export types from api.schemas.ts to maintain backward compatibility
-export type { ApiResponse, Voice, Language, Avatar, Knowledge, SessionOptions, Session } from './types/api.schemas';
+export type {
+  ApiResponse,
+  Voice,
+  EnhancedVoice,
+  VoiceGroup,
+  Language,
+  Avatar,
+  Knowledge,
+  SessionOptions,
+  Session,
+} from './types/api.schemas';
 
 export class ApiService {
   private openapiHost: string;
@@ -57,9 +76,60 @@ export class ApiService {
     return data?.knowledge_list ?? [];
   }
 
-  public async getVoiceList(): Promise<Voice[]> {
-    const data = await this.fetchApi<Voice[]>('/api/open/v3/voice/list?from=3', 'GET');
-    return data ?? [];
+  /**
+   * Get voice list
+   * @param type - Voice type, 1 for VoiceClone, 2 for Akool Voices
+   * @returns Voice list
+   */
+  public async getVoiceList(type: number = 2): Promise<Voice[]> {
+    const data = await this.fetchApi<{ result: Voice[] }>(
+      `/api/open/v4/voice/list?support_stream=1&type=${type}`,
+      'GET',
+    );
+    return data?.result ?? [];
+  }
+
+  /**
+   * Get all voices (both types) with enhanced information
+   * @returns Enhanced voice list grouped by type
+   */
+  public async getAllVoices(): Promise<VoiceGroup[]> {
+    try {
+      // Fetch both voice types in parallel
+      const [voiceCloneVoices, akoolVoices] = await Promise.all([this.getVoiceList(1), this.getVoiceList(2)]);
+
+      // Transform to enhanced voices with type information
+      const enhancedVoiceClone: EnhancedVoice[] = voiceCloneVoices.map((voice) => ({
+        ...voice,
+        type: 1 as const,
+      }));
+
+      const enhancedAkoolVoices: EnhancedVoice[] = akoolVoices.map((voice) => ({
+        ...voice,
+        type: 2 as const,
+      }));
+
+      // Group voices by type
+      const voiceGroups: VoiceGroup[] = [
+        {
+          type: 1,
+          label: 'VoiceClone (Custom Voices)',
+          voices: enhancedVoiceClone,
+        },
+        {
+          type: 2,
+          label: 'Akool Voices (Pre-built)',
+          voices: enhancedAkoolVoices,
+        },
+      ];
+
+      return voiceGroups;
+    } catch (error) {
+      if (this.notificationCallback) {
+        this.notificationCallback('Failed to load voice list', 'Error');
+      }
+      throw error;
+    }
   }
 
   public async getAvatarList(): Promise<Avatar[]> {
