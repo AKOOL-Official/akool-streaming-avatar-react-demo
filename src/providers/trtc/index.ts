@@ -1,20 +1,17 @@
-import { StreamingProvider, StreamingCredentials } from '../../types/provider.interfaces';
-import { TRTCStreamingProvider, TRTCProviderConfig } from './TRTCStreamingProvider';
-import { logger } from '../../core/Logger';
-// TRTCCredentials type is not needed as we use the actual TRTC SDK
-import TRTC from 'trtc-sdk-v5';
+// Factory function for creating TRTC provider with dynamic import
+export async function createProvider(_credentials: unknown) {
+  // Dynamically import TRTC SDK only when needed
+  const TRTC = await import('trtc-sdk-v5');
+  const trtcModule = await import('./TRTCStreamingProvider');
+  const { logger } = await import('../../core/Logger');
 
-// Using actual TRTC type from SDK
-
-// Factory function for creating TRTC provider
-export function createProvider(_credentials: StreamingCredentials): StreamingProvider {
   logger.info('Creating TRTC provider with real SDK');
 
   // Create real TRTC client instance
-  const trtcClient = TRTC.create();
+  const trtcClient = TRTC.default.create();
 
   // Create provider config
-  const providerConfig: TRTCProviderConfig = {
+  const providerConfig = {
     client: trtcClient,
     messageConfig: {
       maxMessageSize: 1024,
@@ -24,7 +21,7 @@ export function createProvider(_credentials: StreamingCredentials): StreamingPro
     },
   };
 
-  return new TRTCStreamingProvider(providerConfig);
+  return new trtcModule.TRTCStreamingProvider(providerConfig);
 }
 
 // Export all TRTC-specific types and classes

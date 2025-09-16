@@ -4,7 +4,7 @@ import { logger } from '../core/Logger';
 import { StreamingError, ErrorCode } from '../types/error.types';
 
 interface ProviderModule {
-  createProvider: (credentials: StreamingCredentials) => StreamingProvider;
+  createProvider: (credentials: StreamingCredentials) => Promise<StreamingProvider>;
 }
 
 type ProviderLoader = () => Promise<ProviderModule>;
@@ -38,8 +38,8 @@ export class StreamingProviderFactory {
 
       const module = await this.loadProviderModule(type);
 
-      // Create provider with credentials
-      const provider = module.createProvider(credentials);
+      // Create provider with credentials (now async)
+      const provider = await module.createProvider(credentials);
 
       logger.info('Streaming provider created successfully', { type });
       return provider;
