@@ -286,32 +286,9 @@ export class TRTCVideoController {
   }
 
   private setupEventHandlers(): void {
-    this.client.on('onFirstVideoFrame', (...args: unknown[]) => {
-      const [userId, , width, height] = args as [string, number, number, number];
-      if (userId === '') {
-        // Local user
-        logger.info('TRTC local video first frame', { width, height });
-        this.callbacks.onVideoResize?.(width, height);
-      }
-    });
-
-    this.client.on('onVideoSizeChanged', (...args: unknown[]) => {
-      const [userId, , newWidth, newHeight] = args as [string, number, number, number];
-      if (userId === '') {
-        // Local user
-        logger.info('TRTC local video size changed', { newWidth, newHeight });
-        this.callbacks.onVideoResize?.(newWidth, newHeight);
-      }
-    });
-
-    this.client.on('onCameraDidReady', () => {
-      logger.info('TRTC camera ready');
-    });
-
-    this.client.on('onVideoDeviceStateChanged', (...args: unknown[]) => {
-      const [deviceId, deviceType, deviceState] = args as [string, number, number];
-      logger.info('TRTC video device state changed', { deviceId, deviceType, deviceState });
-    });
+    // Note: Video-specific events like FIRST_VIDEO_FRAME, VIDEO_SIZE_CHANGED, etc.
+    // are not available as TRTC.EVENT constants in this SDK version.
+    // These events are handled through the Promise-based API calls instead.
   }
 
   async playRemoteVideo(userId: string, element: HTMLElement): Promise<void> {
@@ -377,11 +354,7 @@ export class TRTCVideoController {
     try {
       logger.info('Cleaning up TRTC video controller');
 
-      // Remove event listeners
-      this.client.off('onFirstVideoFrame');
-      this.client.off('onVideoSizeChanged');
-      this.client.off('onCameraDidReady');
-      this.client.off('onVideoDeviceStateChanged');
+      // Note: Video-specific events are not available as TRTC.EVENT constants
 
       // Disable video if enabled
       if (this.isEnabled) {

@@ -1,5 +1,4 @@
 import { logger } from '../../../core/Logger';
-import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { Participant } from '../../../types/streaming.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 import { TRTCEventControllerCallbacks } from '../types';
@@ -176,36 +175,7 @@ export class TRTCEventController {
     //   logger.info('TRTC connection recovered');
     // };
 
-    // Network quality events
-    const onNetworkQuality = (localQuality: any, remoteQuality: any[]) => {
-      logger.debug('TRTC network quality update', { localQuality, remoteQuality });
-
-      try {
-        // Update local participant network quality
-        if (localQuality) {
-          this.participantController.updateLocalParticipant({
-            networkQuality: {
-              uplink: localQuality.txQuality || 0,
-              downlink: localQuality.rxQuality || 0,
-            },
-          });
-        }
-
-        // Update remote participants network quality
-        remoteQuality?.forEach((quality: any) => {
-          if (quality.userId) {
-            this.participantController.updateParticipant(quality.userId, {
-              networkQuality: {
-                uplink: quality.txQuality || 0,
-                downlink: quality.rxQuality || 0,
-              },
-            });
-          }
-        });
-      } catch (error) {
-        logger.error('Failed to handle network quality update', { error });
-      }
-    };
+    // Note: Network quality events are handled by TRTCStatsController
 
     // Statistics events
     const onStatistics = (statistics: any) => {
@@ -231,17 +201,7 @@ export class TRTCEventController {
       }
     };
 
-    // Error events
-    const onError = (errCode: number, errMsg: string) => {
-      logger.error('TRTC SDK error', { errCode, errMsg });
-
-      const error = new StreamingError(ErrorCode.UNKNOWN_ERROR, `TRTC SDK error: ${errMsg}`, {
-        provider: 'trtc',
-        errCode,
-        errMsg,
-      });
-      this.callbacks.onError?.(error);
-    };
+    // Note: Error events are handled by TRTCConnectionController
 
     // Note: These event handlers are commented out as the corresponding events may not be available in this SDK version
     // const onWarning = (warningCode: number, warningMsg: string) => {
@@ -291,11 +251,9 @@ export class TRTCEventController {
       }
     });
     // Note: USER_SUB_STREAM_AVAILABLE, CONNECTION_LOST, TRY_TO_RECONNECT, CONNECTION_RECOVERY may not be available in this SDK version
-    this.client.on(TRTC.EVENT.NETWORK_QUALITY, (...args: unknown[]) =>
-      onNetworkQuality(args[0] as any, args[1] as any[]),
-    );
+    // Note: NETWORK_QUALITY is handled by TRTCStatsController
+    // Note: ERROR and WARNING are handled by TRTCConnectionController
     this.client.on(TRTC.EVENT.STATISTICS, onStatistics);
-    this.client.on(TRTC.EVENT.ERROR, (...args: unknown[]) => onError(args[0] as number, args[1] as string));
     // Note: WARNING and USER_VOICE_VOLUME may not be available in this SDK version
     // this.client.on(TRTC.EVENT.WARNING, (...args: unknown[]) => onWarning(args[0] as number, args[1] as string));
     // this.client.on(TRTC.EVENT.USER_VOICE_VOLUME, (...args: unknown[]) => onUserVoiceVolume(args[0] as Array<{ userId: string; volume: number; }>));

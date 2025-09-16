@@ -249,34 +249,16 @@ export class TRTCAudioController {
   }
 
   private setupEventHandlers(): void {
-    this.client.on('onUserVoiceVolume', (...args: unknown[]) => {
-      const userVolumes = args[0] as Array<{ userId: string; volume: number }>;
-      // Find local user volume
-      const localVolume = userVolumes.find((user) => user.userId === '');
-      if (localVolume) {
-        this.callbacks.onVolumeChange?.(localVolume.volume);
-      }
-    });
-
-    this.client.on('onAudioDeviceStateChanged', (...args: unknown[]) => {
-      const [deviceId, deviceType, deviceState] = args as [string, number, number];
-      logger.info('TRTC audio device state changed', { deviceId, deviceType, deviceState });
-    });
-
-    this.client.on('onTestMicVolume', (...args: unknown[]) => {
-      const volume = args[0] as number;
-      this.callbacks.onVolumeChange?.(volume);
-    });
+    // Note: Audio-specific events like USER_VOICE_VOLUME, AUDIO_DEVICE_STATE_CHANGED, etc.
+    // are not available as TRTC.EVENT constants in this SDK version.
+    // These events are handled through the Promise-based API calls instead.
   }
 
   async cleanup(): Promise<void> {
     try {
       logger.info('Cleaning up TRTC audio controller');
 
-      // Remove event listeners
-      this.client.off('onUserVoiceVolume');
-      this.client.off('onAudioDeviceStateChanged');
-      this.client.off('onTestMicVolume');
+      // Note: Audio-specific events are not available as TRTC.EVENT constants
 
       // Disable audio if enabled
       if (this.isEnabled) {

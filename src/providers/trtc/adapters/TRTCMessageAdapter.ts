@@ -225,9 +225,10 @@ export class TRTCMessageAdapter implements MessageAdapter {
       logger.info('Cleaning up TRTC message adapter');
 
       // Remove event listeners
-      this.client.off('onRecvCustomCmdMsg');
-      this.client.off('onRecvSEIMsg');
-      this.client.off('onMissCustomCmdMsg');
+      this.client.off(TRTC.EVENT.CUSTOM_MESSAGE);
+      // Note: SEI and MISS_CUSTOM_MESSAGE events are not currently used
+      // this.client.off(TRTC.EVENT.SEI_MESSAGE);
+      // this.client.off(TRTC.EVENT.MISS_CUSTOM_MESSAGE);
 
       // Clear callbacks
       this.messageCallbacks.clear();

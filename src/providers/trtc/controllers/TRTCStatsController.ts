@@ -2,6 +2,7 @@ import { logger } from '../../../core/Logger';
 // import { BaseStatsController, StatsControllerCallbacks } from '../../common/controllers/BaseStatsController';
 import { NetworkStats } from '../../../components/NetworkQuality';
 import { TRTCNetworkQuality, TRTCLocalStatistics, TRTCRemoteStatistics, TRTCStatsControllerCallbacks } from '../types';
+import TRTC from 'trtc-sdk-v5';
 
 // TRTC SDK v5 client interface (simplified)
 interface TRTCClient {
@@ -45,7 +46,7 @@ export class TRTCStatsController {
 
   private setupEventHandlers(): void {
     // Network quality events
-    this.client.on('onNetworkQuality', (...args: unknown[]) => {
+    this.client.on(TRTC.EVENT.NETWORK_QUALITY, (...args: unknown[]) => {
       const [localQuality, remoteQuality] = args as [TRTCNetworkQuality, TRTCNetworkQuality[]];
       try {
         this.networkQualityData = localQuality;
@@ -63,7 +64,7 @@ export class TRTCStatsController {
     });
 
     // Local statistics events
-    this.client.on('onStatistics', (...args: unknown[]) => {
+    this.client.on(TRTC.EVENT.STATISTICS, (...args: unknown[]) => {
       const statistics = args[0] as {
         localStatistics?: TRTCLocalStatistics;
         remoteStatistics?: TRTCRemoteStatistics[];
@@ -93,28 +94,7 @@ export class TRTCStatsController {
       }
     });
 
-    // Speed test events (if available)
-    this.client.on('onSpeedTest', (result: any) => {
-      try {
-        logger.info('TRTC speed test result', { result });
-
-        // Convert speed test to network quality for immediate feedback
-        if (result.success) {
-          const speedTestQuality: TRTCNetworkQuality = {
-            userId: '',
-            txQuality: this.mapQualityFromRTT(result.rtt),
-            rxQuality: this.mapQualityFromRTT(result.rtt),
-            delay: result.rtt,
-            lossRate: (result.upLostRate + result.downLostRate) / 2,
-          };
-
-          this.networkQualityData = speedTestQuality;
-          this.triggerStatsCollection();
-        }
-      } catch (error) {
-        logger.error('Failed to handle TRTC speed test result', { error });
-      }
-    });
+    // Note: SPEED_TEST event is not available as TRTC.EVENT constant in this SDK version
   }
 
   private async triggerStatsCollection(): Promise<void> {
@@ -217,15 +197,7 @@ export class TRTCStatsController {
     return baseStats;
   }
 
-  private mapQualityFromRTT(rtt: number): number {
-    // Map RTT to TRTC quality scale (1-6, where 6 is best)
-    if (rtt < 50) return 6; // Excellent
-    if (rtt < 100) return 5; // Good
-    if (rtt < 200) return 4; // Fair
-    if (rtt < 400) return 3; // Poor
-    if (rtt < 800) return 2; // Bad
-    return 1; // Very bad
-  }
+  // Note: mapQualityFromRTT function removed as SPEED_TEST event is not available
 
   async startCollecting(): Promise<void> {
     try {
@@ -286,9 +258,8 @@ export class TRTCStatsController {
       await this.stopCollecting();
 
       // Remove event listeners
-      this.client.off('onNetworkQuality');
-      this.client.off('onStatistics');
-      this.client.off('onSpeedTest');
+      this.client.off(TRTC.EVENT.NETWORK_QUALITY);
+      this.client.off(TRTC.EVENT.STATISTICS);
 
       // Clear data
       this.networkQualityData = null;

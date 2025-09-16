@@ -2,6 +2,7 @@ import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { TRTCCredentials, TRTCConnectionControllerCallbacks, TRTCParams } from '../types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
+import TRTC from 'trtc-sdk-v5';
 
 // TRTC SDK v5 client interface (simplified)
 interface TRTCClient {
@@ -118,55 +119,8 @@ export class TRTCConnectionController {
   }
 
   private setupEventHandlers(): void {
-    // TRTC SDK v5 events
-    this.client.on('onEnterRoom', (...args: unknown[]) => {
-      const result = args[0] as number;
-      if (result > 0) {
-        logger.info('TRTC room entered successfully', { elapsed: result });
-        this.isConnected = true;
-        this.isConnecting = false;
-        this.callbacks.onConnected?.();
-      } else {
-        logger.error('Failed to enter TRTC room', { result });
-        this.isConnecting = false;
-        this.isConnected = false;
-
-        const error = new StreamingError(ErrorCode.CONNECTION_FAILED, `Failed to enter TRTC room: ${result}`, {
-          provider: 'trtc',
-          details: { result },
-        });
-        this.callbacks.onError?.(error);
-      }
-    });
-
-    this.client.on('onExitRoom', (...args: unknown[]) => {
-      const reason = args[0] as number;
-      logger.info('TRTC room exited', { reason });
-      this.isConnected = false;
-      this.isConnecting = false;
-      this.callbacks.onDisconnected?.();
-    });
-
-    this.client.on('onConnectionLost', () => {
-      logger.warn('TRTC connection lost');
-      this.isConnected = false;
-
-      const error = new StreamingError(ErrorCode.CONNECTION_LOST, 'TRTC connection lost', { provider: 'trtc' });
-      this.callbacks.onError?.(error);
-    });
-
-    this.client.on('onTryToReconnect', () => {
-      logger.info('TRTC attempting to reconnect');
-      this.callbacks.onReconnecting?.();
-    });
-
-    this.client.on('onConnectionRecovery', () => {
-      logger.info('TRTC connection recovered');
-      this.isConnected = true;
-      this.callbacks.onReconnected?.();
-    });
-
-    this.client.on('onError', (...args: unknown[]) => {
+    // TRTC SDK v5 events - using only available TRTC.EVENT constants
+    this.client.on(TRTC.EVENT.ERROR, (...args: unknown[]) => {
       const [errCode, errMsg] = args as [number, string];
       logger.error('TRTC SDK error', { errCode, errMsg });
 
@@ -177,10 +131,9 @@ export class TRTCConnectionController {
       this.callbacks.onError?.(error);
     });
 
-    this.client.on('onWarning', (...args: unknown[]) => {
-      const [warningCode, warningMsg] = args as [number, string];
-      logger.warn('TRTC SDK warning', { warningCode, warningMsg });
-    });
+    // Note: Connection events like ENTER_ROOM, EXIT_ROOM, CONNECTION_LOST, etc.
+    // are not available as TRTC.EVENT constants in this SDK version.
+    // These events are handled through the Promise-based API calls instead.
   }
 
   async cleanup(): Promise<void> {
@@ -188,13 +141,7 @@ export class TRTCConnectionController {
       logger.info('Cleaning up TRTC connection controller');
 
       // Remove all event listeners
-      this.client.off('onEnterRoom');
-      this.client.off('onExitRoom');
-      this.client.off('onConnectionLost');
-      this.client.off('onTryToReconnect');
-      this.client.off('onConnectionRecovery');
-      this.client.off('onError');
-      this.client.off('onWarning');
+      this.client.off(TRTC.EVENT.ERROR);
 
       // Disconnect if still connected
       if (this.isConnected || this.isConnecting) {
