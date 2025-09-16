@@ -36,6 +36,12 @@ export interface AudioConfig {
   volume?: number;
   echoCancellation?: boolean;
   noiseSuppression?: boolean;
+  // AI Denoiser configuration (TRTC specific)
+  aiDenoiser?: {
+    enabled?: boolean;
+    mode?: 0 | 1; // 0: default mode, 1: far-field elimination mode
+    assetsPath?: string; // CDN path for denoiser assets
+  };
 }
 
 export interface Participant {

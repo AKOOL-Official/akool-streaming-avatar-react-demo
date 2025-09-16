@@ -66,6 +66,7 @@ export class TRTCStreamingProvider implements StreamingProvider {
   private videoController: TRTCVideoController;
 
   private client: TRTC;
+  private currentCredentials: TRTCCredentials | null = null;
 
   constructor(config: TRTCProviderConfig) {
     this.client = config.client;
@@ -115,6 +116,7 @@ export class TRTCStreamingProvider implements StreamingProvider {
       }
 
       const trtcCredentials = credentials as TRTCCredentials;
+      this.currentCredentials = trtcCredentials;
       await this.connectionController.connect(trtcCredentials);
 
       // Create local participant
@@ -134,6 +136,10 @@ export class TRTCStreamingProvider implements StreamingProvider {
       // Mark message adapter as ready
       const messageAdapter = this.messageController.getAdapter() as TRTCMessageAdapter;
       messageAdapter.setReady(true);
+
+      // Enable AI denoiser if configured in audio settings
+      // Note: This requires the audio controller to be configured with AI denoiser settings
+      // The actual AI denoiser will be enabled when audio is enabled with proper credentials
 
       logger.info('TRTC connection successful');
     } catch (error) {
@@ -170,6 +176,9 @@ export class TRTCStreamingProvider implements StreamingProvider {
       // Clear participant controller
       this.participantController.clearAllParticipants();
 
+      // Clear credentials
+      this.currentCredentials = null;
+
       logger.info('TRTC disconnection successful');
     } catch (error) {
       logger.error('TRTC disconnection failed', { error });
@@ -181,7 +190,25 @@ export class TRTCStreamingProvider implements StreamingProvider {
 
   // Audio methods
   async enableAudio(config?: AudioConfig): Promise<AudioTrack> {
-    return this.audioController.enableAudio(config);
+    const track = await this.audioController.enableAudio(config);
+
+    // If AI denoiser is configured and we have credentials, enable it
+    if (config?.aiDenoiser?.enabled && this._state.localParticipant) {
+      const credentials = this.getCurrentCredentials();
+      if (credentials && 'trtc_app_id' in credentials) {
+        try {
+          await this.audioController.enableAIDenoiser(
+            credentials.trtc_app_id,
+            credentials.trtc_user_id,
+            credentials.trtc_user_sig,
+          );
+        } catch (error) {
+          logger.warn('Failed to enable AI denoiser during audio enable', { error });
+        }
+      }
+    }
+
+    return track;
   }
 
   async disableAudio(): Promise<void> {
@@ -246,6 +273,19 @@ export class TRTCStreamingProvider implements StreamingProvider {
     return this.audioController.disableNoiseReduction();
   }
 
+  // AI Denoiser methods
+  async enableAIDenoiser(sdkAppId?: number, userId?: string, userSig?: string): Promise<void> {
+    return this.audioController.enableAIDenoiser(sdkAppId, userId, userSig);
+  }
+
+  async updateAIDenoiser(mode?: 0 | 1): Promise<void> {
+    return this.audioController.updateAIDenoiser(mode);
+  }
+
+  async disableAIDenoiser(): Promise<void> {
+    return this.audioController.disableAIDenoiser();
+  }
+
   async dumpAudio(): Promise<void> {
     return this.audioController.dumpAudio();
   }
@@ -259,6 +299,10 @@ export class TRTCStreamingProvider implements StreamingProvider {
   updateState(newState: Partial<StreamingState>): void {
     this._state = { ...this._state, ...newState };
     this.stateSubscribers.forEach((callback) => callback(this._state));
+  }
+
+  private getCurrentCredentials(): TRTCCredentials | null {
+    return this.currentCredentials;
   }
 
   private setupControllerCallbacks(): void {

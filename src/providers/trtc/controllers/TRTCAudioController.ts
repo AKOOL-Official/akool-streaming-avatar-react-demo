@@ -13,6 +13,9 @@ export class TRTCAudioController {
   private currentVolume = 100;
   private callbacks: TRTCAudioControllerCallbacks = {};
   private noiseReductionEnabled = false;
+  private noiseReductionMode: 'basic' | 'ai' = 'basic';
+  private aiDenoiserMode: 0 | 1 = 0;
+  private aiDenoiserAssetsPath?: string;
 
   constructor(client: TRTC) {
     this.client = client;
@@ -53,10 +56,21 @@ export class TRTCAudioController {
         await this.setVolume(config.volume);
       }
 
-      // Enable noise reduction if specified
-      if (config.echoCancellation !== false || config.noiseSuppression !== false) {
+      // Configure noise reduction based on config
+      if (config.echoCancellation !== false || config.noiseSuppression !== false || config.aiDenoiser?.enabled) {
         this.noiseReductionEnabled = true;
-        this.client.enableAudioVolumeEvaluation(300);
+
+        if (config.aiDenoiser?.enabled) {
+          // Use AI denoiser
+          this.noiseReductionMode = 'ai';
+          this.aiDenoiserMode = config.aiDenoiser.mode || 0;
+          this.aiDenoiserAssetsPath = config.aiDenoiser.assetsPath;
+          // AI denoiser will be enabled when credentials are available
+        } else {
+          // Use basic noise reduction
+          this.noiseReductionMode = 'basic';
+          this.client.enableAudioVolumeEvaluation(300);
+        }
       }
 
       this.callbacks.onAudioTrackPublished?.(this.currentTrack);
@@ -173,10 +187,17 @@ export class TRTCAudioController {
 
   async enableNoiseReduction(): Promise<void> {
     try {
-      this.client.enableAudioVolumeEvaluation(300);
-      this.noiseReductionEnabled = true;
-
-      logger.info('TRTC noise reduction enabled');
+      if (this.noiseReductionMode === 'ai') {
+        // AI denoiser is already configured, just enable it
+        this.noiseReductionEnabled = true;
+        logger.info('TRTC AI noise reduction enabled');
+      } else {
+        // Use basic noise reduction
+        this.client.enableAudioVolumeEvaluation(300);
+        this.noiseReductionEnabled = true;
+        this.noiseReductionMode = 'basic';
+        logger.info('TRTC basic noise reduction enabled');
+      }
     } catch (error) {
       logger.error('Failed to enable TRTC noise reduction', { error });
       throw ErrorMapper.mapTRTCError(error);
@@ -185,12 +206,87 @@ export class TRTCAudioController {
 
   async disableNoiseReduction(): Promise<void> {
     try {
-      this.client.enableAudioVolumeEvaluation(0);
-      this.noiseReductionEnabled = false;
+      if (this.noiseReductionMode === 'ai') {
+        // Disable AI denoiser
+        await this.disableAIDenoiser();
+      } else {
+        // Disable basic noise reduction
+        this.client.enableAudioVolumeEvaluation(0);
+      }
 
+      this.noiseReductionEnabled = false;
       logger.info('TRTC noise reduction disabled');
     } catch (error) {
       logger.error('Failed to disable TRTC noise reduction', { error });
+      throw ErrorMapper.mapTRTCError(error);
+    }
+  }
+
+  async enableAIDenoiser(sdkAppId?: number, userId?: string, userSig?: string): Promise<void> {
+    try {
+      if (this.noiseReductionEnabled && this.noiseReductionMode === 'ai') {
+        logger.debug('AI denoiser already enabled');
+        return;
+      }
+
+      // Check if we have the required credentials for AI denoiser
+      if (!sdkAppId || !userId || !userSig) {
+        throw new StreamingError(ErrorCode.INVALID_PARAMETER, 'AI denoiser requires sdkAppId, userId, and userSig', {
+          provider: 'trtc',
+        });
+      }
+
+      const denoiserOptions = {
+        sdkAppId,
+        userId,
+        userSig,
+        mode: this.aiDenoiserMode,
+        ...(this.aiDenoiserAssetsPath && { assetsPath: this.aiDenoiserAssetsPath }),
+      };
+
+      await this.client.startPlugin('AIDenoiser', denoiserOptions);
+      this.noiseReductionEnabled = true;
+      this.noiseReductionMode = 'ai';
+
+      logger.info('TRTC AI denoiser enabled', { mode: this.aiDenoiserMode });
+    } catch (error) {
+      logger.error('Failed to enable TRTC AI denoiser', { error });
+      throw ErrorMapper.mapTRTCError(error);
+    }
+  }
+
+  async updateAIDenoiser(mode?: 0 | 1): Promise<void> {
+    try {
+      if (!this.noiseReductionEnabled || this.noiseReductionMode !== 'ai') {
+        throw new StreamingError(ErrorCode.INVALID_PARAMETER, 'AI denoiser not enabled', { provider: 'trtc' });
+      }
+
+      const newMode = mode !== undefined ? mode : this.aiDenoiserMode;
+
+      await this.client.updatePlugin('AIDenoiser', { mode: newMode });
+      this.aiDenoiserMode = newMode;
+
+      logger.info('TRTC AI denoiser updated', { mode: newMode });
+    } catch (error) {
+      logger.error('Failed to update TRTC AI denoiser', { error });
+      throw ErrorMapper.mapTRTCError(error);
+    }
+  }
+
+  async disableAIDenoiser(): Promise<void> {
+    try {
+      if (!this.noiseReductionEnabled || this.noiseReductionMode !== 'ai') {
+        logger.debug('AI denoiser already disabled');
+        return;
+      }
+
+      await this.client.stopPlugin('AIDenoiser');
+      this.noiseReductionEnabled = false;
+      this.noiseReductionMode = 'basic';
+
+      logger.info('TRTC AI denoiser disabled');
+    } catch (error) {
+      logger.error('Failed to disable TRTC AI denoiser', { error });
       throw ErrorMapper.mapTRTCError(error);
     }
   }
@@ -219,6 +315,18 @@ export class TRTCAudioController {
     return this.noiseReductionEnabled;
   }
 
+  getNoiseReductionMode(): 'basic' | 'ai' {
+    return this.noiseReductionMode;
+  }
+
+  isAIDenoiserEnabled(): boolean {
+    return this.noiseReductionEnabled && this.noiseReductionMode === 'ai';
+  }
+
+  getAIDenoiserMode(): 0 | 1 {
+    return this.aiDenoiserMode;
+  }
+
   // Note: Audio quality mapping removed as TRTC SDK v5 handles this internally
 
   private setupEventHandlers(): void {
@@ -231,7 +339,10 @@ export class TRTCAudioController {
     try {
       logger.info('Cleaning up TRTC audio controller');
 
-      // Note: Audio-specific events are not available as TRTC.EVENT constants
+      // Disable noise reduction if enabled (handles both basic and AI modes)
+      if (this.noiseReductionEnabled) {
+        await this.disableNoiseReduction();
+      }
 
       // Disable audio if enabled
       if (this.isEnabled) {
@@ -240,6 +351,8 @@ export class TRTCAudioController {
 
       this.callbacks = {};
       this.currentTrack = null;
+      this.noiseReductionEnabled = false;
+      this.noiseReductionMode = 'basic';
 
       logger.info('TRTC audio controller cleanup completed');
     } catch (error) {
