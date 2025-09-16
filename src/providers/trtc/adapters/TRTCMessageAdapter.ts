@@ -3,14 +3,6 @@ import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
 import TRTC from 'trtc-sdk-v5';
 
-// TRTC SDK v5 client interface for custom messages
-interface TRTCClient {
-  sendCustomCmdMsg(cmdId: number, data: ArrayBuffer, reliable?: boolean, ordered?: boolean): Promise<void>;
-  sendSEIMsg(data: ArrayBuffer, repeatCount?: number): Promise<void>;
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-}
-
 export interface TRTCMessageConfig {
   maxMessageSize?: number;
   defaultCmdId?: number;
@@ -19,12 +11,12 @@ export interface TRTCMessageConfig {
 }
 
 export class TRTCMessageAdapter implements MessageAdapter {
-  private client: TRTCClient;
+  private client: TRTC;
   private config: Required<TRTCMessageConfig>;
   private messageCallbacks = new Map<string, (data: Uint8Array) => void>();
   private isReadyState = false;
 
-  constructor(client: TRTCClient, config: TRTCMessageConfig = {}) {
+  constructor(client: TRTC, config: TRTCMessageConfig = {}) {
     this.client = client;
     this.config = {
       maxMessageSize: config.maxMessageSize || 1024, // 1KB default
@@ -48,12 +40,10 @@ export class TRTCMessageAdapter implements MessageAdapter {
       // Convert Uint8Array to ArrayBuffer as required by TRTC SDK
       const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 
-      await this.client.sendCustomCmdMsg(
-        this.config.defaultCmdId,
-        arrayBuffer,
-        this.config.reliable,
-        this.config.ordered,
-      );
+      this.client.sendCustomMessage({
+        cmdId: this.config.defaultCmdId,
+        data: arrayBuffer,
+      });
 
       logger.debug('TRTC raw message sent', {
         size: data.length,
@@ -83,7 +73,7 @@ export class TRTCMessageAdapter implements MessageAdapter {
       // Convert Uint8Array to ArrayBuffer as required by TRTC SDK
       const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 
-      await this.client.sendSEIMsg(arrayBuffer, repeatCount);
+      this.client.sendSEIMessage(arrayBuffer);
 
       logger.debug('TRTC SEI message sent', {
         size: data.length,
@@ -144,88 +134,64 @@ export class TRTCMessageAdapter implements MessageAdapter {
 
   private setupEventHandlers(): void {
     // Custom command message events
-    this.client.on(TRTC.EVENT.CUSTOM_MESSAGE, (...args: unknown[]) => {
-      const event = args[0] as { userId: string; cmdId: number; seq: number; data: ArrayBuffer } | undefined;
-      if (!event?.userId || !event?.data) {
-        logger.warn('TRTC custom command message received with invalid data', { event });
-        return;
-      }
+    this.client.on(TRTC.EVENT.CUSTOM_MESSAGE, this.handleCustomMessage);
 
-      try {
-        logger.info('TRTC custom command message received', {
-          userId: event.userId,
-          cmdId: event.cmdId,
-          seq: event.seq,
-          dataSize: event.data.byteLength,
-        });
-
-        // Convert ArrayBuffer to Uint8Array for compatibility
-        const message = new Uint8Array(event.data);
-
-        // Forward to all registered callbacks
-        logger.info('Forwarding message to callbacks', {
-          callbackCount: this.messageCallbacks.size,
-          userId: event.userId,
-          cmdId: event.cmdId,
-        });
-        this.messageCallbacks.forEach((callback) => {
-          try {
-            callback(message);
-          } catch (error) {
-            logger.error('Error in TRTC message callback', { error, userId: event.userId, cmdId: event.cmdId });
-          }
-        });
-      } catch (error) {
-        logger.error('Failed to handle TRTC custom command message', {
-          error,
-          userId: event?.userId,
-          cmdId: event?.cmdId,
-        });
-      }
-    });
-
-    // SEI message events (disabled - not used)
-    // this.client.on('onRecvSEIMsg', (...args: unknown[]) => {
-    //   const [userId, message] = args as [string, Uint8Array];
-    //   try {
-    //     logger.info('TRTC SEI message received', {
-    //       userId,
-    //       messageSize: message.length
-    //     });
-
-    //     // Forward to all registered callbacks
-    //     this.messageCallbacks.forEach(callback => {
-    //       try {
-    //         callback(message);
-    //       } catch (error) {
-    //         logger.error('Error in TRTC SEI message callback', { error, userId });
-    //       }
-    //     });
-    //   } catch (error) {
-    //     logger.error('Failed to handle TRTC SEI message', { error, userId });
-    //   }
-    // });
-
-    // Note: Missed message events may not be available in this SDK version
-    // this.client.on(TRTC.EVENT.MISS_CUSTOM_MESSAGE, (...args: unknown[]) => {
-    //   const [userId, cmdId, errCode, missed] = args as [string, number, number, number];
-    //   logger.warn('TRTC custom command message missed', {
-    //     userId,
-    //     cmdId,
-    //     errCode,
-    //     missed
-    //   });
-    // });
+    // Note: SEI and MISS_CUSTOM_MESSAGE events are not currently used
+    // as they are not available as TRTC.EVENT constants in this SDK version
 
     logger.info('TRTC message event handlers registered');
   }
+
+  private handleCustomMessage = (event: any) => {
+    const messageEvent = event as { userId: string; cmdId: number; seq: number; data: ArrayBuffer } | undefined;
+    if (!messageEvent?.userId || !messageEvent?.data) {
+      logger.warn('TRTC custom command message received with invalid data', { event: messageEvent });
+      return;
+    }
+
+    try {
+      logger.info('TRTC custom command message received', {
+        userId: messageEvent.userId,
+        cmdId: messageEvent.cmdId,
+        seq: messageEvent.seq,
+        dataSize: messageEvent.data.byteLength,
+      });
+
+      // Convert ArrayBuffer to Uint8Array for compatibility
+      const message = new Uint8Array(messageEvent.data);
+
+      // Forward to all registered callbacks
+      logger.info('Forwarding message to callbacks', {
+        callbackCount: this.messageCallbacks.size,
+        userId: messageEvent.userId,
+        cmdId: messageEvent.cmdId,
+      });
+      this.messageCallbacks.forEach((callback) => {
+        try {
+          callback(message);
+        } catch (error) {
+          logger.error('Error in TRTC message callback', {
+            error,
+            userId: messageEvent.userId,
+            cmdId: messageEvent.cmdId,
+          });
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to handle TRTC custom command message', {
+        error,
+        userId: messageEvent?.userId,
+        cmdId: messageEvent?.cmdId,
+      });
+    }
+  };
 
   async cleanup(): Promise<void> {
     try {
       logger.info('Cleaning up TRTC message adapter');
 
       // Remove event listeners
-      this.client.off(TRTC.EVENT.CUSTOM_MESSAGE);
+      this.client.off(TRTC.EVENT.CUSTOM_MESSAGE, this.handleCustomMessage);
       // Note: SEI and MISS_CUSTOM_MESSAGE events are not currently used
       // this.client.off(TRTC.EVENT.SEI_MESSAGE);
       // this.client.off(TRTC.EVENT.MISS_CUSTOM_MESSAGE);

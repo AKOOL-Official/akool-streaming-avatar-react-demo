@@ -3,43 +3,17 @@ import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { VideoTrack, VideoConfig } from '../../../types/streaming.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 import { TRTCVideoControllerCallbacks } from '../types';
-
-// TRTC SDK v5 client interface (simplified)
-interface TRTCVideoEncParam {
-  videoResolution?: string;
-  videoFps?: number;
-  videoBitrate?: number;
-  enableAdjustRes?: boolean;
-}
-
-interface TRTCVideoConfig {
-  view?: HTMLElement | string;
-  option?: {
-    mirror?: boolean;
-    objectFit?: string;
-  };
-}
-
-interface TRTCClient {
-  startLocalVideo(config?: TRTCVideoConfig): Promise<void>;
-  stopLocalVideo(): void;
-  muteLocalVideo(mute: boolean): void;
-  setVideoEncoderParam(param: TRTCVideoEncParam): void;
-  startRemoteView(userId: string, streamType: string, view: HTMLElement): void;
-  stopRemoteView(userId: string, streamType: string): void;
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-}
+import TRTC from 'trtc-sdk-v5';
 
 export class TRTCVideoController {
-  private client: TRTCClient;
+  private client: TRTC;
   private currentTrack: VideoTrack | null = null;
   private isEnabled = false;
   private isMuted = false;
   private currentElement: HTMLElement | null = null;
   private callbacks: TRTCVideoControllerCallbacks = {};
 
-  constructor(client: TRTCClient) {
+  constructor(client: TRTC) {
     this.client = client;
     this.setupEventHandlers();
   }
@@ -59,10 +33,10 @@ export class TRTCVideoController {
 
       // Set video encoder parameters
       const encoderParam = this.mapVideoConfig(config);
-      this.client.setVideoEncoderParam(encoderParam);
+      await this.client.updateLocalVideo({ option: encoderParam });
 
-      // Start local video without view first
-      await this.client.startLocalVideo();
+      // Start local video
+      await this.client.startLocalVideo({ option: { useFrontCamera: true } });
 
       // Create track representation
       const trackId = `trtc-video-${Date.now()}`;
@@ -138,7 +112,6 @@ export class TRTCVideoController {
         view: element,
         option: {
           mirror: true,
-          objectFit: 'cover',
         },
       });
 
@@ -202,7 +175,7 @@ export class TRTCVideoController {
         throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Video not enabled', { provider: 'trtc' });
       }
 
-      this.client.muteLocalVideo(muted);
+      await this.client.updateLocalVideo({ publish: !muted });
       this.isMuted = muted;
 
       if (this.currentTrack) {
@@ -253,8 +226,8 @@ export class TRTCVideoController {
     return this.currentElement;
   }
 
-  private mapVideoConfig(config: VideoConfig): TRTCVideoEncParam {
-    const param: TRTCVideoEncParam = {
+  private mapVideoConfig(config: VideoConfig): any {
+    const param: any = {
       enableAdjustRes: true,
     };
 
@@ -304,7 +277,7 @@ export class TRTCVideoController {
       // Remove hidden class to make the video element visible
       element.classList.remove('hidden');
 
-      this.client.startRemoteView(userId, 'main', element); // main stream
+      await this.client.startRemoteVideo({ userId, streamType: TRTC.TYPE.STREAM_TYPE_MAIN, view: element }); // main stream
 
       logger.info('Remote video playback started successfully', {
         userId,
@@ -324,7 +297,7 @@ export class TRTCVideoController {
   async stopRemoteVideo(userId: string): Promise<void> {
     try {
       logger.info('Stopping remote video playback', { userId });
-      this.client.stopRemoteView(userId, 'main'); // main stream
+      await this.client.stopRemoteVideo({ userId, streamType: TRTC.TYPE.STREAM_TYPE_MAIN }); // main stream
 
       // Add hidden class back to hide the video element
       const remoteVideoElement = document.getElementById('remote-video');

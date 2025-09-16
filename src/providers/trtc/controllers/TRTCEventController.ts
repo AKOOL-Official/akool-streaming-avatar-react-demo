@@ -6,20 +6,14 @@ import { TRTCParticipantController } from './TRTCParticipantController';
 import { TRTCVideoController } from './TRTCVideoController';
 import TRTC from 'trtc-sdk-v5';
 
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-}
-
 export class TRTCEventController {
-  private client: TRTCClient;
+  private client: TRTC;
   private participantController: TRTCParticipantController;
   private videoController?: TRTCVideoController; // Will be set after construction
   private callbacks: TRTCEventControllerCallbacks = {};
   private eventHandlers: Map<string, (...args: unknown[]) => void> = new Map();
 
-  constructor(client: TRTCClient, participantController: TRTCParticipantController) {
+  constructor(client: TRTC, participantController: TRTCParticipantController) {
     this.client = client;
     this.participantController = participantController;
     this.setupEventHandlers();
@@ -279,7 +273,7 @@ export class TRTCEventController {
 
       // Remove all event listeners
       this.eventHandlers.forEach((handler, eventName) => {
-        this.client.off(eventName, handler);
+        this.client.off(eventName as any, handler);
       });
 
       this.eventHandlers.clear();

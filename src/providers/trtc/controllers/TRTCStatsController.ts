@@ -1,18 +1,10 @@
 import { logger } from '../../../core/Logger';
-// import { BaseStatsController, StatsControllerCallbacks } from '../../common/controllers/BaseStatsController';
 import { NetworkStats } from '../../../components/NetworkQuality';
 import { TRTCNetworkQuality, TRTCLocalStatistics, TRTCRemoteStatistics, TRTCStatsControllerCallbacks } from '../types';
 import TRTC from 'trtc-sdk-v5';
 
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-  getNetworkQuality(): Promise<TRTCNetworkQuality>;
-}
-
 export class TRTCStatsController {
-  private client: TRTCClient;
+  private client: TRTC;
   private callbacks: TRTCStatsControllerCallbacks = {};
   private statsInterval: number | null = null;
   private networkQualityData: TRTCNetworkQuality | null = null;
@@ -21,7 +13,7 @@ export class TRTCStatsController {
   private isCollecting = false;
   private readonly updateInterval: number;
 
-  constructor(client: TRTCClient, updateInterval = 1000) {
+  constructor(client: TRTC, updateInterval = 1000) {
     this.client = client;
     this.updateInterval = updateInterval;
     this.setupEventHandlers();
@@ -46,56 +38,56 @@ export class TRTCStatsController {
 
   private setupEventHandlers(): void {
     // Network quality events
-    this.client.on(TRTC.EVENT.NETWORK_QUALITY, (...args: unknown[]) => {
-      const [localQuality, remoteQuality] = args as [TRTCNetworkQuality, TRTCNetworkQuality[]];
-      try {
-        this.networkQualityData = localQuality;
-
-        logger.debug('TRTC network quality update', {
-          local: localQuality,
-          remoteCount: remoteQuality?.length || 0,
-        });
-
-        // Trigger immediate stats update
-        this.triggerStatsCollection();
-      } catch (error) {
-        logger.error('Failed to handle TRTC network quality update', { error });
-      }
-    });
-
-    // Local statistics events
-    this.client.on(TRTC.EVENT.STATISTICS, (...args: unknown[]) => {
-      const statistics = args[0] as {
-        localStatistics?: TRTCLocalStatistics;
-        remoteStatistics?: TRTCRemoteStatistics[];
-      };
-      try {
-        if (statistics.localStatistics) {
-          this.localStats = statistics.localStatistics;
-          this.callbacks.onLocalStatsUpdate?.(statistics.localStatistics);
-        }
-
-        if (statistics.remoteStatistics) {
-          statistics.remoteStatistics.forEach((stat) => {
-            this.remoteStats.set(stat.userId, stat);
-            this.callbacks.onRemoteStatsUpdate?.(stat.userId, stat);
-          });
-        }
-
-        logger.debug('TRTC statistics update', {
-          hasLocal: !!statistics.localStatistics,
-          remoteCount: statistics.remoteStatistics?.length || 0,
-        });
-
-        // Trigger immediate stats update
-        this.triggerStatsCollection();
-      } catch (error) {
-        logger.error('Failed to handle TRTC statistics update', { error });
-      }
-    });
-
-    // Note: SPEED_TEST event is not available as TRTC.EVENT constant in this SDK version
+    this.client.on(TRTC.EVENT.NETWORK_QUALITY, this.handleNetworkQuality);
+    this.client.on(TRTC.EVENT.STATISTICS, this.handleStatistics);
   }
+
+  private handleNetworkQuality = (...args: unknown[]) => {
+    const [localQuality, remoteQuality] = args as [TRTCNetworkQuality, TRTCNetworkQuality[]];
+    try {
+      this.networkQualityData = localQuality;
+
+      logger.debug('TRTC network quality update', {
+        local: localQuality,
+        remoteCount: remoteQuality?.length || 0,
+      });
+
+      // Trigger immediate stats update
+      this.triggerStatsCollection();
+    } catch (error) {
+      logger.error('Failed to handle TRTC network quality update', { error });
+    }
+  };
+
+  private handleStatistics = (...args: unknown[]) => {
+    const statistics = args[0] as {
+      localStatistics?: TRTCLocalStatistics;
+      remoteStatistics?: TRTCRemoteStatistics[];
+    };
+    try {
+      if (statistics.localStatistics) {
+        this.localStats = statistics.localStatistics;
+        this.callbacks.onLocalStatsUpdate?.(statistics.localStatistics);
+      }
+
+      if (statistics.remoteStatistics) {
+        statistics.remoteStatistics.forEach((stat) => {
+          this.remoteStats.set(stat.userId, stat);
+          this.callbacks.onRemoteStatsUpdate?.(stat.userId, stat);
+        });
+      }
+
+      logger.debug('TRTC statistics update', {
+        hasLocal: !!statistics.localStatistics,
+        remoteCount: statistics.remoteStatistics?.length || 0,
+      });
+
+      // Trigger immediate stats update
+      this.triggerStatsCollection();
+    } catch (error) {
+      logger.error('Failed to handle TRTC statistics update', { error });
+    }
+  };
 
   private async triggerStatsCollection(): Promise<void> {
     try {
@@ -258,8 +250,8 @@ export class TRTCStatsController {
       await this.stopCollecting();
 
       // Remove event listeners
-      this.client.off(TRTC.EVENT.NETWORK_QUALITY);
-      this.client.off(TRTC.EVENT.STATISTICS);
+      this.client.off(TRTC.EVENT.NETWORK_QUALITY, this.handleNetworkQuality);
+      this.client.off(TRTC.EVENT.STATISTICS, this.handleStatistics);
 
       // Clear data
       this.networkQualityData = null;

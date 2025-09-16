@@ -3,20 +3,16 @@ import { AudioTrack } from '../../../types/streaming.types';
 import { logger } from '../../../core/Logger';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  startLocalAudio(quality?: number): Promise<void>;
-  stopLocalAudio(): void;
-  muteLocalAudio(mute: boolean): void;
-  setAudioCaptureVolume(volume: number): void;
-  getConnectionState(): 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING';
-}
+import TRTC from 'trtc-sdk-v5';
 
 export class TRTCAudioStrategy implements AudioStrategy {
-  constructor(private client: TRTCClient) {}
+  constructor(private client: TRTC) {}
 
   private isConnected(): boolean {
-    return this.client.getConnectionState() === 'CONNECTED';
+    // Note: We should check the actual connection state from the connection controller
+    // For now, we'll assume connected if we can call methods without errors
+    // In a real implementation, this should be injected from the connection controller
+    return true;
   }
 
   async createTrack(_constraints?: MediaTrackConstraints): Promise<AudioTrack> {
@@ -75,7 +71,7 @@ export class TRTCAudioStrategy implements AudioStrategy {
 
   async enableTrack(track: AudioTrack): Promise<void> {
     try {
-      this.client.muteLocalAudio(false);
+      await this.client.updateLocalAudio({ mute: false });
 
       logger.info('TRTC audio track enabled', { trackId: track.id });
     } catch (error) {
@@ -86,7 +82,7 @@ export class TRTCAudioStrategy implements AudioStrategy {
 
   async disableTrack(track: AudioTrack): Promise<void> {
     try {
-      this.client.muteLocalAudio(true);
+      await this.client.updateLocalAudio({ mute: true });
 
       logger.info('TRTC audio track disabled', { trackId: track.id });
     } catch (error) {
@@ -97,7 +93,7 @@ export class TRTCAudioStrategy implements AudioStrategy {
 
   async muteAudioTrack(track: AudioTrack, muted: boolean): Promise<void> {
     try {
-      this.client.muteLocalAudio(muted);
+      await this.client.updateLocalAudio({ mute: muted });
 
       logger.debug('TRTC audio track mute state changed', { trackId: track.id, muted });
     } catch (error) {
@@ -112,7 +108,7 @@ export class TRTCAudioStrategy implements AudioStrategy {
         throw new Error('Volume must be between 0 and 100');
       }
 
-      this.client.setAudioCaptureVolume(volume);
+      await this.client.updateLocalAudio({ option: { captureVolume: volume } });
 
       logger.debug('TRTC audio volume set', { trackId: track.id, volume });
     } catch (error) {

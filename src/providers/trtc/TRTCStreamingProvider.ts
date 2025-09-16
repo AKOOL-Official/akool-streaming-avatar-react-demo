@@ -25,34 +25,13 @@ import { TRTCAudioController } from './controllers/TRTCAudioController';
 import { TRTCVideoController } from './controllers/TRTCVideoController';
 import { CommonMessageController } from '../common/CommonMessageController';
 import { TRTCMessageAdapter } from './adapters/TRTCMessageAdapter';
-import { isTRTCCredentials, TRTCCredentials, TRTCParams, TRTCNetworkQuality } from './types';
+import { isTRTCCredentials, TRTCCredentials } from './types';
+import TRTC from 'trtc-sdk-v5';
 
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  enterRoom(params: TRTCParams): Promise<void>;
-  exitRoom(): Promise<void>;
-  startLocalAudio(quality?: number): Promise<void>;
-  stopLocalAudio(): void;
-  muteLocalAudio(mute: boolean): void;
-  startLocalVideo(config?: Record<string, unknown>): Promise<void>;
-  stopLocalVideo(): void;
-  muteLocalVideo(mute: boolean): void;
-  sendCustomCmdMsg(cmdId: number, data: ArrayBuffer, reliable?: boolean, ordered?: boolean): Promise<void>;
-  sendSEIMsg(data: ArrayBuffer, repeatCount?: number): Promise<void>;
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-  getConnectionState(): 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING';
-  setAudioCaptureVolume(volume: number): void;
-  setVideoEncoderParam(param: Record<string, unknown>): void;
-  enableAudioVolumeEvaluation(intervalMs: number): void;
-  getSDKVersion(): string;
-  getNetworkQuality(): Promise<TRTCNetworkQuality>;
-  startRemoteView(userId: string, streamType: string, view: HTMLElement): void;
-  stopRemoteView(userId: string, streamType: string): void;
-}
+// Using actual TRTC type from SDK
 
 export interface TRTCProviderConfig {
-  client: TRTCClient;
+  client: TRTC;
   messageConfig?: {
     maxMessageSize?: number;
     defaultCmdId?: number;
@@ -86,7 +65,7 @@ export class TRTCStreamingProvider implements StreamingProvider {
   private audioController: TRTCAudioController;
   private videoController: TRTCVideoController;
 
-  private client: TRTCClient;
+  private client: TRTC;
 
   constructor(config: TRTCProviderConfig) {
     this.client = config.client;

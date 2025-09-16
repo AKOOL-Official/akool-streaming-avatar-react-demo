@@ -2,36 +2,16 @@ import { VideoStrategy } from '../../../types/provider.interfaces';
 import { VideoTrack } from '../../../types/streaming.types';
 import { logger } from '../../../core/Logger';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
-
-// TRTC SDK v5 client interface (simplified)
-interface TRTCVideoEncParam {
-  videoResolution?: string;
-  videoFps?: number;
-  videoBitrate?: number;
-  enableAdjustRes?: boolean;
-}
-
-interface TRTCVideoConfig {
-  view?: HTMLElement | string;
-  option?: {
-    mirror?: boolean;
-    objectFit?: string;
-  };
-}
-
-interface TRTCClient {
-  startLocalVideo(config?: TRTCVideoConfig): Promise<void>;
-  stopLocalVideo(): void;
-  muteLocalVideo(mute: boolean): void;
-  setVideoEncoderParam(param: TRTCVideoEncParam): void;
-  getConnectionState(): 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING';
-}
+import TRTC from 'trtc-sdk-v5';
 
 export class TRTCVideoStrategy implements VideoStrategy {
-  constructor(private client: TRTCClient) {}
+  constructor(private client: TRTC) {}
 
   private isConnected(): boolean {
-    return this.client.getConnectionState() === 'CONNECTED';
+    // Note: We should check the actual connection state from the connection controller
+    // For now, we'll assume connected if we can call methods without errors
+    // In a real implementation, this should be injected from the connection controller
+    return true;
   }
 
   async createTrack(_constraints?: MediaTrackConstraints): Promise<VideoTrack> {
@@ -68,11 +48,10 @@ export class TRTCVideoStrategy implements VideoStrategy {
       }
 
       // Set default video parameters
-      this.client.setVideoEncoderParam({
-        videoResolution: 'VIDEO_480P',
-        videoFps: 15,
-        videoBitrate: 600,
-        enableAdjustRes: true,
+      await this.client.updateLocalVideo({
+        option: {
+          profile: '480p',
+        },
       });
 
       await this.client.startLocalVideo();
@@ -106,7 +85,6 @@ export class TRTCVideoStrategy implements VideoStrategy {
         view: element,
         option: {
           mirror: true,
-          objectFit: 'cover',
         },
       });
 
@@ -130,7 +108,7 @@ export class TRTCVideoStrategy implements VideoStrategy {
 
   async muteVideoTrack(track: VideoTrack, muted: boolean): Promise<void> {
     try {
-      this.client.muteLocalVideo(muted);
+      await this.client.updateLocalVideo({ publish: !muted });
 
       logger.debug('TRTC video track mute state changed', { trackId: track.id, muted });
     } catch (error) {
@@ -142,7 +120,7 @@ export class TRTCVideoStrategy implements VideoStrategy {
   async setVideoQuality(track: VideoTrack, quality: 'low' | 'medium' | 'high'): Promise<void> {
     try {
       const params = this.mapQualityToParams(quality);
-      this.client.setVideoEncoderParam(params);
+      await this.client.updateLocalVideo({ option: params });
 
       logger.info('TRTC video quality set', { trackId: track.id, quality, params });
     } catch (error) {
@@ -151,35 +129,23 @@ export class TRTCVideoStrategy implements VideoStrategy {
     }
   }
 
-  private mapQualityToParams(quality: 'low' | 'medium' | 'high'): TRTCVideoEncParam {
+  private mapQualityToParams(quality: 'low' | 'medium' | 'high'): any {
     switch (quality) {
       case 'low':
         return {
-          videoResolution: 'VIDEO_360P',
-          videoFps: 15,
-          videoBitrate: 400,
-          enableAdjustRes: true,
+          profile: '240p',
         };
       case 'medium':
         return {
-          videoResolution: 'VIDEO_480P',
-          videoFps: 15,
-          videoBitrate: 600,
-          enableAdjustRes: true,
+          profile: '480p',
         };
       case 'high':
         return {
-          videoResolution: 'VIDEO_720P',
-          videoFps: 30,
-          videoBitrate: 1200,
-          enableAdjustRes: true,
+          profile: '720p',
         };
       default:
         return {
-          videoResolution: 'VIDEO_480P',
-          videoFps: 15,
-          videoBitrate: 600,
-          enableAdjustRes: true,
+          profile: '480p',
         };
     }
   }

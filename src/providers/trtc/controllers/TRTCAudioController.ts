@@ -3,20 +3,10 @@ import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { AudioTrack, AudioConfig } from '../../../types/streaming.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 import { TRTCAudioControllerCallbacks } from '../types';
-
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  startLocalAudio(quality?: number): Promise<void>;
-  stopLocalAudio(): void;
-  muteLocalAudio(mute: boolean): void;
-  setAudioCaptureVolume(volume: number): void;
-  enableAudioVolumeEvaluation(intervalMs: number): void;
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-}
+import TRTC from 'trtc-sdk-v5';
 
 export class TRTCAudioController {
-  private client: TRTCClient;
+  private client: TRTC;
   private currentTrack: AudioTrack | null = null;
   private isEnabled = false;
   private isMuted = false;
@@ -24,7 +14,7 @@ export class TRTCAudioController {
   private callbacks: TRTCAudioControllerCallbacks = {};
   private noiseReductionEnabled = false;
 
-  constructor(client: TRTCClient) {
+  constructor(client: TRTC) {
     this.client = client;
     this.setupEventHandlers();
   }
@@ -42,10 +32,7 @@ export class TRTCAudioController {
         return this.currentTrack;
       }
 
-      // TRTC v5 audio quality mapping
-      const audioQuality = this.mapAudioQuality(config.quality);
-
-      await this.client.startLocalAudio(audioQuality);
+      await this.client.startLocalAudio();
 
       // Create track representation
       const trackId = `trtc-audio-${Date.now()}`;
@@ -139,7 +126,7 @@ export class TRTCAudioController {
         throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Audio not enabled', { provider: 'trtc' });
       }
 
-      this.client.muteLocalAudio(muted);
+      await this.client.updateLocalAudio({ mute: muted });
       this.isMuted = muted;
 
       if (this.currentTrack) {
@@ -165,7 +152,7 @@ export class TRTCAudioController {
         });
       }
 
-      this.client.setAudioCaptureVolume(volume);
+      await this.client.updateLocalAudio({ option: { captureVolume: volume } });
       this.currentVolume = volume;
 
       if (this.currentTrack) {
@@ -232,21 +219,7 @@ export class TRTCAudioController {
     return this.noiseReductionEnabled;
   }
 
-  private mapAudioQuality(quality?: string): number {
-    // TRTC audio quality constants
-    const QUALITY_SPEECH = 1; // 16k sample rate, mono
-    const QUALITY_DEFAULT = 2; // 48k sample rate, mono
-    const QUALITY_MUSIC = 3; // 48k sample rate, stereo
-
-    switch (quality) {
-      case 'speech':
-        return QUALITY_SPEECH;
-      case 'music':
-        return QUALITY_MUSIC;
-      default:
-        return QUALITY_DEFAULT;
-    }
-  }
+  // Note: Audio quality mapping removed as TRTC SDK v5 handles this internally
 
   private setupEventHandlers(): void {
     // Note: Audio-specific events like USER_VOICE_VOLUME, AUDIO_DEVICE_STATE_CHANGED, etc.

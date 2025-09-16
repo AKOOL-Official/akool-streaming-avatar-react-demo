@@ -3,11 +3,7 @@ import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { Participant } from '../../../types/streaming.types';
 import { TRTCParticipantControllerCallbacks } from '../types';
 
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-}
+import TRTC from 'trtc-sdk-v5';
 
 export interface ParticipantUpdate {
   hasAudio?: boolean;
@@ -24,13 +20,13 @@ export interface ParticipantUpdate {
 }
 
 export class TRTCParticipantController {
-  // private client: TRTCClient;
+  // private client: TRTC; // Not currently used but kept for future implementation
   private participants = new Map<string, Participant>();
   private localParticipant: Participant | null = null;
   private callbacks: TRTCParticipantControllerCallbacks = {};
 
-  constructor(_client: TRTCClient) {
-    // this.client = client;
+  constructor(_client: TRTC) {
+    // Client not currently used but kept for future implementation
   }
 
   setCallbacks(callbacks: TRTCParticipantControllerCallbacks): void {

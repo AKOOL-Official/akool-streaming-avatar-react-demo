@@ -1,26 +1,17 @@
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
-import { TRTCCredentials, TRTCConnectionControllerCallbacks, TRTCParams } from '../types';
+import { TRTCCredentials, TRTCConnectionControllerCallbacks } from '../types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 import TRTC from 'trtc-sdk-v5';
 
-// TRTC SDK v5 client interface (simplified)
-interface TRTCClient {
-  enterRoom(params: TRTCParams): Promise<void>;
-  exitRoom(): Promise<void>;
-  on(event: string, callback: (...args: unknown[]) => void): void;
-  off(event: string, callback?: (...args: unknown[]) => void): void;
-  getSDKVersion(): string;
-}
-
 export class TRTCConnectionController {
-  private client: TRTCClient;
+  private client: TRTC;
   private isConnected = false;
   private isConnecting = false;
   private callbacks: TRTCConnectionControllerCallbacks = {};
   private credentials: TRTCCredentials | null = null;
 
-  constructor(client: TRTCClient) {
+  constructor(client: TRTC) {
     this.client = client;
     this.setupEventHandlers();
   }
@@ -49,12 +40,12 @@ export class TRTCConnectionController {
       this.isConnecting = true;
       this.credentials = credentials;
 
-      const params: TRTCParams = {
+      const params = {
         sdkAppId: credentials.trtc_app_id,
         strRoomId: credentials.trtc_room_id,
         userId: credentials.trtc_user_id,
         userSig: credentials.trtc_user_sig,
-        role: 1, // Anchor role
+        role: TRTC.TYPE.ROLE_ANCHOR, // Anchor role
       };
 
       await this.client.enterRoom(params);
@@ -120,28 +111,48 @@ export class TRTCConnectionController {
 
   private setupEventHandlers(): void {
     // TRTC SDK v5 events - using only available TRTC.EVENT constants
-    this.client.on(TRTC.EVENT.ERROR, (...args: unknown[]) => {
-      const [errCode, errMsg] = args as [number, string];
-      logger.error('TRTC SDK error', { errCode, errMsg });
+    this.client.on(TRTC.EVENT.ERROR, this.handleError);
+    this.client.on(TRTC.EVENT.CONNECTION_STATE_CHANGED, this.handleConnectionStateChanged);
 
-      const error = new StreamingError(ErrorCode.UNKNOWN_ERROR, `TRTC SDK error: ${errMsg}`, {
-        provider: 'trtc',
-        details: { errCode, errMsg },
-      });
-      this.callbacks.onError?.(error);
-    });
-
-    // Note: Connection events like ENTER_ROOM, EXIT_ROOM, CONNECTION_LOST, etc.
+    // Note: Other connection events like ENTER_ROOM, EXIT_ROOM, CONNECTION_LOST, etc.
     // are not available as TRTC.EVENT constants in this SDK version.
     // These events are handled through the Promise-based API calls instead.
   }
+
+  private handleError = (...args: unknown[]) => {
+    const [errCode, errMsg] = args as [number, string];
+    logger.error('TRTC SDK error', { errCode, errMsg });
+
+    const error = new StreamingError(ErrorCode.UNKNOWN_ERROR, `TRTC SDK error: ${errMsg}`, {
+      provider: 'trtc',
+      details: { errCode, errMsg },
+    });
+    this.callbacks.onError?.(error);
+  };
+
+  private handleConnectionStateChanged = (...args: unknown[]) => {
+    const [state, reason] = args as [string, string];
+    logger.info('TRTC connection state changed', { state, reason });
+
+    const wasConnected = this.isConnected;
+    this.isConnected = state === 'CONNECTED';
+
+    if (this.isConnected && !wasConnected) {
+      logger.info('TRTC connected successfully');
+      this.callbacks.onConnected?.();
+    } else if (!this.isConnected && wasConnected) {
+      logger.warn('TRTC disconnected', { reason });
+      this.callbacks.onDisconnected?.();
+    }
+  };
 
   async cleanup(): Promise<void> {
     try {
       logger.info('Cleaning up TRTC connection controller');
 
       // Remove all event listeners
-      this.client.off(TRTC.EVENT.ERROR);
+      this.client.off(TRTC.EVENT.ERROR, this.handleError);
+      this.client.off(TRTC.EVENT.CONNECTION_STATE_CHANGED, this.handleConnectionStateChanged);
 
       // Disconnect if still connected
       if (this.isConnected || this.isConnecting) {
