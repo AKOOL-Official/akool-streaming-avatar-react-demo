@@ -27,6 +27,10 @@ export class CommonMessageController {
     this.setupMessageListener();
   }
 
+  getAdapter(): MessageAdapter {
+    return this.adapter;
+  }
+
   private setupMessageListener(): void {
     this.adapter.setupMessageListener(this.handleIncomingMessage.bind(this));
   }
@@ -34,7 +38,7 @@ export class CommonMessageController {
   private handleIncomingMessage(data: Uint8Array): void {
     try {
       const text = new TextDecoder().decode(data);
-      logger.debug('Message received', {
+      logger.info('Message received', {
         length: data.length,
         text: text.substring(0, 100), // Log first 100 chars for debugging
       });

@@ -19,7 +19,48 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 // Unified network quality data structure
 export interface NetworkStats {
-  connectionQuality: ConnectionQuality | null;
+  providerType?: string;
+  timestamp?: number;
+  connectionQuality?: ConnectionQuality | null;
+  localNetwork?: {
+    uplinkNetworkQuality: number;
+    downlinkNetworkQuality: number;
+  };
+  connection?: {
+    roundTripTime: number;
+    packetLossRate: number;
+  };
+  video?: {
+    codecType?: string;
+    transportDelay?: number;
+    end2EndDelay?: number;
+    receiveDelay?: number;
+    receiveFrameRate?: number;
+    receiveResolutionWidth?: number;
+    receiveResolutionHeight?: number;
+    receiveBitrate?: number;
+    packetLossRate?: number;
+    totalFreezeTime?: number;
+    freezeRate?: number;
+    sendFrameRate?: number;
+    sendResolutionWidth?: number;
+    sendResolutionHeight?: number;
+    sendBitrate?: number;
+    jitterBufferDelay?: number;
+  };
+  audio?: {
+    codecType?: string;
+    transportDelay?: number;
+    end2EndDelay?: number;
+    receiveDelay?: number;
+    receiveBitrate?: number;
+    packetLossRate?: number;
+    receiveLevel?: number;
+    sendBitrate?: number;
+    sampleRate?: number;
+    totalFreezeTime?: number;
+    freezeRate?: number;
+  };
   // Optional detailed stats that may be available from some providers
   detailedStats?: {
     video?: {

@@ -32,6 +32,9 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+      trtc-sdk-v5:
+        specifier: ^5.12.1
+        version: 5.13.0
       zustand:
         specifier: ^5.0.8
         version: 5.0.8(@types/react@18.3.18)(react@18.3.1)
@@ -2379,6 +2382,9 @@ packages:
     resolution: {integrity: sha512-hdF5ZgjTqgAntKkklYw0R03MG2x/bSzTtkxmIRw/sTNV8YXsCJ1tfLAX23lhxhHJlEf3CRCOCGGWw3vI3GaSPw==}
     engines: {node: '>=18'}
 
+  trtc-sdk-v5@5.13.0:
+    resolution: {integrity: sha512-taOimqLUmkp0wfgq1yrNGgOGJmnR/7nocsFNU+YRoiyr/L+Ish5jPcWFjbzEMrb3G734h8w9khgbQmN+4K7naA==}
+
   ts-api-utils@1.4.3:
     resolution: {integrity: sha512-i3eMG77UTMD0hZhgRS562pv83RC6ukSAC2GMNWc+9dieh/+jDM5u5YG+NHX6VNDRHQcHwmsTHctP9LhbC3WxVw==}
     engines: {node: '>=16'}
@@ -2527,6 +2533,10 @@ packages:
 
   webrtc-adapter@8.2.0:
     resolution: {integrity: sha512-umxCMgedPAVq4Pe/jl3xmelLXLn4XZWFEMR5Iipb5wJ+k1xMX0yC4ZY9CueZUU1MjapFxai1tFGE7R/kotH6Ww==}
+    engines: {node: '>=6.0.0', npm: '>=3.10.0'}
+
+  webrtc-adapter@8.2.4:
+    resolution: {integrity: sha512-VwtwbYNKnVQW8koB9qb8YcxNwpSVHTvvKEZLzY6uQ3gFrA9E87VPbB5xE+m1AGwUjL1UgN35jRR9hQgteZI5bg==}
     engines: {node: '>=6.0.0', npm: '>=3.10.0'}
 
   webrtc-adapter@9.0.3:
@@ -4965,6 +4975,10 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
+  trtc-sdk-v5@5.13.0:
+    dependencies:
+      webrtc-adapter: 8.2.4
+
   ts-api-utils@1.4.3(typescript@5.7.3):
     dependencies:
       typescript: 5.7.3
@@ -5102,6 +5116,10 @@ snapshots:
   webidl-conversions@7.0.0: {}
 
   webrtc-adapter@8.2.0:
+    dependencies:
+      sdp: 3.2.0
+
+  webrtc-adapter@8.2.4:
     dependencies:
       sdp: 3.2.0
 

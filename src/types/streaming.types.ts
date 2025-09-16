@@ -32,16 +32,32 @@ export interface AudioConfig {
   enableAEC?: boolean;
   enableANS?: boolean;
   enableAGC?: boolean;
+  quality?: string;
+  volume?: number;
+  echoCancellation?: boolean;
+  noiseSuppression?: boolean;
 }
 
 export interface Participant {
   id: string;
+  name?: string;
   displayName?: string;
   isLocal: boolean;
   videoTracks: VideoTrack[];
   audioTracks: AudioTrack[];
   connectionQuality: ConnectionQuality;
   isSpeaking: boolean;
+  hasAudio?: boolean;
+  hasVideo?: boolean;
+  hasScreenShare?: boolean;
+  isConnected?: boolean;
+  audioLevel?: number;
+  networkQuality?: {
+    uplink: number;
+    downlink: number;
+  };
+  joinedAt?: Date;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ConnectionQuality {

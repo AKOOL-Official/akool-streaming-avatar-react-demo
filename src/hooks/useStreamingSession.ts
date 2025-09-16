@@ -155,7 +155,7 @@ export const useStreamingSession = ({
 
       case 'trtc':
         return {
-          trtc_sdk_app_id: credentials.trtc_sdk_app_id,
+          trtc_app_id: credentials.trtc_app_id,
           trtc_user_id: credentials.trtc_user_id,
           trtc_user_sig: credentials.trtc_user_sig,
           trtc_room_id: credentials.trtc_room_id,

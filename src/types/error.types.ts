@@ -10,6 +10,14 @@ export enum ErrorCode {
   MEDIA_DEVICE_ERROR = 'MEDIA_DEVICE_ERROR',
   TRACK_PUBLISH_FAILED = 'TRACK_PUBLISH_FAILED',
   TRACK_UNPUBLISH_FAILED = 'TRACK_UNPUBLISH_FAILED',
+  TRACK_NOT_FOUND = 'TRACK_NOT_FOUND',
+  ELEMENT_NOT_FOUND = 'ELEMENT_NOT_FOUND',
+  INVALID_PARAMETER = 'INVALID_PARAMETER',
+  PARTICIPANT_ERROR = 'PARTICIPANT_ERROR',
+  MESSAGE_TOO_LARGE = 'MESSAGE_TOO_LARGE',
+  MESSAGE_SEND_FAILED = 'MESSAGE_SEND_FAILED',
+  DISCONNECT_FAILED = 'DISCONNECT_FAILED',
+  VIDEO_PLAYBACK_FAILED = 'VIDEO_PLAYBACK_FAILED',
 
   // API errors
   API_REQUEST_FAILED = 'API_REQUEST_FAILED',
@@ -28,6 +36,18 @@ export interface ErrorContext {
   action?: string;
   details?: Record<string, unknown>;
   timestamp: number;
+  // Additional context fields for specific error types
+  messageSize?: number;
+  maxSize?: number;
+  elementId?: string;
+  volume?: number;
+  userId?: string;
+  updates?: Record<string, unknown>;
+  originalError?: unknown;
+  credentials?: Record<string, unknown>;
+  errCode?: number;
+  errMsg?: string;
+  result?: number;
 }
 
 export class StreamingError extends Error {

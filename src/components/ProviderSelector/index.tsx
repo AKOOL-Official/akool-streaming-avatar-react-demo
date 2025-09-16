@@ -25,7 +25,7 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
   {
     type: 'trtc',
     name: 'TRTC',
-    available: false,
+    available: true,
   },
 ];
 

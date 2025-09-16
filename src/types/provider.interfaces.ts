@@ -46,7 +46,14 @@ export interface CommandEvent {
 export interface StreamingEventHandlers {
   onParticipantJoined?: (participant: Participant) => void;
   onParticipantLeft?: (participantId: string) => void;
+  onParticipantAudioEnabled?: (participantId: string, enabled: boolean) => void;
+  onParticipantVideoEnabled?: (participantId: string, enabled: boolean) => void;
   onConnectionQualityChanged?: (quality: ConnectionQuality) => void;
+  onNetworkQualityChanged?: (quality: ConnectionQuality) => void;
+  onConnected?: () => void;
+  onDisconnected?: () => void;
+  onReconnecting?: () => void;
+  onReconnected?: () => void;
   onError?: (error: StreamingError) => void;
   onMessageReceived?: (message: ChatMessage) => void;
   onSpeakingStateChanged?: (isSpeaking: boolean) => void;
