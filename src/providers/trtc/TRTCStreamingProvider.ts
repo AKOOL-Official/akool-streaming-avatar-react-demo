@@ -297,7 +297,12 @@ export class TRTCStreamingProvider implements StreamingProvider {
           rtt: stats.connection?.roundTripTime || 0,
           packetLoss: stats.connection?.packetLossRate || 0,
         };
-        this.updateState({ networkQuality: connectionQuality });
+
+        // Store both connection quality and detailed stats
+        this.updateState({
+          networkQuality: connectionQuality,
+          detailedNetworkStats: stats.detailedStats,
+        });
         this.eventHandlers.onNetworkQualityChanged?.(connectionQuality);
       },
       onError: (error) => {

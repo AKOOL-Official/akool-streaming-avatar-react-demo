@@ -1,21 +1,18 @@
 import { logger } from '../../../core/Logger';
 import { NetworkStats } from '../../../components/NetworkQuality';
 import { TRTCNetworkQuality, TRTCLocalStatistics, TRTCRemoteStatistics, TRTCStatsControllerCallbacks } from '../types';
-import TRTC from 'trtc-sdk-v5';
+import TRTC, { NetworkQuality, TRTCStatistics } from 'trtc-sdk-v5';
 
 export class TRTCStatsController {
   private client: TRTC;
   private callbacks: TRTCStatsControllerCallbacks = {};
-  private statsInterval: number | null = null;
   private networkQualityData: TRTCNetworkQuality | null = null;
   private localStats: TRTCLocalStatistics | null = null;
   private remoteStats = new Map<string, TRTCRemoteStatistics>();
   private isCollecting = false;
-  private readonly updateInterval: number;
 
-  constructor(client: TRTC, updateInterval = 1000) {
+  constructor(client: TRTC) {
     this.client = client;
-    this.updateInterval = updateInterval;
     this.setupEventHandlers();
   }
 
@@ -33,6 +30,30 @@ export class TRTCStatsController {
   }
 
   private handleStatsUpdate(stats: NetworkStats): void {
+    logger.debug('TRTC network stats created', {
+      hasLocalNetwork: !!stats.localNetwork,
+      hasConnection: !!stats.connection,
+      hasVideo: !!stats.video,
+      hasAudio: !!stats.audio,
+      hasDetailedStats: !!stats.detailedStats,
+      rtt: stats.connection?.roundTripTime,
+      packetLoss: stats.connection?.packetLossRate,
+      detailedVideo: stats.detailedStats?.video
+        ? {
+            codec: stats.detailedStats.video.codec,
+            bitrate: stats.detailedStats.video.bitrate,
+            frameRate: stats.detailedStats.video.frameRate,
+            resolution: stats.detailedStats.video.resolution,
+          }
+        : null,
+      detailedAudio: stats.detailedStats?.audio
+        ? {
+            codec: stats.detailedStats.audio.codec,
+            bitrate: stats.detailedStats.audio.bitrate,
+            packetLoss: stats.detailedStats.audio.packetLoss,
+          }
+        : null,
+    });
     this.callbacks.onNetworkStatsUpdate?.(stats);
   }
 
@@ -42,14 +63,22 @@ export class TRTCStatsController {
     this.client.on(TRTC.EVENT.STATISTICS, this.handleStatistics);
   }
 
-  private handleNetworkQuality = (...args: unknown[]) => {
-    const [localQuality, remoteQuality] = args as [TRTCNetworkQuality, TRTCNetworkQuality[]];
+  private handleNetworkQuality = (networkQuality: NetworkQuality) => {
     try {
-      this.networkQualityData = localQuality;
+      // Convert TRTC NetworkQuality to our internal format
+      this.networkQualityData = {
+        userId: 'local', // NetworkQuality doesn't have userId
+        txQuality: networkQuality.uplinkNetworkQuality || 0,
+        rxQuality: networkQuality.downlinkNetworkQuality || 0,
+        delay: networkQuality.downlinkRTT || networkQuality.uplinkRTT || 0,
+        lossRate: networkQuality.downlinkLoss || networkQuality.uplinkLoss || 0,
+      };
 
       logger.debug('TRTC network quality update', {
-        local: localQuality,
-        remoteCount: remoteQuality?.length || 0,
+        uplinkQuality: networkQuality.uplinkNetworkQuality,
+        downlinkQuality: networkQuality.downlinkNetworkQuality,
+        rtt: networkQuality.downlinkRTT || networkQuality.uplinkRTT,
+        loss: networkQuality.downlinkLoss || networkQuality.uplinkLoss,
       });
 
       // Trigger immediate stats update
@@ -59,27 +88,53 @@ export class TRTCStatsController {
     }
   };
 
-  private handleStatistics = (...args: unknown[]) => {
-    const statistics = args[0] as {
-      localStatistics?: TRTCLocalStatistics;
-      remoteStatistics?: TRTCRemoteStatistics[];
-    };
+  private handleStatistics = (stats: TRTCStatistics) => {
     try {
-      if (statistics.localStatistics) {
-        this.localStats = statistics.localStatistics;
-        this.callbacks.onLocalStatsUpdate?.(statistics.localStatistics);
+      // Convert TRTCStatistics to our expected format
+      if (stats.localStatistics) {
+        const localVideo = stats.localStatistics.video?.[0];
+        this.localStats = {
+          width: localVideo?.width || 0,
+          height: localVideo?.height || 0,
+          frameRate: localVideo?.frameRate || 0,
+          videoBitrate: localVideo?.bitrate || 0,
+          audioSampleRate: 48000, // Default for TRTC
+          audioBitrate: stats.localStatistics.audio?.bitrate || 0,
+          streamType: 0,
+        };
+        this.callbacks.onLocalStatsUpdate?.(this.localStats);
       }
 
-      if (statistics.remoteStatistics) {
-        statistics.remoteStatistics.forEach((stat) => {
-          this.remoteStats.set(stat.userId, stat);
-          this.callbacks.onRemoteStatsUpdate?.(stat.userId, stat);
+      if (stats.remoteStatistics) {
+        stats.remoteStatistics.forEach((stat) => {
+          const remoteVideo = stat.video?.[0];
+          const remoteStats: TRTCRemoteStatistics = {
+            userId: stat.userId,
+            finalLoss: 0,
+            width: remoteVideo?.width || 0,
+            height: remoteVideo?.height || 0,
+            frameRate: remoteVideo?.frameRate || 0,
+            videoBitrate: remoteVideo?.bitrate || 0,
+            audioSampleRate: 48000,
+            audioBitrate: stat.audio?.bitrate || 0,
+            streamType: 0,
+            jitterBufferDelay: 0, // TRTC SDK v5 doesn't provide jitterBufferDelay in this structure
+            audioTotalBlockTime: 0,
+            videoTotalBlockTime: 0,
+            audioBlockRate: 0,
+            videoBlockRate: 0,
+          };
+          this.remoteStats.set(stat.userId, remoteStats);
+          this.callbacks.onRemoteStatsUpdate?.(stat.userId, remoteStats);
         });
       }
 
       logger.debug('TRTC statistics update', {
-        hasLocal: !!statistics.localStatistics,
-        remoteCount: statistics.remoteStatistics?.length || 0,
+        hasLocal: !!stats.localStatistics,
+        remoteCount: stats.remoteStatistics?.length || 0,
+        rtt: stats.rtt,
+        upLoss: stats.upLoss,
+        downLoss: stats.downLoss,
       });
 
       // Trigger immediate stats update
@@ -108,17 +163,31 @@ export class TRTCStatsController {
       timestamp: Date.now(),
     };
 
-    // Network quality mapping
+    // Network quality mapping - handle both old and new data structures
     if (networkQuality) {
-      baseStats.localNetwork = {
-        uplinkNetworkQuality: networkQuality.txQuality,
-        downlinkNetworkQuality: networkQuality.rxQuality,
-      };
+      // Check if it's the new data structure from logs
+      if ('uplinkNetworkQuality' in networkQuality) {
+        baseStats.localNetwork = {
+          uplinkNetworkQuality: (networkQuality as any).uplinkNetworkQuality,
+          downlinkNetworkQuality: (networkQuality as any).downlinkNetworkQuality,
+        };
 
-      baseStats.connection = {
-        roundTripTime: networkQuality.delay,
-        packetLossRate: networkQuality.lossRate,
-      };
+        baseStats.connection = {
+          roundTripTime: (networkQuality as any).downlinkRTT || (networkQuality as any).uplinkRTT || 0,
+          packetLossRate: (networkQuality as any).downlinkLoss || (networkQuality as any).uplinkLoss || 0,
+        };
+      } else {
+        // Old data structure
+        baseStats.localNetwork = {
+          uplinkNetworkQuality: networkQuality.txQuality,
+          downlinkNetworkQuality: networkQuality.rxQuality,
+        };
+
+        baseStats.connection = {
+          roundTripTime: networkQuality.delay,
+          packetLossRate: networkQuality.lossRate,
+        };
+      }
     }
 
     // Local video statistics
@@ -186,7 +255,100 @@ export class TRTCStatsController {
       }
     }
 
+    // Add detailed stats for comprehensive metrics display
+    baseStats.detailedStats = this.createDetailedStats(networkQuality, localStats, remoteStats);
+
     return baseStats;
+  }
+
+  private createDetailedStats(
+    networkQuality: TRTCNetworkQuality | null,
+    localStats: TRTCLocalStatistics | null,
+    remoteStats: Map<string, TRTCRemoteStatistics>,
+  ) {
+    const detailedStats: any = {};
+
+    // Video detailed stats - prioritize remote stats for better metrics
+    if (remoteStats.size > 0) {
+      const primaryRemote = Array.from(remoteStats.values())[0];
+      if (primaryRemote) {
+        detailedStats.video = {
+          codec: 'H264', // TRTC typically uses H264
+          bitrate: primaryRemote.videoBitrate || 0,
+          frameRate: primaryRemote.frameRate || 0,
+          resolution: {
+            width: primaryRemote.width || 0,
+            height: primaryRemote.height || 0,
+          },
+          packetLoss: this.getNetworkQualityLoss(networkQuality),
+          rtt: this.getNetworkQualityRTT(networkQuality),
+        };
+      }
+    } else if (localStats) {
+      detailedStats.video = {
+        codec: 'H264',
+        bitrate: localStats.videoBitrate || 0,
+        frameRate: localStats.frameRate || 0,
+        resolution: {
+          width: localStats.width || 0,
+          height: localStats.height || 0,
+        },
+        packetLoss: this.getNetworkQualityLoss(networkQuality),
+        rtt: this.getNetworkQualityRTT(networkQuality),
+      };
+    }
+
+    // Audio detailed stats - prioritize remote stats for better metrics
+    if (remoteStats.size > 0) {
+      const primaryRemote = Array.from(remoteStats.values())[0];
+      if (primaryRemote) {
+        detailedStats.audio = {
+          codec: 'OPUS', // TRTC typically uses OPUS
+          bitrate: primaryRemote.audioBitrate || 0,
+          packetLoss: this.getNetworkQualityLoss(networkQuality),
+          volume: 0, // TRTC doesn't provide volume in stats
+          rtt: this.getNetworkQualityRTT(networkQuality),
+        };
+      }
+    } else if (localStats) {
+      detailedStats.audio = {
+        codec: 'OPUS',
+        bitrate: localStats.audioBitrate || 0,
+        packetLoss: this.getNetworkQualityLoss(networkQuality),
+        volume: 0,
+        rtt: this.getNetworkQualityRTT(networkQuality),
+      };
+    }
+
+    // Network detailed stats
+    if (networkQuality) {
+      detailedStats.network = {
+        rtt: this.getNetworkQualityRTT(networkQuality),
+        packetLoss: this.getNetworkQualityLoss(networkQuality),
+      };
+    }
+
+    return detailedStats;
+  }
+
+  private getNetworkQualityRTT(networkQuality: TRTCNetworkQuality | null): number {
+    if (!networkQuality) return 0;
+
+    // Handle both old and new data structures
+    if ('downlinkRTT' in networkQuality) {
+      return (networkQuality as any).downlinkRTT || (networkQuality as any).uplinkRTT || 0;
+    }
+    return networkQuality.delay || 0;
+  }
+
+  private getNetworkQualityLoss(networkQuality: TRTCNetworkQuality | null): number {
+    if (!networkQuality) return 0;
+
+    // Handle both old and new data structures
+    if ('downlinkLoss' in networkQuality) {
+      return (networkQuality as any).downlinkLoss || (networkQuality as any).uplinkLoss || 0;
+    }
+    return networkQuality.lossRate || 0;
   }
 
   // Note: mapQualityFromRTT function removed as SPEED_TEST event is not available
@@ -200,22 +362,9 @@ export class TRTCStatsController {
 
       this.isCollecting = true;
 
-      // Start additional TRTC-specific collection
-      if (this.statsInterval) {
-        clearInterval(this.statsInterval);
-      }
-
-      this.statsInterval = window.setInterval(async () => {
-        try {
-          // Manually trigger network quality check if needed
-          // TRTC v5 may not have automatic quality reporting
-          await this.triggerStatsCollection();
-        } catch (error) {
-          logger.error('Error during TRTC stats collection interval', { error });
-        }
-      }, this.updateInterval);
-
-      logger.info('TRTC stats collection started');
+      // TRTC SDK v5 emits network quality and statistics events directly
+      // No need for interval polling - events will trigger stats updates automatically
+      logger.info('TRTC stats collection started - using event-driven updates');
     } catch (error) {
       logger.error('Failed to start TRTC stats collection', { error });
       throw error;
@@ -231,11 +380,7 @@ export class TRTCStatsController {
 
       this.isCollecting = false;
 
-      if (this.statsInterval) {
-        clearInterval(this.statsInterval);
-        this.statsInterval = null;
-      }
-
+      // No interval to clear since we're using event-driven updates
       logger.info('TRTC stats collection stopped');
     } catch (error) {
       logger.error('Failed to stop TRTC stats collection', { error });
