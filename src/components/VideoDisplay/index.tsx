@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { VideoTrack } from '../../types/streaming.types';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
-import { useRemoteVideoState } from '../../hooks/useRemoteVideoState';
+import { useProviderAwareRemoteVideoState } from '../../hooks/useProviderAwareRemoteVideoState';
 import { MainVideoArea } from './MainVideoArea';
 import { VideoOverlay } from './VideoOverlay';
 import './styles.css';
@@ -16,13 +16,13 @@ interface VideoDisplayProps {
 
 const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, localVideoTrack, cameraEnabled }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isAvatarSpeaking, provider } = useStreamingContext();
+  const { isAvatarSpeaking, provider, providerType } = useStreamingContext();
 
   // State for view switching
   const [isViewSwitched, setIsViewSwitched] = useState(false);
 
   // Remote video state management
-  const { isRemoteVideoPlaying } = useRemoteVideoState({
+  const { isRemoteVideoPlaying } = useProviderAwareRemoteVideoState({
     isJoined,
     videoElementId: 'remote-video',
   });
@@ -155,6 +155,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
         avatarVideoUrl={avatarVideoUrl}
         isPlaceholderVideoLoading={isPlaceholderVideoLoading}
         placeholderVideoError={placeholderVideoError}
+        providerType={providerType}
       />
 
       {cameraEnabled && localVideoTrack && (

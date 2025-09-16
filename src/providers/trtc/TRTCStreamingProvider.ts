@@ -47,8 +47,8 @@ interface TRTCClient {
   enableAudioVolumeEvaluation(intervalMs: number): void;
   getSDKVersion(): string;
   getNetworkQuality(): Promise<TRTCNetworkQuality>;
-  startRemoteView(userId: string, streamType: number, view: HTMLElement): void;
-  stopRemoteView(userId: string, streamType: number): void;
+  startRemoteView(userId: string, streamType: string, view: HTMLElement): void;
+  stopRemoteView(userId: string, streamType: string): void;
 }
 
 export interface TRTCProviderConfig {

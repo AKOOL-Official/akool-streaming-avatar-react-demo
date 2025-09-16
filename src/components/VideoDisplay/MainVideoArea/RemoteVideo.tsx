@@ -1,31 +1,27 @@
 import React from 'react';
+import { RemoteVideoStrategyFactory } from '../../../providers/common/strategies';
+import { StreamProviderType } from '../../../types/streaming.types';
 
 export interface RemoteVideoProps {
   isVisible: boolean;
   className?: string;
   style?: React.CSSProperties;
+  providerType?: StreamProviderType;
 }
 
-export const RemoteVideo: React.FC<RemoteVideoProps> = ({ isVisible, className = '', style = {} }) => {
-  return (
-    <video
-      id="remote-video"
-      className={`${className} ${!isVisible ? 'hidden' : ''}`}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        objectFit: 'contain',
-        zIndex: 10,
-        backgroundColor: '#000',
-        ...style,
-      }}
-      playsInline
-      muted
-    />
-  );
+export const RemoteVideo: React.FC<RemoteVideoProps> = ({
+  isVisible,
+  className = '',
+  style = {},
+  providerType = 'agora', // Default to agora for backward compatibility
+}) => {
+  const strategy = RemoteVideoStrategyFactory.getStrategy(providerType);
+
+  return strategy.createElement({
+    isVisible,
+    className,
+    style,
+  });
 };
 
 export default RemoteVideo;

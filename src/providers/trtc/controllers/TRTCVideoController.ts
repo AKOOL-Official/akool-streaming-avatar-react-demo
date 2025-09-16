@@ -25,8 +25,8 @@ interface TRTCClient {
   stopLocalVideo(): void;
   muteLocalVideo(mute: boolean): void;
   setVideoEncoderParam(param: TRTCVideoEncParam): void;
-  startRemoteView(userId: string, streamType: number, view: HTMLElement): void;
-  stopRemoteView(userId: string, streamType: number): void;
+  startRemoteView(userId: string, streamType: string, view: HTMLElement): void;
+  stopRemoteView(userId: string, streamType: string): void;
   on(event: string, callback: (...args: unknown[]) => void): void;
   off(event: string, callback?: (...args: unknown[]) => void): void;
 }
@@ -316,9 +316,24 @@ export class TRTCVideoController {
 
   async playRemoteVideo(userId: string, element: HTMLElement): Promise<void> {
     try {
-      logger.info('Starting remote video playback', { userId });
-      this.client.startRemoteView(userId, 0, element); // 0 = main stream
-      logger.info('Remote video playback started successfully', { userId });
+      logger.info('Starting remote video playback', {
+        userId,
+        elementId: element.id,
+        elementTag: element.tagName,
+        elementVisible: element.offsetWidth > 0 && element.offsetHeight > 0,
+        hasHiddenClass: element.classList.contains('hidden'),
+      });
+
+      // Remove hidden class to make the video element visible
+      element.classList.remove('hidden');
+
+      this.client.startRemoteView(userId, 'main', element); // main stream
+
+      logger.info('Remote video playback started successfully', {
+        userId,
+        elementVisible: element.offsetWidth > 0 && element.offsetHeight > 0,
+        hasHiddenClass: element.classList.contains('hidden'),
+      });
     } catch (error) {
       logger.error('Failed to start remote video playback', { error, userId });
       throw new StreamingError(ErrorCode.VIDEO_PLAYBACK_FAILED, 'Failed to start remote video playback', {
@@ -332,7 +347,21 @@ export class TRTCVideoController {
   async stopRemoteVideo(userId: string): Promise<void> {
     try {
       logger.info('Stopping remote video playback', { userId });
-      this.client.stopRemoteView(userId, 0); // 0 = main stream
+      this.client.stopRemoteView(userId, 'main'); // main stream
+
+      // Add hidden class back to hide the video element
+      const remoteVideoElement = document.getElementById('remote-video');
+      if (remoteVideoElement) {
+        remoteVideoElement.classList.add('hidden');
+        logger.info('Added hidden class to remote video element', {
+          userId,
+          elementVisible: remoteVideoElement.offsetWidth > 0 && remoteVideoElement.offsetHeight > 0,
+          hasHiddenClass: remoteVideoElement.classList.contains('hidden'),
+        });
+      } else {
+        logger.warn('Remote video element not found when stopping', { userId });
+      }
+
       logger.info('Remote video playback stopped successfully', { userId });
     } catch (error) {
       logger.error('Failed to stop remote video playback', { error, userId });

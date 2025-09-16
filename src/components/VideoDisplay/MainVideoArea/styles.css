@@ -15,11 +15,17 @@
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
   z-index: 10;
   background: #000;
   transition: opacity 0.3s ease-in-out;
   opacity: 1;
+}
+
+/* TRTC video elements inside the remote-video container */
+#remote-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 #remote-video.hidden {

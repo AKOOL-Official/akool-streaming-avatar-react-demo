@@ -2,6 +2,7 @@ import React from 'react';
 import { RemoteVideo } from './RemoteVideo';
 import { AvatarContent } from './AvatarContent';
 import { SpeakingIndicator } from '../../shared';
+import { StreamProviderType } from '../../../types/streaming.types';
 import './styles.css';
 
 export interface MainVideoAreaProps {
@@ -11,6 +12,7 @@ export interface MainVideoAreaProps {
   avatarVideoUrl: string;
   isPlaceholderVideoLoading: boolean;
   placeholderVideoError: boolean;
+  providerType?: StreamProviderType;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -22,6 +24,7 @@ export const MainVideoArea: React.FC<MainVideoAreaProps> = ({
   avatarVideoUrl,
   isPlaceholderVideoLoading,
   placeholderVideoError,
+  providerType = 'agora',
   className = '',
   style = {},
 }) => {
@@ -29,7 +32,7 @@ export const MainVideoArea: React.FC<MainVideoAreaProps> = ({
     // When switched, show local camera in main area
     return (
       <div className={`main-video-area switched ${className}`} style={style}>
-        <RemoteVideo isVisible={false} />
+        <RemoteVideo isVisible={false} providerType={providerType} />
         <div
           id="main-local-video"
           style={{ width: '100%', height: '100%', background: '#000', position: 'relative', zIndex: 1 }}
@@ -43,7 +46,7 @@ export const MainVideoArea: React.FC<MainVideoAreaProps> = ({
   // Normal mode - show avatar content
   return (
     <div className={`main-video-area normal ${className}`} style={style}>
-      <RemoteVideo isVisible={isRemoteVideoPlaying} />
+      <RemoteVideo isVisible={isRemoteVideoPlaying} providerType={providerType} />
 
       <AvatarContent
         avatarVideoUrl={avatarVideoUrl}

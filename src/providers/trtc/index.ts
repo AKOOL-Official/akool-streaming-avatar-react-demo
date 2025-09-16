@@ -24,8 +24,8 @@ interface TRTCClient {
   enableAudioVolumeEvaluation(intervalMs: number): void;
   getSDKVersion(): string;
   getNetworkQuality(): Promise<TRTCNetworkQuality>;
-  startRemoteView(userId: string, streamType: number, view: HTMLElement): void;
-  stopRemoteView(userId: string, streamType: number): void;
+  startRemoteView(userId: string, streamType: string, view: HTMLElement): void;
+  stopRemoteView(userId: string, streamType: string): void;
 }
 
 // Factory function for creating TRTC provider
@@ -110,14 +110,14 @@ export function createProvider(credentials: StreamingCredentials): StreamingProv
         lossRate: 0,
       };
     },
-    startRemoteView: (userId: string, streamType: number, view: HTMLElement) => {
+    startRemoteView: (userId: string, streamType: string, view: HTMLElement) => {
       trtcClient.startRemoteVideo({
         userId,
-        streamType: streamType as any,
         view,
+        streamType: streamType as any,
       });
     },
-    stopRemoteView: (userId: string, streamType: number) => {
+    stopRemoteView: (userId: string, streamType: string) => {
       trtcClient.stopRemoteVideo({
         userId,
         streamType: streamType as any,

@@ -270,12 +270,26 @@ export class TRTCEventController {
     this.client.on(TRTC.EVENT.REMOTE_USER_EXIT, (...args: unknown[]) =>
       onRemoteUserLeaveRoom(args[0] as string, args[1] as number),
     );
-    this.client.on(TRTC.EVENT.REMOTE_AUDIO_AVAILABLE, (...args: unknown[]) =>
-      onUserAudioAvailable(args[0] as string, args[1] as boolean),
-    );
-    this.client.on(TRTC.EVENT.REMOTE_VIDEO_AVAILABLE, (...args: unknown[]) =>
-      onUserVideoAvailable(args[0] as string, args[1] as boolean),
-    );
+    this.client.on(TRTC.EVENT.REMOTE_AUDIO_AVAILABLE, (...args: unknown[]) => {
+      const event = args[0] as { userId: string; streamType: string } | undefined;
+      if (event?.userId) {
+        // For audio available, we assume it's available when the event fires
+        onUserAudioAvailable(event.userId, true);
+      } else {
+        // Fallback to old format if needed
+        onUserAudioAvailable(args[0] as string, args[1] as boolean);
+      }
+    });
+    this.client.on(TRTC.EVENT.REMOTE_VIDEO_AVAILABLE, (...args: unknown[]) => {
+      const event = args[0] as { userId: string; streamType: string } | undefined;
+      if (event?.userId) {
+        // For video available, we assume it's available when the event fires
+        onUserVideoAvailable(event.userId, true);
+      } else {
+        // Fallback to old format if needed
+        onUserVideoAvailable(args[0] as string, args[1] as boolean);
+      }
+    });
     // Note: USER_SUB_STREAM_AVAILABLE, CONNECTION_LOST, TRY_TO_RECONNECT, CONNECTION_RECOVERY may not be available in this SDK version
     this.client.on(TRTC.EVENT.NETWORK_QUALITY, (...args: unknown[]) =>
       onNetworkQuality(args[0] as any, args[1] as any[]),
