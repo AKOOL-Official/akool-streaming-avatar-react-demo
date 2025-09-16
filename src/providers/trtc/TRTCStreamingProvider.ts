@@ -97,8 +97,8 @@ export class TRTCStreamingProvider implements StreamingProvider {
     this.eventController = new TRTCEventController(this.client, this.participantController);
     this.statsController = new TRTCStatsController(this.client);
     this.messageController = new CommonMessageController(new TRTCMessageAdapter(this.client, config.messageConfig), {
-      maxEncodedSize: config.messageConfig?.maxMessageSize || 1024,
-      bytesPerSecond: 1024 * 10, // 10KB/s rate limit
+      maxEncodedSize: config.messageConfig?.maxMessageSize || 960,
+      bytesPerSecond: 960 * 8, // 8KB/s rate limit
     });
     this.audioController = new TRTCAudioController(this.client);
     this.videoController = new TRTCVideoController(this.client);

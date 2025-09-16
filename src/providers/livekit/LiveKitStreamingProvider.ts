@@ -69,8 +69,8 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     this.eventController = new LiveKitEventController(this.room, this.participantController);
     this.statsController = new LiveKitStatsController(this.room);
     this.messageController = new CommonMessageController(new LiveKitMessageAdapter(this.room), {
-      maxEncodedSize: 1024 * 1024, // 1MB
-      bytesPerSecond: 1024 * 100, // 100KB/s
+      maxEncodedSize: 960, // 960 bytes
+      bytesPerSecond: 960 * 6, // 6KB/s
     });
     this.audioController = new LiveKitAudioController(this.room);
     this.videoController = new LiveKitVideoController(this.room);

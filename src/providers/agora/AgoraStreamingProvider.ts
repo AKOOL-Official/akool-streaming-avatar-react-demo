@@ -86,8 +86,8 @@ export class AgoraStreamingProvider implements StreamingProvider {
     this.eventController = new AgoraEventController(this.client, this.participantController);
     this.statsController = new AgoraStatsController(this.client);
     this.messageController = new CommonMessageController(new AgoraMessageAdapter(this.client), {
-      maxEncodedSize: 1024 * 1024, // 1MB
-      bytesPerSecond: 1024 * 100, // 100KB/s
+      maxEncodedSize: 960, // 1KB
+      bytesPerSecond: 960 * 6, // 6KB/s
     });
     this.audioController = new AgoraAudioController(this.client);
     this.videoController = new AgoraVideoController(this.client);
