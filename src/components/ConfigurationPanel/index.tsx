@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApiService, Language, Avatar } from '../../apiService';
 import { useConfigurationStore } from '../../stores/configurationStore';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -31,6 +31,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
     avatarId,
     setAvatarId,
     voiceId,
+    setVoiceId,
     knowledgeId,
     setKnowledgeId,
 
@@ -61,7 +62,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
   const [isStarting, setIsStarting] = useState(false);
   const [backgroundUrlInput, setBackgroundUrlInput] = useState(backgroundUrl);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
 
   // Load API data when API service is available
   useEffect(() => {
@@ -90,35 +90,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
   useEffect(() => {
     setBackgroundUrlInput(backgroundUrl);
   }, [backgroundUrl]);
-
-  // Get selected voice name
-  const getSelectedVoiceName = useCallback(async () => {
-    if (!voiceId || !api) {
-      setSelectedVoiceName('');
-      return;
-    }
-
-    try {
-      const voiceGroups = await api.getAllVoices();
-      for (const group of voiceGroups) {
-        if (group.voices) {
-          const selectedVoice = group.voices.find((voice) => voice.voice_id === voiceId);
-          if (selectedVoice) {
-            setSelectedVoiceName(selectedVoice.name || 'Unnamed Voice');
-            return;
-          }
-        }
-      }
-      setSelectedVoiceName(voiceId); // Fallback to ID if name not found
-    } catch (error) {
-      setSelectedVoiceName(voiceId); // Fallback to ID on error
-    }
-  }, [voiceId, api]);
-
-  // Update selected voice name when voiceId changes
-  useEffect(() => {
-    getSelectedVoiceName();
-  }, [getSelectedVoiceName]);
 
   // Handle start streaming
   const handleStartStreaming = async () => {
@@ -265,21 +236,21 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
             <div className="input-with-buttons">
               <input
                 type="text"
-                value={selectedVoiceName || 'Select a voice'}
-                placeholder="Select a voice"
-                readOnly
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                placeholder="Enter voice ID or select from list"
                 disabled={isJoined}
-                className="voice-display-input"
+                className="voice-input"
               />
               <button
                 type="button"
                 onClick={openVoiceDialog}
                 disabled={isJoined || !api}
                 className="btn btn-secondary btn-sm"
-                title="Select voice"
+                title="Select voice from list"
               >
-                <span className="material-icons">mic</span>
-                Select Voice
+                <span className="material-icons">list</span>
+                Select
               </button>
             </div>
           </div>

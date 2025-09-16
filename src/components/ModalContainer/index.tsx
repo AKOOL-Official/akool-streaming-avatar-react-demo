@@ -22,7 +22,7 @@ const ModalContainer: React.FC<ModalContainerProps> = ({ api, isJoined }) => {
   } = useModal();
 
   // Get voice data from store
-  const { voiceId, setVoiceId, voiceUrl, setVoiceUrl } = useConfigurationStore();
+  const { voiceId, setVoiceId } = useConfigurationStore();
 
   if (!api) return null;
 
@@ -32,8 +32,6 @@ const ModalContainer: React.FC<ModalContainerProps> = ({ api, isJoined }) => {
       <VoiceSelectorDialog
         voiceId={voiceId}
         setVoiceId={setVoiceId}
-        voiceUrl={voiceUrl}
-        setVoiceUrl={setVoiceUrl}
         apiService={api}
         disabled={isJoined}
         isOpen={isVoiceDialogOpen}

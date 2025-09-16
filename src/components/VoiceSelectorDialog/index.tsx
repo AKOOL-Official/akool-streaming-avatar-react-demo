@@ -7,8 +7,6 @@ import './styles.css';
 interface VoiceSelectorDialogProps {
   voiceId: string;
   setVoiceId: (id: string) => void;
-  voiceUrl: string;
-  setVoiceUrl: (url: string) => void;
   apiService: ApiService;
   disabled?: boolean;
   isOpen: boolean;
@@ -24,8 +22,6 @@ interface VoiceFilters {
 const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
   voiceId,
   setVoiceId,
-  voiceUrl,
-  setVoiceUrl,
   apiService,
   disabled = false,
   isOpen,
@@ -40,20 +36,7 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
     gender: '',
     age: '',
   });
-  const [useManualVoiceId, setUseManualVoiceId] = useState(false);
-  const [voiceUrlInput, setVoiceUrlInput] = useState(voiceUrl);
-  const [voiceIdInput, setVoiceIdInput] = useState(voiceId);
   const [showFilters, setShowFilters] = useState(false);
-
-  // Sync local voice URL input with prop
-  useEffect(() => {
-    setVoiceUrlInput(voiceUrl);
-  }, [voiceUrl]);
-
-  // Sync local voice ID input with prop
-  useEffect(() => {
-    setVoiceIdInput(voiceId);
-  }, [voiceId]);
 
   // Load voice groups when dialog opens
   useEffect(() => {
@@ -104,23 +87,10 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
     [setVoiceId],
   );
 
-  // Handle manual voice ID input
-  const handleVoiceIdChange = useCallback(
-    (value: string) => {
-      setVoiceIdInput(value);
-      setVoiceId(value);
-    },
-    [setVoiceId],
-  );
-
-  // Handle voice URL input
-  const handleVoiceUrlChange = useCallback(
-    (value: string) => {
-      setVoiceUrlInput(value);
-      setVoiceUrl(value);
-    },
-    [setVoiceUrl],
-  );
+  // Handle confirm selection
+  const handleConfirm = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   // Handle filter changes
   const handleFilterChange = useCallback((key: keyof VoiceFilters, value: string) => {
@@ -311,94 +281,48 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
             )}
           </div>
 
-          {/* Manual Input Toggle */}
-          <div className="manual-input-section">
-            <div className="input-mode-toggle">
-              <button
-                onClick={() => setUseManualVoiceId(!useManualVoiceId)}
-                className={`btn ${useManualVoiceId ? 'btn-secondary' : 'btn-primary'} btn-md`}
-                disabled={disabled}
-                title={useManualVoiceId ? 'Switch to voice selection' : 'Switch to manual input'}
-              >
-                <span className="material-icons">{useManualVoiceId ? 'list' : 'edit'}</span>
-                {useManualVoiceId ? 'Voice Selection' : 'Manual Input'}
-              </button>
-            </div>
+          {/* Voice Groups */}
+          <div className="voice-groups-container">
+            {loading && (
+              <div className="loading-container">
+                <span className="material-icons loading-icon">hourglass_empty</span>
+                <p>Loading voices...</p>
+              </div>
+            )}
 
-            {useManualVoiceId && (
-              <div className="manual-inputs">
-                <div className="input-group">
-                  <label className="input-label">Voice ID:</label>
-                  <input
-                    type="text"
-                    value={voiceIdInput}
-                    onChange={(e) => setVoiceIdInput(e.target.value)}
-                    onBlur={(e) => handleVoiceIdChange(e.target.value)}
-                    placeholder="Enter voice ID"
+            {error && (
+              <div className="error-container">
+                <span className="material-icons error-icon">error</span>
+                <p>{error}</p>
+                <button onClick={loadVoiceGroups} className="btn btn-primary btn-sm">
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {!loading && !error && voiceGroups && voiceGroups.length > 0 && (
+              <div className="voice-groups">
+                {voiceGroups.map((group) => (
+                  <VoiceGroupComponent
+                    key={group.type}
+                    group={group}
+                    selectedVoiceId={voiceId}
+                    onVoiceSelect={handleVoiceSelect}
                     disabled={disabled}
-                    className="manual-input"
+                    searchQuery={searchQuery}
+                    filters={filters}
                   />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Voice URL:</label>
-                  <input
-                    type="text"
-                    value={voiceUrlInput}
-                    onChange={(e) => setVoiceUrlInput(e.target.value)}
-                    onBlur={(e) => handleVoiceUrlChange(e.target.value)}
-                    placeholder="Enter voice URL"
-                    disabled={disabled}
-                    className="manual-input"
-                  />
-                </div>
+                ))}
+              </div>
+            )}
+
+            {!loading && !error && voiceGroups && voiceGroups.length === 0 && (
+              <div className="no-voices-container">
+                <span className="material-icons">mic_off</span>
+                <p>No voices available</p>
               </div>
             )}
           </div>
-
-          {/* Voice Groups */}
-          {!useManualVoiceId && (
-            <div className="voice-groups-container">
-              {loading && (
-                <div className="loading-container">
-                  <span className="material-icons loading-icon">hourglass_empty</span>
-                  <p>Loading voices...</p>
-                </div>
-              )}
-
-              {error && (
-                <div className="error-container">
-                  <span className="material-icons error-icon">error</span>
-                  <p>{error}</p>
-                  <button onClick={loadVoiceGroups} className="btn btn-primary btn-sm">
-                    Try Again
-                  </button>
-                </div>
-              )}
-
-              {!loading && !error && voiceGroups && voiceGroups.length > 0 && (
-                <div className="voice-groups">
-                  {voiceGroups.map((group) => (
-                    <VoiceGroupComponent
-                      key={group.type}
-                      group={group}
-                      selectedVoiceId={voiceId}
-                      onVoiceSelect={handleVoiceSelect}
-                      disabled={disabled}
-                      searchQuery={searchQuery}
-                      filters={filters}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {!loading && !error && voiceGroups && voiceGroups.length === 0 && (
-                <div className="no-voices-container">
-                  <span className="material-icons">mic_off</span>
-                  <p>No voices available</p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="dialog-footer">
@@ -415,7 +339,7 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
             <button onClick={onClose} className="btn btn-secondary btn-md">
               Cancel
             </button>
-            <button onClick={onClose} className="btn btn-primary btn-md">
+            <button onClick={handleConfirm} className="btn btn-primary btn-md" disabled={!voiceId}>
               Confirm Selection
             </button>
           </div>
