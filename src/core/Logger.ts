@@ -84,7 +84,7 @@ export class NoOpLogOutput implements LogOutput {
 
 export class Logger {
   private static instance: Logger;
-  private logLevel: LogLevel = this.parseLogLevel(import.meta.env.VITE_LOG_LEVEL) || LogLevel.INFO;
+  private logLevel: LogLevel = this.parseLogLevel(import.meta.env.VITE_LOG_LEVEL) ?? LogLevel.INFO;
   private outputs: LogOutput[] = [];
   private memoryOutput?: MemoryLogOutput;
 
