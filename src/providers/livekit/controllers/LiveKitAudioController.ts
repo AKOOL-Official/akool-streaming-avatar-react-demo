@@ -1,21 +1,51 @@
 import { Room, LocalAudioTrack, createLocalAudioTrack, AudioCaptureOptions } from 'livekit-client';
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
-import { AudioTrack, AudioConfig } from '../../../types/streaming.types';
-import { LiveKitAudioControllerCallbacks } from '../types';
+import {
+  AudioTrack,
+  AudioConfig,
+  AudioControllerCallbacks,
+  AIDenoiserConfig,
+  AIDenoiserMode,
+  AIDenoiserState,
+} from '../../../types/streaming.types';
 
 export class LiveKitAudioController {
   private room: Room;
   private currentTrack: LocalAudioTrack | null = null;
   private isEnabled = false;
-  private callbacks: LiveKitAudioControllerCallbacks = {};
+  private callbacks: AudioControllerCallbacks = {};
+  private aiDenoiserState: AIDenoiserState = {
+    isEnabled: false,
+    mode: 'default',
+    isInitialized: false,
+  };
+  private krispProcessor: any = null; // Will be dynamically imported from @livekit/krisp-noise-filter
 
   constructor(room: Room) {
     this.room = room;
   }
 
-  setCallbacks(callbacks: LiveKitAudioControllerCallbacks): void {
+  setCallbacks(callbacks: AudioControllerCallbacks): void {
     this.callbacks = callbacks;
+  }
+
+  // Helper method to convert unified AI denoiser mode to LiveKit mode
+  private convertToLiveKitMode(mode: AIDenoiserMode): string {
+    switch (mode) {
+      case 'nc':
+        return 'NC';
+      case 'bvc':
+        return 'BVC';
+      case 'bvc-telephony':
+        return 'BVCTelephony';
+      case 'nsng':
+      case 'stationary':
+      case 'default':
+      case 'far-field':
+      default:
+        return 'NC'; // Default to NC for compatibility
+    }
   }
 
   async enableAudio(config: AudioConfig = {}): Promise<AudioTrack> {
@@ -35,6 +65,11 @@ export class LiveKitAudioController {
       };
 
       const audioTrack = await createLocalAudioTrack(captureOptions);
+
+      // Apply AI denoiser if configured
+      if (config.aiDenoiser?.enabled) {
+        await this.applyAIDenoiser(audioTrack, config.aiDenoiser);
+      }
 
       // Store the track but don't publish it yet
       this.currentTrack = audioTrack;
@@ -275,21 +310,144 @@ export class LiveKitAudioController {
     }
   }
 
-  // LiveKit doesn't have built-in noise reduction like Agora
-  // These methods are placeholder implementations for interface compatibility
+  // Unified AI Denoiser API implementation
+  async enableAIDenoiser(config?: AIDenoiserConfig): Promise<void> {
+    try {
+      if (this.aiDenoiserState.isEnabled) {
+        logger.debug('AI denoiser already enabled');
+        return;
+      }
+
+      if (!this.currentTrack) {
+        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'No audio track available for AI denoiser');
+      }
+
+      const denoiserConfig = config || {
+        enabled: true,
+        mode: this.aiDenoiserState.mode,
+        processingMode: 'frontend',
+      };
+
+      await this.applyAIDenoiser(this.currentTrack, denoiserConfig);
+
+      this.aiDenoiserState = {
+        isEnabled: true,
+        mode: denoiserConfig.mode || 'default',
+        isInitialized: true,
+      };
+
+      logger.info('LiveKit AI denoiser enabled', { mode: this.aiDenoiserState.mode });
+    } catch (error) {
+      logger.error('Failed to enable LiveKit AI denoiser', { error });
+      throw error instanceof StreamingError
+        ? error
+        : new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Failed to enable AI denoiser');
+    }
+  }
+
+  async updateAIDenoiserMode(mode: AIDenoiserMode): Promise<void> {
+    try {
+      if (!this.aiDenoiserState.isEnabled) {
+        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'AI denoiser not enabled');
+      }
+
+      // Update the processor mode if it exists
+      if (this.krispProcessor) {
+        const liveKitMode = this.convertToLiveKitMode(mode);
+        // Note: LiveKit Krisp filter doesn't support mode switching at runtime
+        // We would need to recreate the processor with the new mode
+        logger.warn('LiveKit AI denoiser mode switching requires processor recreation', { mode, liveKitMode });
+      }
+
+      this.aiDenoiserState = {
+        ...this.aiDenoiserState,
+        mode: mode,
+      };
+
+      logger.info('LiveKit AI denoiser mode updated', { mode });
+    } catch (error) {
+      logger.error('Failed to update LiveKit AI denoiser mode', { error });
+      throw error instanceof StreamingError
+        ? error
+        : new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Failed to update AI denoiser mode');
+    }
+  }
+
+  async disableAIDenoiser(): Promise<void> {
+    try {
+      if (!this.aiDenoiserState.isEnabled) {
+        logger.debug('AI denoiser already disabled');
+        return;
+      }
+
+      if (this.krispProcessor && this.currentTrack) {
+        await this.currentTrack.stopProcessor();
+        this.krispProcessor = null;
+      }
+
+      this.aiDenoiserState = {
+        isEnabled: false,
+        mode: this.aiDenoiserState.mode,
+        isInitialized: false,
+      };
+
+      logger.info('LiveKit AI denoiser disabled');
+    } catch (error) {
+      logger.error('Failed to disable LiveKit AI denoiser', { error });
+      throw error instanceof StreamingError
+        ? error
+        : new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Failed to disable AI denoiser');
+    }
+  }
+
+  // Legacy noise reduction methods for backward compatibility
   async enableNoiseReduction(): Promise<void> {
-    logger.info('Noise reduction requested - LiveKit requires custom Web Audio API implementation');
-    // Implementation would require Web Audio API integration
+    return this.enableAIDenoiser();
   }
 
   async disableNoiseReduction(): Promise<void> {
-    logger.info('Disable noise reduction requested - LiveKit requires custom Web Audio API implementation');
-    // Implementation would require Web Audio API integration
+    return this.disableAIDenoiser();
   }
 
   async dumpAudio(): Promise<void> {
     logger.info('Audio dump requested - LiveKit requires custom implementation');
     // Implementation would require custom audio recording and download logic
+  }
+
+  // Helper method to apply AI denoiser to audio track
+  private async applyAIDenoiser(audioTrack: LocalAudioTrack, config: AIDenoiserConfig): Promise<void> {
+    try {
+      // Check if Krisp noise filter is supported
+      if (typeof window === 'undefined') {
+        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'LiveKit AI denoiser requires browser environment');
+      }
+
+      // Dynamic import of Krisp noise filter
+      const { KrispNoiseFilter, isKrispNoiseFilterSupported } = await import('@livekit/krisp-noise-filter');
+
+      if (!isKrispNoiseFilterSupported()) {
+        throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Krisp noise filter is not supported on this browser');
+      }
+
+      // Create Krisp processor
+      this.krispProcessor = KrispNoiseFilter();
+
+      // Apply processor to track
+      await audioTrack.setProcessor(this.krispProcessor);
+
+      // Enable the processor
+      await this.krispProcessor.setEnabled(true);
+
+      logger.info('LiveKit AI denoiser applied to audio track', {
+        mode: config.mode,
+        processingMode: config.processingMode || 'frontend',
+      });
+    } catch (error) {
+      logger.error('Failed to apply LiveKit AI denoiser', { error });
+      throw error instanceof StreamingError
+        ? error
+        : new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Failed to apply AI denoiser');
+    }
   }
 
   private convertToAudioTrack(liveKitTrack: LocalAudioTrack): AudioTrack {
@@ -320,9 +478,27 @@ export class LiveKitAudioController {
     return this.currentTrack !== null && this.isEnabled;
   }
 
+  // AI Denoiser getter methods
+  isAIDenoiserEnabled(): boolean {
+    return this.aiDenoiserState.isEnabled;
+  }
+
+  getAIDenoiserMode(): AIDenoiserMode {
+    return this.aiDenoiserState.mode;
+  }
+
+  getAIDenoiserState(): AIDenoiserState {
+    return { ...this.aiDenoiserState };
+  }
+
   // Clean up method for proper resource management
   async cleanup(): Promise<void> {
     try {
+      // Disable AI denoiser if enabled
+      if (this.aiDenoiserState.isEnabled) {
+        await this.disableAIDenoiser();
+      }
+
       // Disable audio track if enabled
       if (this.currentTrack) {
         await this.disableAudio();
@@ -330,6 +506,11 @@ export class LiveKitAudioController {
 
       // Clear all references
       this.callbacks = {};
+      this.aiDenoiserState = {
+        isEnabled: false,
+        mode: 'default',
+        isInitialized: false,
+      };
     } catch (error) {
       logger.error('Error during audio controller cleanup', {
         error: error instanceof Error ? error.message : String(error),

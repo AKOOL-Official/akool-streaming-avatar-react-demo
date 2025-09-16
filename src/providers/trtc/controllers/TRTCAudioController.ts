@@ -1,8 +1,14 @@
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
-import { AudioTrack, AudioConfig } from '../../../types/streaming.types';
+import {
+  AudioTrack,
+  AudioConfig,
+  AudioControllerCallbacks,
+  AIDenoiserConfig,
+  AIDenoiserMode,
+  AIDenoiserState,
+} from '../../../types/streaming.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
-import { TRTCAudioControllerCallbacks } from '../types';
 import TRTC from 'trtc-sdk-v5';
 
 export class TRTCAudioController {
@@ -11,10 +17,14 @@ export class TRTCAudioController {
   private isEnabled = false;
   private isMuted = false;
   private currentVolume = 100;
-  private callbacks: TRTCAudioControllerCallbacks = {};
+  private callbacks: AudioControllerCallbacks = {};
   private noiseReductionEnabled = false;
   private noiseReductionMode: 'basic' | 'ai' = 'basic';
-  private aiDenoiserMode: 0 | 1 = 0;
+  private aiDenoiserState: AIDenoiserState = {
+    isEnabled: false,
+    mode: 'default',
+    isInitialized: false,
+  };
   private aiDenoiserAssetsPath?: string;
 
   constructor(client: TRTC) {
@@ -22,7 +32,25 @@ export class TRTCAudioController {
     this.setupEventHandlers();
   }
 
-  setCallbacks(callbacks: TRTCAudioControllerCallbacks): void {
+  // Helper method to convert unified AI denoiser mode to TRTC mode
+  private convertToTRTCMode(mode: AIDenoiserMode): 0 | 1 {
+    switch (mode) {
+      case 'far-field':
+        return 1;
+      case 'default':
+      case 'nsng':
+      case 'stationary':
+      default:
+        return 0;
+    }
+  }
+
+  // Helper method to convert TRTC mode to unified AI denoiser mode
+  // private convertFromTRTCMode(mode: 0 | 1): AIDenoiserMode {
+  //   return mode === 1 ? 'far-field' : 'default';
+  // }
+
+  setCallbacks(callbacks: AudioControllerCallbacks): void {
     this.callbacks = callbacks;
   }
 
@@ -63,7 +91,11 @@ export class TRTCAudioController {
         if (config.aiDenoiser?.enabled) {
           // Use AI denoiser
           this.noiseReductionMode = 'ai';
-          this.aiDenoiserMode = config.aiDenoiser.mode || 0;
+          this.aiDenoiserState = {
+            isEnabled: false, // Will be enabled when credentials are available
+            mode: config.aiDenoiser.mode || 'default',
+            isInitialized: false,
+          };
           this.aiDenoiserAssetsPath = config.aiDenoiser.assetsPath;
           // AI denoiser will be enabled when credentials are available
         } else {
@@ -222,65 +254,93 @@ export class TRTCAudioController {
     }
   }
 
-  async enableAIDenoiser(sdkAppId?: number, userId?: string, userSig?: string): Promise<void> {
+  async enableAIDenoiser(config?: AIDenoiserConfig): Promise<void> {
     try {
-      if (this.noiseReductionEnabled && this.noiseReductionMode === 'ai') {
+      if (this.aiDenoiserState.isEnabled) {
         logger.debug('AI denoiser already enabled');
         return;
       }
 
+      // Use provided config or current state
+      const denoiserConfig = config || {
+        enabled: true,
+        mode: this.aiDenoiserState.mode,
+        assetsPath: this.aiDenoiserAssetsPath,
+      };
+
       // Check if we have the required credentials for AI denoiser
-      if (!sdkAppId || !userId || !userSig) {
+      if (
+        !denoiserConfig.credentials?.sdkAppId ||
+        !denoiserConfig.credentials?.userId ||
+        !denoiserConfig.credentials?.userSig
+      ) {
         throw new StreamingError(ErrorCode.INVALID_PARAMETER, 'AI denoiser requires sdkAppId, userId, and userSig', {
           provider: 'trtc',
         });
       }
 
+      const trtcMode = this.convertToTRTCMode(denoiserConfig.mode || 'default');
       const denoiserOptions = {
-        sdkAppId,
-        userId,
-        userSig,
-        mode: this.aiDenoiserMode,
-        ...(this.aiDenoiserAssetsPath && { assetsPath: this.aiDenoiserAssetsPath }),
+        sdkAppId: denoiserConfig.credentials.sdkAppId,
+        userId: denoiserConfig.credentials.userId,
+        userSig: denoiserConfig.credentials.userSig,
+        mode: trtcMode,
+        ...(denoiserConfig.assetsPath && { assetsPath: denoiserConfig.assetsPath }),
       };
 
       await this.client.startPlugin('AIDenoiser', denoiserOptions);
+
+      this.aiDenoiserState = {
+        isEnabled: true,
+        mode: denoiserConfig.mode || 'default',
+        isInitialized: true,
+      };
       this.noiseReductionEnabled = true;
       this.noiseReductionMode = 'ai';
 
-      logger.info('TRTC AI denoiser enabled', { mode: this.aiDenoiserMode });
+      logger.info('TRTC AI denoiser enabled', { mode: this.aiDenoiserState.mode });
     } catch (error) {
       logger.error('Failed to enable TRTC AI denoiser', { error });
       throw ErrorMapper.mapTRTCError(error);
     }
   }
 
-  async updateAIDenoiser(mode?: 0 | 1): Promise<void> {
+  async updateAIDenoiserMode(mode: AIDenoiserMode): Promise<void> {
     try {
-      if (!this.noiseReductionEnabled || this.noiseReductionMode !== 'ai') {
+      if (!this.aiDenoiserState.isEnabled) {
         throw new StreamingError(ErrorCode.INVALID_PARAMETER, 'AI denoiser not enabled', { provider: 'trtc' });
       }
 
-      const newMode = mode !== undefined ? mode : this.aiDenoiserMode;
+      const trtcMode = this.convertToTRTCMode(mode);
 
-      await this.client.updatePlugin('AIDenoiser', { mode: newMode });
-      this.aiDenoiserMode = newMode;
+      await this.client.updatePlugin('AIDenoiser', { mode: trtcMode });
 
-      logger.info('TRTC AI denoiser updated', { mode: newMode });
+      this.aiDenoiserState = {
+        ...this.aiDenoiserState,
+        mode: mode,
+      };
+
+      logger.info('TRTC AI denoiser mode updated', { mode: mode, trtcMode: trtcMode });
     } catch (error) {
-      logger.error('Failed to update TRTC AI denoiser', { error });
+      logger.error('Failed to update TRTC AI denoiser mode', { error });
       throw ErrorMapper.mapTRTCError(error);
     }
   }
 
   async disableAIDenoiser(): Promise<void> {
     try {
-      if (!this.noiseReductionEnabled || this.noiseReductionMode !== 'ai') {
+      if (!this.aiDenoiserState.isEnabled) {
         logger.debug('AI denoiser already disabled');
         return;
       }
 
       await this.client.stopPlugin('AIDenoiser');
+
+      this.aiDenoiserState = {
+        isEnabled: false,
+        mode: this.aiDenoiserState.mode,
+        isInitialized: false,
+      };
       this.noiseReductionEnabled = false;
       this.noiseReductionMode = 'basic';
 
@@ -320,11 +380,15 @@ export class TRTCAudioController {
   }
 
   isAIDenoiserEnabled(): boolean {
-    return this.noiseReductionEnabled && this.noiseReductionMode === 'ai';
+    return this.aiDenoiserState.isEnabled;
   }
 
-  getAIDenoiserMode(): 0 | 1 {
-    return this.aiDenoiserMode;
+  getAIDenoiserMode(): AIDenoiserMode {
+    return this.aiDenoiserState.mode;
+  }
+
+  getAIDenoiserState(): AIDenoiserState {
+    return { ...this.aiDenoiserState };
   }
 
   // Note: Audio quality mapping removed as TRTC SDK v5 handles this internally
@@ -353,6 +417,11 @@ export class TRTCAudioController {
       this.currentTrack = null;
       this.noiseReductionEnabled = false;
       this.noiseReductionMode = 'basic';
+      this.aiDenoiserState = {
+        isEnabled: false,
+        mode: 'default',
+        isInitialized: false,
+      };
 
       logger.info('TRTC audio controller cleanup completed');
     } catch (error) {

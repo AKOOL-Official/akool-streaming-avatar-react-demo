@@ -36,12 +36,38 @@ export interface AudioConfig {
   volume?: number;
   echoCancellation?: boolean;
   noiseSuppression?: boolean;
-  // AI Denoiser configuration (TRTC specific)
-  aiDenoiser?: {
-    enabled?: boolean;
-    mode?: 0 | 1; // 0: default mode, 1: far-field elimination mode
-    assetsPath?: string; // CDN path for denoiser assets
+  // Unified AI Denoiser configuration
+  aiDenoiser?: AIDenoiserConfig;
+}
+
+// Unified callback interface for all audio controllers
+export interface AudioControllerCallbacks {
+  onAudioTrackPublished?: (track: AudioTrack) => void;
+  onAudioTrackUnpublished?: (trackId: string) => void;
+  onAudioError?: (error: StreamingError) => void;
+  onVolumeChange?: (volume: number) => void;
+}
+
+// Unified AI Denoiser types
+export type AIDenoiserMode = 'nsng' | 'stationary' | 'default' | 'far-field' | 'nc' | 'bvc' | 'bvc-telephony';
+
+export interface AIDenoiserConfig {
+  enabled: boolean;
+  mode?: AIDenoiserMode;
+  assetsPath?: string; // For TRTC CDN assets
+  processingMode?: 'frontend' | 'backend'; // For LiveKit (frontend vs backend processing)
+  // Provider-specific credentials (optional)
+  credentials?: {
+    sdkAppId?: number;
+    userId?: string;
+    userSig?: string;
   };
+}
+
+export interface AIDenoiserState {
+  isEnabled: boolean;
+  mode: AIDenoiserMode;
+  isInitialized: boolean;
 }
 
 export interface Participant {

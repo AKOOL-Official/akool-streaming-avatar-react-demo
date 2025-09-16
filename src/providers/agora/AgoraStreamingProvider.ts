@@ -25,7 +25,8 @@ import {
 import { AgoraEventController, AgoraEventControllerCallbacks } from './controllers/AgoraEventController';
 import { AgoraStatsController, StatsControllerCallbacks } from './controllers/AgoraStatsController';
 import { AgoraParticipantController, ParticipantControllerCallbacks } from './controllers/AgoraParticipantController';
-import { AgoraAudioController, AudioControllerCallbacks } from './controllers/AgoraAudioController';
+import { AgoraAudioController } from './controllers/AgoraAudioController';
+import { AudioControllerCallbacks } from '../../types/streaming.types';
 import { AgoraVideoController, VideoControllerCallbacks } from './controllers/AgoraVideoController';
 import { CommonMessageController } from '../common/CommonMessageController';
 import { AgoraMessageAdapter } from './adapters/AgoraMessageAdapter';

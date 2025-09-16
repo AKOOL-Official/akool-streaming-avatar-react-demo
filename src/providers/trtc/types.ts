@@ -1,6 +1,6 @@
 import { StreamingCredentials } from '../../types/provider.interfaces';
 import { StreamingError } from '../../types/error.types';
-import { AudioTrack, VideoTrack } from '../../types/streaming.types';
+import { VideoTrack } from '../../types/streaming.types';
 
 export interface TRTCCredentials extends StreamingCredentials {
   trtc_app_id: number;
@@ -23,12 +23,7 @@ export interface TRTCConfig {
 }
 
 // Controller callback interfaces
-export interface TRTCAudioControllerCallbacks {
-  onAudioTrackPublished?: (track: AudioTrack) => void;
-  onAudioTrackUnpublished?: (trackId: string) => void;
-  onAudioError?: (error: StreamingError) => void;
-  onVolumeChange?: (volume: number) => void;
-}
+// TRTCAudioControllerCallbacks is now unified as AudioControllerCallbacks in streaming.types.ts
 
 export interface TRTCVideoControllerCallbacks {
   onVideoTrackPublished?: (track: VideoTrack) => void;

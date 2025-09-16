@@ -4,7 +4,7 @@ import { AIDenoiserExtension, IAIDenoiserProcessor, AIDenoiserProcessorMode } fr
 import { logger } from '../../../core/Logger';
 import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
-import { AudioTrack } from '../../../types/streaming.types';
+import { AudioTrack, AudioConfig, AudioControllerCallbacks } from '../../../types/streaming.types';
 
 // Register the AI denoiser extension globally when the module loads
 const aiDenoiser = new AIDenoiserExtension({
@@ -13,20 +13,9 @@ const aiDenoiser = new AIDenoiserExtension({
 
 AgoraRTC.registerExtensions([aiDenoiser]);
 
-export interface AudioControllerCallbacks {
-  onAudioTrackPublished?: (track: AudioTrack) => void;
-  onAudioTrackUnpublished?: (trackId: string) => void;
-  onAudioError?: (error: StreamingError) => void;
-}
+// Using unified AudioControllerCallbacks from streaming.types.ts
 
 // AI Denoiser Processor interface (using the actual type from the package)
-
-export interface AudioConfig {
-  encoderConfig?: string;
-  enableAEC?: boolean;
-  enableANS?: boolean;
-  enableAGC?: boolean;
-}
 
 export class AgoraAudioController {
   private client: IAgoraRTCClient;
@@ -57,7 +46,7 @@ export class AgoraAudioController {
       const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
         encoderConfig: (config.encoderConfig as unknown) || 'speech_low_quality',
         AEC: config.enableAEC !== false, // Enable AEC by default
-        ANS: false, // Disable ANS by default (we use AI denoiser)
+        ANS: config.enableANS || false, // Use config value or disable by default (we use AI denoiser)
         AGC: config.enableAGC !== false, // Enable AGC by default
       });
 

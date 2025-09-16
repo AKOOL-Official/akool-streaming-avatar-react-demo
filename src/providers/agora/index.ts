@@ -19,7 +19,7 @@ export { AgoraVideoStrategy } from './strategies/AgoraVideoStrategy';
 
 // Type exports for external use
 export type { AgoraConnectionConfig, ConnectionEventCallbacks } from './controllers/AgoraConnectionController';
-export type { AudioControllerCallbacks, AudioConfig } from './controllers/AgoraAudioController';
+// AudioControllerCallbacks and AudioConfig are now exported from streaming.types.ts
 export type { VideoControllerCallbacks, VideoConfig } from './controllers/AgoraVideoController';
 
 // Factory function for provider creation

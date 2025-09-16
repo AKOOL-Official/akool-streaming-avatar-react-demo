@@ -19,6 +19,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@livekit/krisp-noise-filter": "^0.3.4",
     "@monaco-editor/react": "^4.7.0",
     "agora-extension-ai-denoiser": "^1.1.0",
     "agora-rtc-sdk-ng": "latest",

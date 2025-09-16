@@ -31,7 +31,7 @@ export function createProvider(_credentials: StreamingCredentials): StreamingPro
 export * from './TRTCStreamingProvider';
 export type {
   TRTCCredentials,
-  TRTCAudioControllerCallbacks,
+  // TRTCAudioControllerCallbacks is now unified as AudioControllerCallbacks in streaming.types.ts
   TRTCVideoControllerCallbacks,
   TRTCConnectionControllerCallbacks,
   TRTCEventControllerCallbacks,

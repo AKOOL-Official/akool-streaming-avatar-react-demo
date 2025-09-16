@@ -361,6 +361,46 @@ export class LiveKitStreamingProvider implements StreamingProvider {
     }
   }
 
+  // Unified AI Denoiser methods
+  async enableAIDenoiser(config?: import('../../types/streaming.types').AIDenoiserConfig): Promise<void> {
+    try {
+      logger.info('Enabling AI denoiser through LiveKit provider', { config });
+      await this.audioController.enableAIDenoiser(config);
+      logger.info('AI denoiser enabled');
+    } catch (error) {
+      logger.error('Failed to enable AI denoiser', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async updateAIDenoiserMode(mode: import('../../types/streaming.types').AIDenoiserMode): Promise<void> {
+    try {
+      logger.info('Updating AI denoiser mode through LiveKit provider', { mode });
+      await this.audioController.updateAIDenoiserMode(mode);
+      logger.info('AI denoiser mode updated');
+    } catch (error) {
+      logger.error('Failed to update AI denoiser mode', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableAIDenoiser(): Promise<void> {
+    try {
+      logger.info('Disabling AI denoiser through LiveKit provider');
+      await this.audioController.disableAIDenoiser();
+      logger.info('AI denoiser disabled');
+    } catch (error) {
+      logger.error('Failed to disable AI denoiser', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
   async dumpAudio(): Promise<void> {
     try {
       logger.info('Starting audio dump through LiveKit provider');

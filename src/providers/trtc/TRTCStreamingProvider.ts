@@ -11,6 +11,8 @@ import {
   Participant,
   ConnectionQuality,
   ChatMessage,
+  AIDenoiserConfig,
+  AIDenoiserMode,
 } from '../../types/streaming.types';
 import { StreamingError, ErrorCode } from '../../types/error.types';
 import { SystemMessageEvent, ChatMessageEvent, CommandEvent } from '../../types/provider.interfaces';
@@ -197,11 +199,15 @@ export class TRTCStreamingProvider implements StreamingProvider {
       const credentials = this.getCurrentCredentials();
       if (credentials && 'trtc_app_id' in credentials) {
         try {
-          await this.audioController.enableAIDenoiser(
-            credentials.trtc_app_id,
-            credentials.trtc_user_id,
-            credentials.trtc_user_sig,
-          );
+          const aiDenoiserConfig = {
+            ...config.aiDenoiser,
+            credentials: {
+              sdkAppId: credentials.trtc_app_id,
+              userId: credentials.trtc_user_id,
+              userSig: credentials.trtc_user_sig,
+            },
+          };
+          await this.audioController.enableAIDenoiser(aiDenoiserConfig);
         } catch (error) {
           logger.warn('Failed to enable AI denoiser during audio enable', { error });
         }
@@ -274,12 +280,12 @@ export class TRTCStreamingProvider implements StreamingProvider {
   }
 
   // AI Denoiser methods
-  async enableAIDenoiser(sdkAppId?: number, userId?: string, userSig?: string): Promise<void> {
-    return this.audioController.enableAIDenoiser(sdkAppId, userId, userSig);
+  async enableAIDenoiser(config?: AIDenoiserConfig): Promise<void> {
+    return this.audioController.enableAIDenoiser(config);
   }
 
-  async updateAIDenoiser(mode?: 0 | 1): Promise<void> {
-    return this.audioController.updateAIDenoiser(mode);
+  async updateAIDenoiserMode(mode: AIDenoiserMode): Promise<void> {
+    return this.audioController.updateAIDenoiserMode(mode);
   }
 
   async disableAIDenoiser(): Promise<void> {
