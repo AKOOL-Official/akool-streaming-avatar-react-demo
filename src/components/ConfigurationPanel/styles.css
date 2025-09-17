@@ -434,36 +434,6 @@
   font-style: italic;
 }
 
-/* Avatar Input (Manual Entry) */
-.avatar-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #ffffff;
-  color: #262626;
-  cursor: text;
-  transition: all 0.2s;
-}
-
-.avatar-input:focus {
-  outline: none;
-  border-color: #4096ff;
-  box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.1);
-}
-
-.avatar-input:disabled {
-  background: #f5f5f5;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.avatar-input::placeholder {
-  color: #8c8c8c;
-  font-style: italic;
-}
-
 /* Button System for Configuration Panel */
 .btn {
   display: inline-flex;

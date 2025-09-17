@@ -5,6 +5,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
 import { useModal } from '../../contexts/ModalContext';
 import { ProviderSelector } from '../ProviderSelector';
+import AvatarSelector from '../AvatarSelector';
 import './styles.css';
 
 interface ConfigurationPanelProps {
@@ -62,7 +63,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
   const [isStarting, setIsStarting] = useState(false);
   const [backgroundUrlInput, setBackgroundUrlInput] = useState(backgroundUrl);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [avatarInputMode, setAvatarInputMode] = useState<'dropdown' | 'manual'>('dropdown');
 
   // Load API data when API service is available
   useEffect(() => {
@@ -183,51 +183,15 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
 
           {/* Avatar Selection */}
           <div className="form-row">
-            <label>Avatar:</label>
-            <div className="input-with-buttons">
-              {avatarInputMode === 'dropdown' ? (
-                <select value={avatarId} onChange={(e) => setAvatarId(e.target.value)} disabled={isJoined}>
-                  <option value="">Select an avatar</option>
-                  {avatars.map((avatar) => (
-                    <option key={avatar.avatar_id} value={avatar.avatar_id}>
-                      {avatar.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={avatarId}
-                  onChange={(e) => setAvatarId(e.target.value)}
-                  placeholder="Enter avatar ID manually"
-                  disabled={isJoined}
-                  className="avatar-input"
-                />
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  // Refresh avatars
-                  if (api) {
-                    api.getAvatarList().then(setAvatars).catch(console.error);
-                  }
-                }}
-                className="icon-button-small"
-                title="Refresh avatars"
-                disabled={avatarInputMode === 'manual'}
-              >
-                ↻
-              </button>
-              <button
-                type="button"
-                onClick={() => setAvatarInputMode(avatarInputMode === 'dropdown' ? 'manual' : 'dropdown')}
-                className="icon-button-small"
-                title={avatarInputMode === 'dropdown' ? 'Switch to manual input' : 'Switch to dropdown'}
-                disabled={isJoined}
-              >
-                {avatarInputMode === 'dropdown' ? '✏️' : '📋'}
-              </button>
-            </div>
+            <AvatarSelector
+              api={api}
+              avatarId={avatarId}
+              setAvatarId={setAvatarId}
+              avatars={avatars}
+              setAvatars={setAvatars}
+              setAvatarVideoUrl={() => {}} // No-op since we don't use avatar video URL in config panel
+              disabled={isJoined}
+            />
           </div>
 
           {/* Background URL */}
