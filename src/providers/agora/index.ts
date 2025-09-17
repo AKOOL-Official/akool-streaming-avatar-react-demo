@@ -2,6 +2,12 @@
 export { AgoraStreamingProvider, isAgoraCredentials } from './AgoraStreamingProvider';
 export type { AgoraProviderConfig, AgoraCredentials } from './AgoraStreamingProvider';
 
+// Import for factory function
+import { AgoraStreamingProvider, AgoraProviderConfig } from './AgoraStreamingProvider';
+import { StreamingProvider } from '../../types/provider.interfaces';
+import AgoraRTC from 'agora-rtc-sdk-ng';
+import { RTCClient } from './types';
+
 // Controllers
 export { AgoraConnectionController } from './controllers/AgoraConnectionController';
 export { AgoraAudioController } from './controllers/AgoraAudioController';
@@ -16,23 +22,19 @@ export type { AgoraConnectionConfig, ConnectionEventCallbacks } from './controll
 // AudioControllerCallbacks and AudioConfig are now exported from streaming.types.ts
 export type { VideoControllerCallbacks, VideoConfig } from './controllers/AgoraVideoController';
 
-// Factory function for provider creation with dynamic import
-export async function createProvider(_credentials: unknown) {
-  // Dynamically import Agora SDK only when needed
-  const AgoraRTC = await import('agora-rtc-sdk-ng');
-  const agoraModule = await import('./AgoraStreamingProvider');
-
+// Factory function for provider creation
+export function createProvider(_credentials: unknown): StreamingProvider {
   // Create Agora RTC client
-  const client = AgoraRTC.default.createClient({
+  const client = AgoraRTC.createClient({
     mode: 'rtc',
     codec: 'vp8',
-  }) as any; // Cast to any to avoid type issues with sendStreamMessage
+  }) as RTCClient;
 
   // Create provider config with the client
-  const config = {
+  const config: AgoraProviderConfig = {
     client,
     // session will be set later when connecting
   };
 
-  return new agoraModule.AgoraStreamingProvider(config);
+  return new AgoraStreamingProvider(config);
 }

@@ -1,10 +1,9 @@
-// Factory function for provider creation with dynamic import
-export async function createProvider() {
-  // Dynamically import LiveKit SDK only when needed
-  const { Room } = await import('livekit-client');
-  const livekitModule = await import('./LiveKitStreamingProvider');
-  const { logger } = await import('../../core/Logger');
+import { Room } from 'livekit-client';
+import { LiveKitStreamingProvider, LiveKitProviderConfig } from './LiveKitStreamingProvider';
+import { StreamingProvider } from '../../types/provider.interfaces';
+import { logger } from '../../core/Logger';
 
+export function createProvider(): StreamingProvider {
   logger.info('Creating LiveKit provider');
 
   // Create a new Room instance with default configuration
@@ -14,11 +13,11 @@ export async function createProvider() {
   });
 
   // Create provider config with the room
-  const config = {
+  const config: LiveKitProviderConfig = {
     room,
   };
 
-  return new livekitModule.LiveKitStreamingProvider(config);
+  return new LiveKitStreamingProvider(config);
 }
 
 // Export all LiveKit-specific types and classes
