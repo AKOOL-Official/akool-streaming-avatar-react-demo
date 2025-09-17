@@ -124,6 +124,11 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
     setVoiceParams(params);
   };
 
+  // Get selected avatar to check if background URL should be disabled
+  const selectedAvatar = avatars.find((avatar) => avatar.avatar_id === avatarId);
+  const isBackgroundUrlDisabled =
+    selectedAvatar?.type === 2 && (selectedAvatar?.from === 3 || selectedAvatar?.from === 4);
+
   return (
     <div className="left-side">
       <h3>Streaming Avatar Demo</h3>
@@ -208,12 +213,20 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
 
           {/* Background URL */}
           <div className="form-row">
-            <label>Background URL:</label>
+            <label>
+              Background URL:
+              {isBackgroundUrlDisabled && (
+                <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>
+                  (Not available for this avatar type)
+                </span>
+              )}
+            </label>
             <input
               type="url"
               placeholder="Enter background image/video URL"
               value={backgroundUrlInput}
               onChange={(e) => handleBackgroundUrlChange(e.target.value)}
+              disabled={isBackgroundUrlDisabled || isJoined}
             />
           </div>
 

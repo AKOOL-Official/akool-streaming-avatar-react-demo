@@ -48,7 +48,8 @@ export interface Language {
 
 export interface Avatar {
   name: string;
-  from: number;
+  type: number;
+  from: number; // 2: official, 3&4: user
   gender: string;
   url: string;
   avatar_id: string;
