@@ -188,9 +188,11 @@ export const useConfigurationStore = create<ConfigurationState>()(
     }),
     {
       name: 'streaming-avatar-config',
-      // Only persist safe, non-sensitive configuration
+      // Persist configuration including API credentials
       partialize: (state) => ({
         selectedProvider: state.selectedProvider,
+        openapiHost: state.openapiHost,
+        openapiToken: state.openapiToken,
         avatarId: state.avatarId,
         voiceId: state.voiceId,
         knowledgeId: state.knowledgeId,
@@ -204,7 +206,6 @@ export const useConfigurationStore = create<ConfigurationState>()(
         audioEnabled: state.audioEnabled,
         videoQuality: state.videoQuality,
         audioQuality: state.audioQuality,
-        // Note: openapiHost and openapiToken are NOT persisted for security
       }),
     },
   ),
