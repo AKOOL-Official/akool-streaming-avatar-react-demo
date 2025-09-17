@@ -84,7 +84,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
   useEffect(() => {
     const validation = validateConfiguration();
     setValidationErrors(validation.errors);
-  }, [validateConfiguration]);
+  }, [validateConfiguration, openapiToken, openapiHost, avatarId, voiceId, knowledgeId]);
 
   // Update background URL input when store changes
   useEffect(() => {
