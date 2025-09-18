@@ -131,7 +131,7 @@ deploy.sh
 /.claude/
 /.cursor/
 /.serena/
-docs/
+notes/
 AGENTS.md
 CLAUDE.md
 test.diff
