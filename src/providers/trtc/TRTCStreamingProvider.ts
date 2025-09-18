@@ -85,6 +85,9 @@ export class TRTCStreamingProvider implements StreamingProvider {
     this.audioController = new TRTCAudioController(this.client);
     this.videoController = new TRTCVideoController(this.client);
 
+    // Set connection controller reference on video controller for connection state checks
+    this.videoController.setConnectionController(this.connectionController);
+
     // Set video controller reference on event controller for remote video playback
     this.eventController.setVideoController(this.videoController);
 
@@ -105,8 +108,8 @@ export class TRTCStreamingProvider implements StreamingProvider {
   async connect(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): Promise<void> {
     try {
       logger.info('Connecting TRTC streaming provider', {
-        sdkAppId: (credentials as any).trtc_app_id,
-        roomId: (credentials as any).trtc_room_id,
+        sdkAppId: credentials.trtc_app_id,
+        roomId: credentials.trtc_room_id,
       });
 
       this.updateState({ isConnecting: true, error: null });

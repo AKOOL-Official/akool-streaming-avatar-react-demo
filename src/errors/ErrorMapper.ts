@@ -138,7 +138,7 @@ export class ErrorMapper {
   }
 
   static mapTRTCError(trtcError: unknown): StreamingError {
-    const error = trtcError as { code?: string; name?: string; message?: string };
+    const error = trtcError as { code?: string | number; name?: string; message?: string };
     const errorCode = error?.code || error?.name;
 
     switch (errorCode) {
@@ -163,7 +163,10 @@ export class ErrorMapper {
         });
 
       case 'MediaDeviceError':
-        return new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'TRTC media device error', {
+      case 'NotAllowedError':
+      case 'NotFoundError':
+      case 'NotReadableError':
+        return new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Camera access denied or device not available', {
           provider: 'trtc',
           details: toErrorDetails(trtcError),
         });
@@ -176,6 +179,41 @@ export class ErrorMapper {
 
       case 'UnpublishFailed':
         return new StreamingError(ErrorCode.TRACK_UNPUBLISH_FAILED, 'Failed to unpublish stream from TRTC', {
+          provider: 'trtc',
+          details: toErrorDetails(trtcError),
+        });
+
+      // Handle specific TRTC error codes (as numbers)
+      case 5998: // Operation aborted - not started
+        return new StreamingError(
+          ErrorCode.MEDIA_DEVICE_ERROR,
+          'Video operation failed - TRTC client not properly started',
+          {
+            provider: 'trtc',
+            details: toErrorDetails(trtcError),
+          },
+        );
+      case 6001: // Camera not available
+        return new StreamingError(
+          ErrorCode.MEDIA_DEVICE_ERROR,
+          'Camera not available or in use by another application',
+          {
+            provider: 'trtc',
+            details: toErrorDetails(trtcError),
+          },
+        );
+      case 6002: // Camera permission denied
+        return new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Camera permission denied', {
+          provider: 'trtc',
+          details: toErrorDetails(trtcError),
+        });
+      case 6003: // Camera initialization failed
+        return new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Camera initialization failed', {
+          provider: 'trtc',
+          details: toErrorDetails(trtcError),
+        });
+      case 6004: // Camera start failed
+        return new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Camera start failed', {
           provider: 'trtc',
           details: toErrorDetails(trtcError),
         });

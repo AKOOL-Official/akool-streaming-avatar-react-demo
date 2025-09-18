@@ -3,6 +3,7 @@ import { StreamingError, ErrorCode } from '../../../types/error.types';
 import { VideoTrack, VideoConfig } from '../../../types/streaming.types';
 import { ErrorMapper } from '../../../errors/ErrorMapper';
 import { TRTCVideoControllerCallbacks } from '../types';
+import { TRTCConnectionController } from './TRTCConnectionController';
 import TRTC from 'trtc-sdk-v5';
 
 export class TRTCVideoController {
@@ -12,10 +13,14 @@ export class TRTCVideoController {
   private isMuted = false;
   private currentElement: HTMLElement | null = null;
   private callbacks: TRTCVideoControllerCallbacks = {};
+  private connectionController: TRTCConnectionController | null = null;
 
   constructor(client: TRTC) {
     this.client = client;
-    this.setupEventHandlers();
+  }
+
+  setConnectionController(controller: TRTCConnectionController): void {
+    this.connectionController = controller;
   }
 
   setCallbacks(callbacks: TRTCVideoControllerCallbacks): void {
@@ -24,19 +29,31 @@ export class TRTCVideoController {
 
   async enableVideo(config: VideoConfig = {}): Promise<VideoTrack> {
     try {
-      logger.info('Enabling TRTC video', { config });
-
       if (this.isEnabled && this.currentTrack) {
-        logger.debug('TRTC video already enabled');
         return this.currentTrack;
       }
 
-      // Set video encoder parameters
-      const encoderParam = this.mapVideoConfig(config);
-      await this.client.updateLocalVideo({ option: encoderParam });
+      // Check connection state
+      if (this.connectionController && !this.connectionController.isConnectionActive()) {
+        throw new StreamingError(ErrorCode.CONNECTION_FAILED, 'Must be connected to a room before enabling video', {
+          provider: 'trtc',
+        });
+      }
+
+      // Request camera permissions
+      await this.requestCameraPermission();
 
       // Start local video
-      await this.client.startLocalVideo({ option: { useFrontCamera: true } });
+      await this.client.startLocalVideo({
+        option: {
+          useFrontCamera: true,
+          mirror: true,
+        },
+      });
+
+      // Update video encoder parameters
+      const encoderParam = this.mapVideoConfig(config);
+      await this.client.updateLocalVideo({ option: encoderParam });
 
       // Create track representation
       const trackId = `trtc-video-${Date.now()}`;
@@ -53,11 +70,8 @@ export class TRTCVideoController {
 
       this.callbacks.onVideoTrackPublished?.(this.currentTrack);
 
-      logger.info('TRTC video enabled successfully', { trackId });
       return this.currentTrack;
     } catch (error) {
-      logger.error('Failed to enable TRTC video', { error });
-
       const streamingError = ErrorMapper.mapTRTCError(error);
       this.callbacks.onVideoError?.(streamingError);
       throw streamingError;
@@ -67,7 +81,6 @@ export class TRTCVideoController {
   async disableVideo(): Promise<void> {
     try {
       if (!this.isEnabled) {
-        logger.debug('TRTC video already disabled');
         return;
       }
 
@@ -82,11 +95,7 @@ export class TRTCVideoController {
       if (trackId) {
         this.callbacks.onVideoTrackUnpublished?.(trackId);
       }
-
-      logger.info('TRTC video disabled successfully');
     } catch (error) {
-      logger.error('Failed to disable TRTC video', { error });
-
       const streamingError = ErrorMapper.mapTRTCError(error);
       this.callbacks.onVideoError?.(streamingError);
       throw streamingError;
@@ -107,8 +116,11 @@ export class TRTCVideoController {
         throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Video not enabled', { provider: 'trtc' });
       }
 
-      // Start local video with the target element
-      await this.client.startLocalVideo({
+      if (this.currentElement === element) {
+        return;
+      }
+
+      await this.client.updateLocalVideo({
         view: element,
         option: {
           mirror: true,
@@ -116,11 +128,7 @@ export class TRTCVideoController {
       });
 
       this.currentElement = element;
-
-      logger.info('TRTC video playback started', { elementId });
     } catch (error) {
-      logger.error('Failed to start TRTC video playback', { error, elementId });
-
       const streamingError = ErrorMapper.mapTRTCError(error);
       this.callbacks.onVideoError?.(streamingError);
       throw streamingError;
@@ -128,40 +136,14 @@ export class TRTCVideoController {
   }
 
   async stopVideo(): Promise<void> {
-    try {
-      if (!this.isEnabled) {
-        logger.debug('TRTC video not enabled');
-        return;
-      }
-
-      // Stop local video rendering but keep capture active
-      if (this.currentElement) {
-        this.currentElement = null;
-      }
-
-      logger.info('TRTC video playback stopped');
-    } catch (error) {
-      logger.error('Failed to stop TRTC video playback', { error });
-
-      const streamingError = ErrorMapper.mapTRTCError(error);
-      this.callbacks.onVideoError?.(streamingError);
-      throw streamingError;
+    if (this.currentElement) {
+      this.currentElement = null;
     }
   }
 
   async publishVideo(): Promise<void> {
-    try {
-      if (!this.isEnabled) {
-        await this.enableVideo();
-      }
-
-      logger.debug('TRTC video published automatically with enableVideo');
-    } catch (error) {
-      logger.error('Failed to publish TRTC video', { error });
-
-      const streamingError = ErrorMapper.mapTRTCError(error);
-      this.callbacks.onVideoError?.(streamingError);
-      throw streamingError;
+    if (!this.isEnabled) {
+      await this.enableVideo();
     }
   }
 
@@ -170,44 +152,26 @@ export class TRTCVideoController {
   }
 
   async muteVideo(muted: boolean): Promise<void> {
-    try {
-      if (!this.isEnabled) {
-        throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Video not enabled', { provider: 'trtc' });
-      }
+    if (!this.isEnabled) {
+      throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Video not enabled', { provider: 'trtc' });
+    }
 
-      await this.client.updateLocalVideo({ publish: !muted });
-      this.isMuted = muted;
+    await this.client.updateLocalVideo({ publish: !muted });
+    this.isMuted = muted;
 
-      if (this.currentTrack) {
-        this.currentTrack.muted = muted;
-      }
-
-      logger.debug('TRTC video mute state changed', { muted });
-    } catch (error) {
-      logger.error('Failed to change TRTC video mute state', { error });
-
-      const streamingError = ErrorMapper.mapTRTCError(error);
-      this.callbacks.onVideoError?.(streamingError);
-      throw streamingError;
+    if (this.currentTrack) {
+      this.currentTrack.muted = muted;
     }
   }
 
   async switchCamera(): Promise<void> {
-    try {
-      if (!this.isEnabled) {
-        throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Video not enabled', { provider: 'trtc' });
-      }
-
-      // TRTC doesn't have a direct camera switch method in v5
-      // Would need to stop and restart with different device
-      logger.info('Camera switching not directly supported in TRTC v5');
-    } catch (error) {
-      logger.error('Failed to switch TRTC camera', { error });
-
-      const streamingError = ErrorMapper.mapTRTCError(error);
-      this.callbacks.onVideoError?.(streamingError);
-      throw streamingError;
+    if (!this.isEnabled) {
+      throw new StreamingError(ErrorCode.TRACK_NOT_FOUND, 'Video not enabled', { provider: 'trtc' });
     }
+    // TRTC v5 doesn't support direct camera switching
+    throw new StreamingError(ErrorCode.MEDIA_DEVICE_ERROR, 'Camera switching not supported in TRTC v5', {
+      provider: 'trtc',
+    });
   }
 
   getCurrentTrack(): VideoTrack | null {
@@ -226,12 +190,27 @@ export class TRTCVideoController {
     return this.currentElement;
   }
 
-  private mapVideoConfig(config: VideoConfig): any {
-    const param: any = {
+  private async requestCameraPermission(): Promise<void> {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        frameRate: { ideal: 15 },
+      },
+    });
+
+    // Stop the test stream immediately as we only needed it for permission
+    stream.getTracks().forEach((track) => track.stop());
+  }
+
+  private mapVideoConfig(config: VideoConfig): Record<string, unknown> {
+    const param: Record<string, unknown> = {
       enableAdjustRes: true,
+      enableAdjustBitrate: true,
+      videoFillMode: 'FILL',
     };
 
-    // Map resolution
+    // Set resolution based on config
     if (config.width && config.height) {
       if (config.width >= 1280 && config.height >= 720) {
         param.videoResolution = 'VIDEO_720P';
@@ -248,20 +227,10 @@ export class TRTCVideoController {
       param.videoBitrate = 600;
     }
 
-    // Map frame rate
-    if (config.frameRate) {
-      param.videoFps = Math.min(config.frameRate, 30);
-    } else {
-      param.videoFps = 15;
-    }
+    // Set frame rate
+    param.videoFps = config.frameRate ? Math.min(Math.max(config.frameRate, 10), 30) : 15;
 
     return param;
-  }
-
-  private setupEventHandlers(): void {
-    // Note: Video-specific events like FIRST_VIDEO_FRAME, VIDEO_SIZE_CHANGED, etc.
-    // are not available as TRTC.EVENT constants in this SDK version.
-    // These events are handled through the Promise-based API calls instead.
   }
 
   async playRemoteVideo(userId: string, element: HTMLElement): Promise<void> {
