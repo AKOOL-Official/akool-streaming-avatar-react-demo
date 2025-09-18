@@ -7,10 +7,9 @@ import { ApiService } from '../../apiService';
 
 interface ModalContainerProps {
   api: ApiService | null;
-  isJoined: boolean;
 }
 
-const ModalContainer: React.FC<ModalContainerProps> = ({ api, isJoined }) => {
+const ModalContainer: React.FC<ModalContainerProps> = ({ api }) => {
   const {
     isVoiceDialogOpen,
     closeVoiceDialog,
@@ -33,7 +32,6 @@ const ModalContainer: React.FC<ModalContainerProps> = ({ api, isJoined }) => {
         voiceId={voiceId}
         setVoiceId={setVoiceId}
         apiService={api}
-        disabled={isJoined}
         isOpen={isVoiceDialogOpen}
         onClose={closeVoiceDialog}
       />

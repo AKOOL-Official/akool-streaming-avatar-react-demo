@@ -235,13 +235,12 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
                 placeholder="Enter voice ID or select from list"
-                disabled={isJoined}
                 className="voice-input"
               />
               <button
                 type="button"
                 onClick={openVoiceDialog}
-                disabled={isJoined || !api}
+                disabled={!api}
                 className="btn btn-secondary btn-sm"
                 title="Select voice from list"
               >
@@ -259,7 +258,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
               placeholder="Enter voice URL"
               value={voiceUrl}
               onChange={(e) => setVoiceUrl(e.target.value)}
-              disabled={isJoined}
             />
           </div>
 
@@ -271,7 +269,6 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ api, isJoined, 
               <button
                 type="button"
                 onClick={() => openJsonEditor(voiceParams, handleVoiceParamsChange, 'Voice Parameters')}
-                disabled={isJoined}
                 className="edit-json-button"
                 title="Edit JSON parameters"
               >

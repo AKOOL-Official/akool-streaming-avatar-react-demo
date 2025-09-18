@@ -37,13 +37,36 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
     age: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string>(voiceId);
+
+  // Load voice groups
+  const loadVoiceGroups = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const groups = await apiService.getAllVoices();
+      setVoiceGroups(groups);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load voices');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiService]);
 
   // Load voice groups when dialog opens
   useEffect(() => {
     if (isOpen) {
       loadVoiceGroups();
     }
-  }, [isOpen]);
+  }, [isOpen, loadVoiceGroups]);
+
+  // Sync local selected voice with prop when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedVoiceId(voiceId);
+    }
+  }, [isOpen, voiceId]);
 
   // Handle escape key to close dialog
   useEffect(() => {
@@ -64,33 +87,18 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
     };
   }, [isOpen, onClose]);
 
-  // Load voice groups
-  const loadVoiceGroups = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const groups = await apiService.getAllVoices();
-      setVoiceGroups(groups);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load voices');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiService]);
-
   // Handle voice selection
-  const handleVoiceSelect = useCallback(
-    (voice: EnhancedVoice) => {
-      setVoiceId(voice.voice_id);
-    },
-    [setVoiceId],
-  );
+  const handleVoiceSelect = useCallback((voice: EnhancedVoice) => {
+    setSelectedVoiceId(voice.voice_id);
+  }, []);
 
   // Handle confirm selection
   const handleConfirm = useCallback(() => {
+    if (selectedVoiceId) {
+      setVoiceId(selectedVoiceId);
+    }
     onClose();
-  }, [onClose]);
+  }, [selectedVoiceId, setVoiceId, onClose]);
 
   // Handle filter changes
   const handleFilterChange = useCallback((key: keyof VoiceFilters, value: string) => {
@@ -141,18 +149,18 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
 
   // Get selected voice name
   const getSelectedVoiceName = useCallback(() => {
-    if (!voiceId || !voiceGroups.length) return '';
+    if (!selectedVoiceId || !voiceGroups.length) return '';
 
     for (const group of voiceGroups) {
       if (group.voices) {
-        const selectedVoice = group.voices.find((voice) => voice.voice_id === voiceId);
+        const selectedVoice = group.voices.find((voice) => voice.voice_id === selectedVoiceId);
         if (selectedVoice) {
           return selectedVoice.name || 'Unnamed Voice';
         }
       }
     }
-    return voiceId; // Fallback to ID if name not found
-  }, [voiceId, voiceGroups]);
+    return selectedVoiceId; // Fallback to ID if name not found
+  }, [selectedVoiceId, voiceGroups]);
 
   const selectedVoiceName = getSelectedVoiceName();
 
@@ -306,7 +314,7 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
                   <VoiceGroupComponent
                     key={group.type}
                     group={group}
-                    selectedVoiceId={voiceId}
+                    selectedVoiceId={selectedVoiceId}
                     onVoiceSelect={handleVoiceSelect}
                     disabled={disabled}
                     searchQuery={searchQuery}
@@ -327,11 +335,11 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
 
         <div className="dialog-footer">
           <div className="selected-voice-info">
-            {voiceId && (
+            {selectedVoiceId && (
               <div className="selected-voice">
                 <span className="selected-label">Selected Voice:</span>
                 <span className="selected-value">{selectedVoiceName}</span>
-                {selectedVoiceName !== voiceId && <code className="selected-id">ID: {voiceId}</code>}
+                {selectedVoiceName !== selectedVoiceId && <code className="selected-id">ID: {selectedVoiceId}</code>}
               </div>
             )}
           </div>
@@ -339,7 +347,7 @@ const VoiceSelectorDialog: React.FC<VoiceSelectorDialogProps> = ({
             <button onClick={onClose} className="btn btn-secondary btn-md">
               Cancel
             </button>
-            <button onClick={handleConfirm} className="btn btn-primary btn-md" disabled={!voiceId}>
+            <button onClick={handleConfirm} className="btn btn-primary btn-md" disabled={!selectedVoiceId}>
               Confirm Selection
             </button>
           </div>

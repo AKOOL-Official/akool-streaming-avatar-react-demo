@@ -162,7 +162,7 @@ const App: React.FC = () => {
       <NotificationContainer />
 
       {/* Modal Container - Renders all modals at App level for proper centering */}
-      <ModalContainer api={api} isJoined={isJoined} />
+      <ModalContainer api={api} />
     </>
   );
 };
