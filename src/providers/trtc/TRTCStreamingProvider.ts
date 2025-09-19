@@ -107,57 +107,77 @@ export class TRTCStreamingProvider implements StreamingProvider {
 
   async connect(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): Promise<void> {
     try {
-      logger.info('Connecting TRTC streaming provider', {
-        sdkAppId: credentials.trtc_app_id,
-        roomId: credentials.trtc_room_id,
-      });
-
-      this.updateState({ isConnecting: true, error: null });
-      this.eventHandlers = handlers || {};
-
-      // Validate credentials
-      if (!isTRTCCredentials(credentials)) {
-        throw new StreamingError(ErrorCode.INVALID_CREDENTIALS, 'Invalid TRTC credentials provided', { credentials });
-      }
-
-      const trtcCredentials = credentials as TRTCCredentials;
-      this.currentCredentials = trtcCredentials;
-      await this.connectionController.connect(trtcCredentials);
-
-      // Create local participant
-      const localParticipant = this.participantController.createLocalParticipant(trtcCredentials.trtc_user_id, {
-        isConnected: true,
-      });
-
-      this.updateState({
-        isJoined: true,
-        isConnecting: false,
-        localParticipant,
-      });
-
-      // Start stats collection
-      await this.statsController.startCollecting();
-
-      // Mark message adapter as ready
-      const messageAdapter = this.messageController.getAdapter() as TRTCMessageAdapter;
-      messageAdapter.setReady(true);
-
-      // Enable AI denoiser if configured in audio settings
-      // Note: This requires the audio controller to be configured with AI denoiser settings
-      // The actual AI denoiser will be enabled when audio is enabled with proper credentials
-
+      this.initializeTRTCConnection(credentials, handlers);
+      const trtcCredentials = this.validateAndPrepareCredentials(credentials);
+      await this.establishConnection(trtcCredentials);
+      await this.setupPostConnectionFeatures(trtcCredentials);
       logger.info('TRTC connection successful');
     } catch (error) {
-      logger.error('TRTC connection failed', { error });
-      this.updateState({
-        isConnecting: false,
-        error:
-          error instanceof StreamingError
-            ? error
-            : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect to TRTC', { originalError: error }),
-      });
-      throw error;
+      this.handleTRTCConnectionError(error);
     }
+  }
+
+  private initializeTRTCConnection(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): void {
+    logger.info('Connecting TRTC streaming provider', {
+      sdkAppId: credentials.trtc_app_id,
+      roomId: credentials.trtc_room_id,
+    });
+
+    this.updateState({ isConnecting: true, error: null });
+    this.eventHandlers = handlers || {};
+  }
+
+  private validateAndPrepareCredentials(credentials: StreamingCredentials): TRTCCredentials {
+    if (!isTRTCCredentials(credentials)) {
+      throw new StreamingError(ErrorCode.INVALID_CREDENTIALS, 'Invalid TRTC credentials provided', { credentials });
+    }
+
+    const trtcCredentials = credentials as TRTCCredentials;
+    this.currentCredentials = trtcCredentials;
+    return trtcCredentials;
+  }
+
+  private async establishConnection(trtcCredentials: TRTCCredentials): Promise<void> {
+    await this.connectionController.connect(trtcCredentials);
+
+    const localParticipant = this.participantController.createLocalParticipant(trtcCredentials.trtc_user_id, {
+      isConnected: true,
+    });
+
+    this.updateState({
+      isJoined: true,
+      isConnecting: false,
+      localParticipant,
+    });
+  }
+
+  private async setupPostConnectionFeatures(_trtcCredentials: TRTCCredentials): Promise<void> {
+    // Start stats collection
+    await this.statsController.startCollecting();
+
+    // Mark message adapter as ready
+    const messageAdapter = this.messageController.getAdapter() as TRTCMessageAdapter;
+    messageAdapter.setReady(true);
+
+    // Enable AI denoiser if configured in audio settings
+    // Note: This requires the audio controller to be configured with AI denoiser settings
+    // The actual AI denoiser will be enabled when audio is enabled with proper credentials
+  }
+
+  private handleTRTCConnectionError(error: unknown): never {
+    logger.error('TRTC connection failed', { error });
+
+    const streamingError =
+      error instanceof StreamingError
+        ? error
+        : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect to TRTC', { originalError: error });
+
+    this.updateState({
+      isConnecting: false,
+      error: streamingError,
+    });
+
+    throw streamingError;
   }
 
   async disconnect(): Promise<void> {

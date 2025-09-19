@@ -37,47 +37,91 @@ export class AgoraAudioController {
     try {
       logger.info('Enabling audio', { config });
 
-      if (this.isEnabled && this.currentTrack) {
-        logger.debug('Audio already enabled, returning existing track');
-        return this.convertToAudioTrack(this.currentTrack);
+      if (this.isAudioAlreadyEnabled()) {
+        return this.getExistingAudioTrack();
       }
 
-      // Create microphone audio track with configuration
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig: (config.encoderConfig as unknown) || 'speech_low_quality',
-        AEC: config.enableAEC !== false, // Enable AEC by default
-        ANS: config.enableANS || false, // Use config value or disable by default (we use AI denoiser)
-        AGC: config.enableAGC !== false, // Enable AGC by default
-      });
-
-      // Apply noise reduction to the audio track
-      await this.applyNoiseReduction(audioTrack);
-
-      // Publish the audio track
-      await this.client.publish(audioTrack);
-
-      this.currentTrack = audioTrack;
-      this.isEnabled = true;
-
-      const audioTrackInfo = this.convertToAudioTrack(audioTrack);
-
-      logger.info('Audio enabled successfully', {
-        trackId: audioTrackInfo.id,
-        enabled: audioTrackInfo.enabled,
-      });
-
-      this.callbacks.onAudioTrackPublished?.(audioTrackInfo);
-      return audioTrackInfo;
+      const audioTrack = await this.createAudioTrack(config);
+      await this.setupAudioTrack(audioTrack);
+      return this.finalizeAudioEnablement(audioTrack);
     } catch (error) {
-      const streamingError = ErrorMapper.mapAgoraError(error);
-      logger.error('Failed to enable audio', {
-        error: streamingError.message,
-        config,
-      });
-
-      this.callbacks.onAudioError?.(streamingError);
-      throw streamingError;
+      this.handleAudioEnableError(error, config);
     }
+  }
+
+  private isAudioAlreadyEnabled(): boolean {
+    return this.isEnabled && this.currentTrack !== null;
+  }
+
+  private getExistingAudioTrack(): AudioTrack {
+    logger.debug('Audio already enabled, returning existing track');
+    if (!this.currentTrack) {
+      throw new Error('Audio track is null but isEnabled is true');
+    }
+    return this.convertToAudioTrack(this.currentTrack);
+  }
+
+  private async createAudioTrack(config: AudioConfig): Promise<IMicrophoneAudioTrack> {
+    const trackConfig = this.buildAudioTrackConfig(config);
+    return await AgoraRTC.createMicrophoneAudioTrack(trackConfig);
+  }
+
+  private buildAudioTrackConfig(config: AudioConfig): {
+    encoderConfig:
+      | 'speech_low_quality'
+      | 'speech_standard'
+      | 'music_standard'
+      | 'standard_stereo'
+      | 'high_quality'
+      | 'high_quality_stereo';
+    AEC: boolean;
+    ANS: boolean;
+    AGC: boolean;
+  } {
+    return {
+      encoderConfig:
+        (config.encoderConfig as
+          | 'speech_low_quality'
+          | 'speech_standard'
+          | 'music_standard'
+          | 'standard_stereo'
+          | 'high_quality'
+          | 'high_quality_stereo') || 'speech_low_quality',
+      AEC: config.enableAEC !== false, // Enable AEC by default
+      ANS: config.enableANS || false, // Use config value or disable by default (we use AI denoiser)
+      AGC: config.enableAGC !== false, // Enable AGC by default
+    };
+  }
+
+  private async setupAudioTrack(audioTrack: IMicrophoneAudioTrack): Promise<void> {
+    await this.applyNoiseReduction(audioTrack);
+    await this.client.publish(audioTrack);
+  }
+
+  private finalizeAudioEnablement(audioTrack: IMicrophoneAudioTrack): AudioTrack {
+    this.currentTrack = audioTrack;
+    this.isEnabled = true;
+
+    const audioTrackInfo = this.convertToAudioTrack(audioTrack);
+
+    logger.info('Audio enabled successfully', {
+      trackId: audioTrackInfo.id,
+      enabled: audioTrackInfo.enabled,
+    });
+
+    this.callbacks.onAudioTrackPublished?.(audioTrackInfo);
+    return audioTrackInfo;
+  }
+
+  private handleAudioEnableError(error: unknown, config: AudioConfig): never {
+    const streamingError = ErrorMapper.mapAgoraError(error);
+    logger.error('Failed to enable audio', {
+      error: streamingError.message,
+      config,
+    });
+
+    this.callbacks.onAudioError?.(streamingError);
+    throw streamingError;
   }
 
   async disableAudio(): Promise<void> {

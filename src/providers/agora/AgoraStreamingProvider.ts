@@ -109,82 +109,100 @@ export class AgoraStreamingProvider implements StreamingProvider {
 
   async connect(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): Promise<void> {
     try {
-      logger.info('Connecting Agora streaming provider', {
-        channelName: credentials.channelName,
-        userId: credentials.userId,
-      });
-
-      this.updateState({ isConnecting: true, error: null });
-      this.eventHandlers = handlers || {};
-
-      // Map credentials to Agora format
-      const agoraCredentials = this.mapCredentials(credentials);
-
-      const connectionConfig: AgoraConnectionConfig = {
-        credentials: agoraCredentials,
-      };
-
-      const connectionCallbacks: ConnectionEventCallbacks = {
-        onConnected: () => {
-          this.updateState({
-            isJoined: true,
-            isConnecting: false,
-            error: null,
-          });
-
-          // Start event listening
-          this.startEventListening();
-        },
-        onDisconnected: (reason) => {
-          this.updateState({
-            isJoined: false,
-            isConnecting: false,
-            participants: [],
-            localParticipant: null,
-          });
-
-          this.stopEventListening();
-          logger.info('Agora provider disconnected', { reason });
-        },
-        onConnectionFailed: (error) => {
-          this.updateState({
-            isConnecting: false,
-            isJoined: false,
-            error,
-          });
-          this.eventHandlers.onError?.(error);
-        },
-        onTokenWillExpire: () => {
-          logger.warn('Agora token will expire soon');
-          // Could implement token refresh logic here
-        },
-        onTokenDidExpire: () => {
-          const error = new StreamingError(ErrorCode.INVALID_CREDENTIALS, 'Agora token has expired');
-          this.updateState({ error });
-          this.eventHandlers.onError?.(error);
-        },
-      };
+      this.initializeConnection(credentials, handlers);
+      const connectionConfig = this.createConnectionConfig(credentials);
+      const connectionCallbacks = this.createConnectionCallbacks();
 
       await this.connectionController.connect(connectionConfig, connectionCallbacks);
-
       logger.info('Agora streaming provider connected successfully');
     } catch (error) {
-      const streamingError =
-        error instanceof StreamingError ? error : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect');
-
-      this.updateState({
-        isConnecting: false,
-        isJoined: false,
-        error: streamingError,
-      });
-
-      logger.error('Failed to connect Agora streaming provider', {
-        error: streamingError.message,
-        code: streamingError.code,
-      });
-
-      throw streamingError;
+      this.handleConnectionError(error);
     }
+  }
+
+  private initializeConnection(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): void {
+    logger.info('Connecting Agora streaming provider', {
+      channelName: credentials.channelName,
+      userId: credentials.userId,
+    });
+
+    this.updateState({ isConnecting: true, error: null });
+    this.eventHandlers = handlers || {};
+  }
+
+  private createConnectionConfig(credentials: StreamingCredentials): AgoraConnectionConfig {
+    const agoraCredentials = this.mapCredentials(credentials);
+    return {
+      credentials: agoraCredentials,
+    };
+  }
+
+  private createConnectionCallbacks(): ConnectionEventCallbacks {
+    return {
+      onConnected: () => this.handleConnected(),
+      onDisconnected: (reason?: string) => this.handleDisconnected(reason || 'Unknown reason'),
+      onConnectionFailed: (error) => this.handleConnectionFailed(error),
+      onTokenWillExpire: () => this.handleTokenWillExpire(),
+      onTokenDidExpire: () => this.handleTokenDidExpire(),
+    };
+  }
+
+  private handleConnected(): void {
+    this.updateState({
+      isJoined: true,
+      isConnecting: false,
+      error: null,
+    });
+    this.startEventListening();
+  }
+
+  private handleDisconnected(reason: string): void {
+    this.updateState({
+      isJoined: false,
+      isConnecting: false,
+      participants: [],
+      localParticipant: null,
+    });
+    this.stopEventListening();
+    logger.info('Agora provider disconnected', { reason });
+  }
+
+  private handleConnectionFailed(error: StreamingError): void {
+    this.updateState({
+      isConnecting: false,
+      isJoined: false,
+      error,
+    });
+    this.eventHandlers.onError?.(error);
+  }
+
+  private handleTokenWillExpire(): void {
+    logger.warn('Agora token will expire soon');
+    // Could implement token refresh logic here
+  }
+
+  private handleTokenDidExpire(): void {
+    const error = new StreamingError(ErrorCode.INVALID_CREDENTIALS, 'Agora token has expired');
+    this.updateState({ error });
+    this.eventHandlers.onError?.(error);
+  }
+
+  private handleConnectionError(error: unknown): never {
+    const streamingError =
+      error instanceof StreamingError ? error : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect');
+
+    this.updateState({
+      isConnecting: false,
+      isJoined: false,
+      error: streamingError,
+    });
+
+    logger.error('Failed to connect Agora streaming provider', {
+      error: streamingError.message,
+      code: streamingError.code,
+    });
+
+    throw streamingError;
   }
 
   async disconnect(): Promise<void> {

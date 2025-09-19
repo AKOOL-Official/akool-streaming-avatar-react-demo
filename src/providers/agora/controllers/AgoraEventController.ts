@@ -252,50 +252,72 @@ export class AgoraEventController extends BaseEventController {
   }
 
   private convertQualityScore(quality: number): number {
-    // Agora quality: 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
-    switch (quality) {
-      case 1:
-        return 100;
-      case 2:
-        return 75;
-      case 3:
-        return 50;
-      case 4:
-        return 25;
-      case 5:
-        return 10;
-      case 6:
-        return 0;
-      default:
-        return 0;
-    }
+    const qualityScoreMap = new Map([
+      [1, 100], // excellent
+      [2, 75], // good
+      [3, 50], // poor
+      [4, 25], // bad
+      [5, 10], // very bad
+      [6, 0], // down
+    ]);
+
+    return qualityScoreMap.get(quality) ?? 0;
   }
 
   private getQualityLevel(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
-    if (score >= 80) return 'excellent';
-    if (score >= 60) return 'good';
-    if (score >= 40) return 'fair';
+    const qualityThresholds = [
+      { min: 80, level: 'excellent' as const },
+      { min: 60, level: 'good' as const },
+      { min: 40, level: 'fair' as const },
+    ];
+
+    for (const threshold of qualityThresholds) {
+      if (score >= threshold.min) {
+        return threshold.level;
+      }
+    }
+
     return 'poor';
   }
 
   private estimateRTT(quality: NetworkQuality): number {
-    // Rough estimation based on quality scores
-    const avgQuality = (quality.uplinkNetworkQuality + quality.downlinkNetworkQuality) / 2;
-    if (avgQuality <= 1) return 30;
-    if (avgQuality <= 2) return 60;
-    if (avgQuality <= 3) return 150;
-    if (avgQuality <= 4) return 300;
+    const avgQuality = this.calculateAverageQuality(quality);
+    const rttThresholds = [
+      { max: 1, rtt: 30 },
+      { max: 2, rtt: 60 },
+      { max: 3, rtt: 150 },
+      { max: 4, rtt: 300 },
+    ];
+
+    for (const threshold of rttThresholds) {
+      if (avgQuality <= threshold.max) {
+        return threshold.rtt;
+      }
+    }
+
     return 500;
   }
 
   private estimatePacketLoss(quality: NetworkQuality): number {
-    // Rough estimation based on quality scores
-    const avgQuality = (quality.uplinkNetworkQuality + quality.downlinkNetworkQuality) / 2;
-    if (avgQuality <= 1) return 0;
-    if (avgQuality <= 2) return 1;
-    if (avgQuality <= 3) return 5;
-    if (avgQuality <= 4) return 10;
+    const avgQuality = this.calculateAverageQuality(quality);
+    const packetLossThresholds = [
+      { max: 1, loss: 0 },
+      { max: 2, loss: 1 },
+      { max: 3, loss: 5 },
+      { max: 4, loss: 10 },
+    ];
+
+    for (const threshold of packetLossThresholds) {
+      if (avgQuality <= threshold.max) {
+        return threshold.loss;
+      }
+    }
+
     return 20;
+  }
+
+  private calculateAverageQuality(quality: NetworkQuality): number {
+    return (quality.uplinkNetworkQuality + quality.downlinkNetworkQuality) / 2;
   }
 
   async cleanup(): Promise<void> {

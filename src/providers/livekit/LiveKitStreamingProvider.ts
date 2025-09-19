@@ -92,46 +92,55 @@ export class LiveKitStreamingProvider implements StreamingProvider {
 
   async connect(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): Promise<void> {
     try {
-      logger.info('Connecting LiveKit streaming provider', {
-        serverUrl: credentials.livekit_url,
-        roomName: credentials.livekit_room_name,
-      });
-
-      this.updateState({ isConnecting: true, error: null });
-      this.eventHandlers = handlers || {};
-
-      // Map credentials to LiveKit format
+      this.initializeLiveKitConnection(credentials, handlers);
       const liveKitCredentials = this.mapCredentials(credentials);
-
-      await this.connectionController.connect(liveKitCredentials);
-
-      // Start event listening
-      this.startEventListening();
-
-      this.updateState({
-        isJoined: true,
-        isConnecting: false,
-        error: null,
-      });
-
+      await this.establishLiveKitConnection(liveKitCredentials);
+      this.finalizeLiveKitConnection();
       logger.info('LiveKit streaming provider connected successfully');
     } catch (error) {
-      const streamingError =
-        error instanceof StreamingError ? error : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect');
-
-      this.updateState({
-        isConnecting: false,
-        isJoined: false,
-        error: streamingError,
-      });
-
-      logger.error('Failed to connect LiveKit streaming provider', {
-        error: streamingError.message,
-        code: streamingError.code,
-      });
-
-      throw streamingError;
+      this.handleLiveKitConnectionError(error);
     }
+  }
+
+  private initializeLiveKitConnection(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): void {
+    logger.info('Connecting LiveKit streaming provider', {
+      serverUrl: credentials.livekit_url,
+      roomName: credentials.livekit_room_name,
+    });
+
+    this.updateState({ isConnecting: true, error: null });
+    this.eventHandlers = handlers || {};
+  }
+
+  private async establishLiveKitConnection(liveKitCredentials: LiveKitCredentials): Promise<void> {
+    await this.connectionController.connect(liveKitCredentials);
+    this.startEventListening();
+  }
+
+  private finalizeLiveKitConnection(): void {
+    this.updateState({
+      isJoined: true,
+      isConnecting: false,
+      error: null,
+    });
+  }
+
+  private handleLiveKitConnectionError(error: unknown): never {
+    const streamingError =
+      error instanceof StreamingError ? error : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect');
+
+    this.updateState({
+      isConnecting: false,
+      isJoined: false,
+      error: streamingError,
+    });
+
+    logger.error('Failed to connect LiveKit streaming provider', {
+      error: streamingError.message,
+      code: streamingError.code,
+    });
+
+    throw streamingError;
   }
 
   async disconnect(): Promise<void> {
