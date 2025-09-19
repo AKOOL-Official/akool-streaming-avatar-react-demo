@@ -86,7 +86,7 @@ export class LiveKitEventController extends BaseEventController {
       const unifiedParticipant = this.participantController.convertToUnifiedParticipant(participant);
       this.participantController.addParticipant(unifiedParticipant);
     } catch (error) {
-      this.handleError(error, 'handleParticipantConnected');
+      this.handleEventError(error, 'handleParticipantConnected');
     }
   }
 
@@ -99,7 +99,7 @@ export class LiveKitEventController extends BaseEventController {
 
       this.participantController.removeParticipant(participant.sid);
     } catch (error) {
-      this.handleError(error, 'handleParticipantDisconnected');
+      this.handleEventError(error, 'handleParticipantDisconnected');
     }
   }
 
@@ -121,7 +121,7 @@ export class LiveKitEventController extends BaseEventController {
         this.setupAudioTrackPlayback(publication.track, participant);
       }
     } catch (error) {
-      this.handleError(error, 'handleTrackPublished');
+      this.handleEventError(error, 'handleTrackPublished');
     }
   }
 
@@ -145,7 +145,7 @@ export class LiveKitEventController extends BaseEventController {
         this.setupVideoTrackPlayback(track);
       }
     } catch (error) {
-      this.handleError(error, 'handleTrackSubscribed');
+      this.handleEventError(error, 'handleTrackSubscribed');
     }
   }
 
@@ -165,7 +165,7 @@ export class LiveKitEventController extends BaseEventController {
         track.detach();
       }
     } catch (error) {
-      this.handleError(error, 'handleTrackUnsubscribed');
+      this.handleEventError(error, 'handleTrackUnsubscribed');
     }
   }
 
@@ -182,7 +182,7 @@ export class LiveKitEventController extends BaseEventController {
       // Update participant's connection quality
       this.participantController.updateParticipantConnectionQuality(participant.sid, unifiedQuality);
     } catch (error) {
-      this.handleError(error, 'handleConnectionQualityChanged');
+      this.handleEventError(error, 'handleConnectionQualityChanged');
     }
   }
 
@@ -206,7 +206,7 @@ export class LiveKitEventController extends BaseEventController {
       const hasActiveSpeakers = speakers.length > 0;
       this.updateSpeakingState(hasActiveSpeakers);
     } catch (error) {
-      this.handleError(error, 'handleActiveSpeakersChanged');
+      this.handleEventError(error, 'handleActiveSpeakersChanged');
     }
   }
 
@@ -229,7 +229,7 @@ export class LiveKitEventController extends BaseEventController {
         participant: participant.identity,
       });
     } catch (error) {
-      this.handleError(error, 'setupAudioTrackPlayback');
+      this.handleEventError(error, 'setupAudioTrackPlayback');
     }
   }
 
@@ -255,11 +255,11 @@ export class LiveKitEventController extends BaseEventController {
         });
       }
     } catch (error) {
-      this.handleError(error, 'setupVideoTrackPlayback');
+      this.handleEventError(error, 'setupVideoTrackPlayback');
     }
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.removeEventListeners();
     this.callbacks = {};
     logger.info('LiveKit event controller cleanup completed');

@@ -1,68 +1,93 @@
-import { StreamProviderType } from './streaming.types';
+/**
+ * Streaming-specific error class
+ */
+export class StreamingError extends Error {
+  public readonly code: string;
+  public readonly details?: Record<string, unknown>;
 
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = 'StreamingError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
+/**
+ * Error codes for streaming operations
+ */
 export enum ErrorCode {
-  // Connection errors
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
   CONNECTION_FAILED = 'CONNECTION_FAILED',
   CONNECTION_LOST = 'CONNECTION_LOST',
+  DISCONNECT_FAILED = 'DISCONNECT_FAILED',
+  AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
-
-  // Media errors
+  MEDIA_ACCESS_DENIED = 'MEDIA_ACCESS_DENIED',
   MEDIA_DEVICE_ERROR = 'MEDIA_DEVICE_ERROR',
   TRACK_PUBLISH_FAILED = 'TRACK_PUBLISH_FAILED',
   TRACK_UNPUBLISH_FAILED = 'TRACK_UNPUBLISH_FAILED',
   TRACK_NOT_FOUND = 'TRACK_NOT_FOUND',
-  ELEMENT_NOT_FOUND = 'ELEMENT_NOT_FOUND',
+  VIDEO_PLAYBACK_FAILED = 'VIDEO_PLAYBACK_FAILED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  PROVIDER_ERROR = 'PROVIDER_ERROR',
+  PROVIDER_INITIALIZATION_FAILED = 'PROVIDER_INITIALIZATION_FAILED',
+  PROVIDER_NOT_SUPPORTED = 'PROVIDER_NOT_SUPPORTED',
+  INVALID_CONFIGURATION = 'INVALID_CONFIGURATION',
   INVALID_PARAMETER = 'INVALID_PARAMETER',
-  PARTICIPANT_ERROR = 'PARTICIPANT_ERROR',
+  OPERATION_TIMEOUT = 'OPERATION_TIMEOUT',
+  RESOURCE_UNAVAILABLE = 'RESOURCE_UNAVAILABLE',
+  PERMISSION_DENIED = 'PERMISSION_DENIED',
+  API_REQUEST_FAILED = 'API_REQUEST_FAILED',
   MESSAGE_TOO_LARGE = 'MESSAGE_TOO_LARGE',
   MESSAGE_SEND_FAILED = 'MESSAGE_SEND_FAILED',
-  DISCONNECT_FAILED = 'DISCONNECT_FAILED',
-  VIDEO_PLAYBACK_FAILED = 'VIDEO_PLAYBACK_FAILED',
-
-  // API errors
-  API_REQUEST_FAILED = 'API_REQUEST_FAILED',
-  INVALID_CONFIGURATION = 'INVALID_CONFIGURATION',
-
-  // Provider errors
-  PROVIDER_NOT_SUPPORTED = 'PROVIDER_NOT_SUPPORTED',
-  PROVIDER_INITIALIZATION_FAILED = 'PROVIDER_INITIALIZATION_FAILED',
-
-  // General errors
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
+  PARTICIPANT_ERROR = 'PARTICIPANT_ERROR',
+  ELEMENT_NOT_FOUND = 'ELEMENT_NOT_FOUND',
 }
 
+/**
+ * Standardized error callback interface for all streaming components
+ */
+export interface ErrorCallback {
+  (error: StreamingError): void;
+}
+
+/**
+ * Error callback configuration for different contexts
+ */
+export interface ErrorCallbackConfig {
+  onError?: ErrorCallback;
+  onConnectionError?: ErrorCallback;
+  onMediaError?: ErrorCallback;
+  onNetworkError?: ErrorCallback;
+  onAuthError?: ErrorCallback;
+}
+
+/**
+ * Error context information for better debugging
+ */
 export interface ErrorContext {
-  provider?: StreamProviderType;
-  action?: string;
-  details?: Record<string, unknown>;
+  component: string;
+  operation: string;
   timestamp: number;
-  // Additional context fields for specific error types
-  messageSize?: number;
-  maxSize?: number;
-  elementId?: string;
-  volume?: number;
-  userId?: string;
-  updates?: Record<string, unknown>;
-  originalError?: unknown;
-  credentials?: Record<string, unknown>;
-  errCode?: number;
-  errMsg?: string;
-  result?: number;
+  additionalInfo?: Record<string, unknown>;
 }
 
-export class StreamingError extends Error {
-  public readonly code: ErrorCode;
-  public readonly context: ErrorContext;
-  public readonly recoverable: boolean;
+/**
+ * Enhanced error callback with context information
+ */
+export interface ContextualErrorCallback {
+  (error: StreamingError, context: ErrorContext): void;
+}
 
-  constructor(code: ErrorCode, message: string, context: Partial<ErrorContext> = {}, recoverable = true) {
-    super(message);
-    this.name = 'StreamingError';
-    this.code = code;
-    this.context = {
-      timestamp: Date.now(),
-      ...context,
-    };
-    this.recoverable = recoverable;
-  }
+/**
+ * Error handling configuration for components
+ */
+export interface ErrorHandlingConfig {
+  enableRetry?: boolean;
+  maxRetries?: number;
+  retryDelay?: number;
+  enableLogging?: boolean;
+  enableMetrics?: boolean;
+  callbacks?: ErrorCallbackConfig;
 }

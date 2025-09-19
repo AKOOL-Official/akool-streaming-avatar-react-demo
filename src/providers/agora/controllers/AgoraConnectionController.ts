@@ -63,7 +63,7 @@ export class AgoraConnectionController {
       logger.error('Failed to connect to Agora channel', {
         error: streamingError.message,
         code: streamingError.code,
-        details: streamingError.context.details,
+        details: streamingError.details,
       });
 
       this.callbacks.onConnectionFailed?.(streamingError);

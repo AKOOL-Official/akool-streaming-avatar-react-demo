@@ -1,6 +1,8 @@
 import { logger } from '../../../core/Logger';
 import { Participant, ConnectionQuality } from '../../../types/streaming.types';
 import { NetworkStats } from '../../../components/NetworkQuality';
+import { BaseController } from './BaseController';
+import { ErrorHandlingConfig } from '../../../types/error.types';
 
 // Common event callback interface
 export interface BaseEventControllerCallbacks {
@@ -13,11 +15,13 @@ export interface BaseEventControllerCallbacks {
 }
 
 // Abstract base class for event handling
-export abstract class BaseEventController {
+export abstract class BaseEventController extends BaseController {
   protected callbacks: BaseEventControllerCallbacks = {};
   protected isListening = false;
 
-  constructor() {}
+  constructor(errorHandlingConfig?: ErrorHandlingConfig) {
+    super(errorHandlingConfig);
+  }
 
   setCallbacks(callbacks: BaseEventControllerCallbacks): void {
     this.callbacks = callbacks;
@@ -26,18 +30,31 @@ export abstract class BaseEventController {
   // Abstract methods to be implemented by provider-specific controllers
   abstract setupEventListeners(): void;
   abstract removeEventListeners(): void;
-  abstract cleanup(): void;
+
+  // Implement BaseController abstract methods
+  protected async onInitialize(): Promise<void> {
+    this.setupEventListeners();
+    this.isListening = true;
+  }
+
+  protected async onDestroy(): Promise<void> {
+    this.removeEventListeners();
+    this.isListening = false;
+  }
+
+  // Legacy cleanup method for backward compatibility
+  async cleanup(): Promise<void> {
+    await this.destroy();
+  }
 
   // Common utility methods
-  protected handleError(error: unknown, context: string): void {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`Error in ${context}`, {
-      error: errorMessage,
-      context,
-    });
+  protected handleEventError(error: unknown, context: string): void {
+    this.handleError(error, this.constructor.name, context);
 
-    const errorObj = error instanceof Error ? error : new Error(errorMessage);
-    this.callbacks.onError?.(errorObj);
+    if (this.callbacks.onError) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.callbacks.onError(new Error(errorMessage));
+    }
   }
 
   protected logEvent(eventName: string, data?: Record<string, unknown>): void {

@@ -5,6 +5,7 @@ import { Participant, ConnectionQuality } from '../../../types/streaming.types';
 import { NetworkStats } from '../../../components/NetworkQuality';
 import { BaseEventController, BaseEventControllerCallbacks } from '../../common/controllers/BaseEventController';
 import { BaseParticipantController } from '../../common/controllers/BaseParticipantController';
+import { ErrorHandlingConfig } from '../../../types/error.types';
 
 // Agora-specific event controller callbacks
 export interface AgoraEventControllerCallbacks extends BaseEventControllerCallbacks {
@@ -15,8 +16,12 @@ export class AgoraEventController extends BaseEventController {
   private client: IAgoraRTCClient;
   private participantController: BaseParticipantController;
 
-  constructor(client: IAgoraRTCClient, participantController: BaseParticipantController) {
-    super();
+  constructor(
+    client: IAgoraRTCClient,
+    participantController: BaseParticipantController,
+    errorHandlingConfig?: ErrorHandlingConfig,
+  ) {
+    super(errorHandlingConfig);
     this.client = client;
     this.participantController = participantController;
   }
@@ -97,7 +102,7 @@ export class AgoraEventController extends BaseEventController {
         });
       }
     } catch (error) {
-      this.handleError(error, 'handleUserPublished');
+      this.handleEventError(error, 'handleUserPublished');
     }
   }
 
@@ -136,7 +141,7 @@ export class AgoraEventController extends BaseEventController {
         });
       }
     } catch (error) {
-      this.handleError(error, 'handleUserUnpublished');
+      this.handleEventError(error, 'handleUserUnpublished');
     }
   }
 
@@ -149,7 +154,7 @@ export class AgoraEventController extends BaseEventController {
       const participant = this.createParticipantFromUser(user);
       this.participantController.addParticipant(participant);
     } catch (error) {
-      this.handleError(error, 'handleUserJoined');
+      this.handleEventError(error, 'handleUserJoined');
     }
   }
 
@@ -163,7 +168,7 @@ export class AgoraEventController extends BaseEventController {
       const participantId = String(user.uid);
       this.participantController.removeParticipant(participantId);
     } catch (error) {
-      this.handleError(error, 'handleUserLeft');
+      this.handleEventError(error, 'handleUserLeft');
     }
   }
 
@@ -190,7 +195,7 @@ export class AgoraEventController extends BaseEventController {
 
       this.updateNetworkStats(networkStats);
     } catch (error) {
-      this.handleError(error, 'handleNetworkQuality');
+      this.handleEventError(error, 'handleNetworkQuality');
     }
   }
 
@@ -215,7 +220,7 @@ export class AgoraEventController extends BaseEventController {
       const streamingError = ErrorMapper.mapAgoraError(e);
       this.callbacks.onError?.(streamingError);
     } catch (error) {
-      this.handleError(error, 'handleException');
+      this.handleEventError(error, 'handleException');
     }
   }
 
@@ -293,7 +298,7 @@ export class AgoraEventController extends BaseEventController {
     return 20;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.removeEventListeners();
     this.callbacks = {};
     logger.info('Agora event controller cleanup completed');
