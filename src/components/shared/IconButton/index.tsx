@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '../../../core/Logger';
 import './styles.css';
 
 export interface IconButtonProps {
@@ -28,7 +29,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
     try {
       await onClick();
     } catch (error) {
-      console.error('IconButton onClick error:', error);
+      logger.error('IconButton onClick error', { error });
     }
   };
 

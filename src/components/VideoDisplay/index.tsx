@@ -45,7 +45,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     if (localVideoTrack && cameraEnabled && provider) {
       try {
         // Always stop the track first to avoid conflicts
-        provider.stopVideo().catch((error) => {
+        provider.stopVideo().catch((error: unknown) => {
           logger.error('Failed to stop video track:', { error });
         });
 
@@ -56,7 +56,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
               // Normal mode, local video in overlay
               const localVideoRef = document.getElementById('local-video-overlay');
               if (localVideoRef) {
-                provider.playVideo(localVideoRef.id).catch((error) => {
+                provider.playVideo(localVideoRef.id).catch((error: unknown) => {
                   logger.error('Failed to play local video track in overlay:', { error });
                 });
               }
@@ -64,7 +64,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
               // When switched, local video goes to a main video element
               const mainLocalVideo = document.getElementById('main-local-video');
               if (mainLocalVideo) {
-                provider.playVideo('main-local-video').catch((error) => {
+                provider.playVideo('main-local-video').catch((error: unknown) => {
                   logger.error('Failed to play local video track in main view:', { error });
                 });
               }
@@ -82,7 +82,7 @@ const VideoDisplay: React.FC<VideoDisplayProps> = ({ isJoined, avatarVideoUrl, l
     return () => {
       if (provider) {
         try {
-          provider.stopVideo().catch((error) => {
+          provider.stopVideo().catch((error: unknown) => {
             logger.error('Failed to stop local video track in cleanup:', { error });
           });
         } catch (error) {

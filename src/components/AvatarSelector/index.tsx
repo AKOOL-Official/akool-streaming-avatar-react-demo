@@ -37,7 +37,7 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({
       setRefreshCooldown(true);
       setTimeout(() => setRefreshCooldown(false), 5000);
     } catch (error) {
-      console.error('Error refreshing avatar list:', error);
+      logger.error('Error refreshing avatar list', { error });
     } finally {
       setIsRefreshing(false);
     }

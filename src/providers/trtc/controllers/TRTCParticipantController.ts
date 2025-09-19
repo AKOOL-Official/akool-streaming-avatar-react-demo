@@ -16,7 +16,7 @@ export interface ParticipantUpdate {
     uplink: number;
     downlink: number;
   };
-  statistics?: any;
+  statistics?: Record<string, unknown>;
 }
 
 export class TRTCParticipantController {

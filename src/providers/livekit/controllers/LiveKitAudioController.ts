@@ -20,7 +20,7 @@ export class LiveKitAudioController {
     mode: 'default',
     isInitialized: false,
   };
-  private krispProcessor: any = null; // Will be dynamically imported from @livekit/krisp-noise-filter
+  private krispProcessor: { setEnabled: (enabled: boolean) => void } | null = null; // Will be dynamically imported from @livekit/krisp-noise-filter
 
   constructor(room: Room) {
     this.room = room;
@@ -433,7 +433,8 @@ export class LiveKitAudioController {
       this.krispProcessor = KrispNoiseFilter();
 
       // Apply processor to track
-      await audioTrack.setProcessor(this.krispProcessor);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await audioTrack.setProcessor(this.krispProcessor as any);
 
       // Enable the processor
       await this.krispProcessor.setEnabled(true);

@@ -55,10 +55,44 @@ export interface TRTCParticipantControllerCallbacks {
   onError?: (error: StreamingError) => void;
 }
 
+// TRTC Statistics interfaces
+export interface TRTCLocalStats {
+  audioLevel: number;
+  audioEnergy: number;
+  audioVolume: number;
+  audioBitrate: number;
+  audioPacketLossRate: number;
+  videoBitrate: number;
+  videoFrameRate: number;
+  videoWidth: number;
+  videoHeight: number;
+  videoPacketLossRate: number;
+  rtt: number;
+  cpuUsage: number;
+  memoryUsage: number;
+}
+
+export interface TRTCRemoteStats {
+  userId: string;
+  audioLevel: number;
+  audioEnergy: number;
+  audioVolume: number;
+  audioBitrate: number;
+  audioPacketLossRate: number;
+  videoBitrate: number;
+  videoFrameRate: number;
+  videoWidth: number;
+  videoHeight: number;
+  videoPacketLossRate: number;
+  rtt: number;
+  cpuUsage: number;
+  memoryUsage: number;
+}
+
 export interface TRTCStatsControllerCallbacks {
   onNetworkStatsUpdate?: (stats: import('../../components/NetworkQuality').NetworkStats) => void;
-  onLocalStatsUpdate?: (stats: any) => void;
-  onRemoteStatsUpdate?: (userId: string, stats: any) => void;
+  onLocalStatsUpdate?: (stats: TRTCLocalStats) => void;
+  onRemoteStatsUpdate?: (userId: string, stats: TRTCRemoteStats) => void;
   onError?: (error: StreamingError) => void;
 }
 

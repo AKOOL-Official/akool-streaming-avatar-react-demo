@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { useState, ReactNode } from 'react';
+import { ModalContext, ModalContextType } from './ModalContextTypes';
 
 interface ModalState {
   isVoiceDialogOpen: boolean;
@@ -8,34 +9,7 @@ interface ModalState {
   jsonEditorOnChange: ((value: Record<string, unknown>) => void) | null;
 }
 
-interface ModalContextType {
-  // Voice Dialog
-  openVoiceDialog: () => void;
-  closeVoiceDialog: () => void;
-  isVoiceDialogOpen: boolean;
-
-  // JSON Editor
-  openJsonEditor: (
-    value: Record<string, unknown>,
-    onChange: (value: Record<string, unknown>) => void,
-    title?: string,
-  ) => void;
-  closeJsonEditor: () => void;
-  isJsonEditorOpen: boolean;
-  jsonEditorValue: Record<string, unknown>;
-  jsonEditorTitle: string;
-  jsonEditorOnChange: ((value: Record<string, unknown>) => void) | null;
-}
-
-const ModalContext = createContext<ModalContextType | undefined>(undefined);
-
-export const useModal = () => {
-  const context = useContext(ModalContext);
-  if (!context) {
-    throw new Error('useModal must be used within a ModalProvider');
-  }
-  return context;
-};
+// Hook moved to separate file to fix React refresh warning
 
 interface ModalProviderProps {
   children: ReactNode;

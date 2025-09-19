@@ -91,7 +91,11 @@ export class ResourceManager {
       this.ownerResources.set(owner, []);
     }
 
-    this.ownerResources.get(owner)!.push(resource);
+    const ownerResourceList = this.ownerResources.get(owner);
+    if (!ownerResourceList) {
+      throw new Error(`Owner resource list not found for owner: ${owner.constructor.name}`);
+    }
+    ownerResourceList.push(resource);
 
     logger.debug('Registered resource with owner', {
       resourceId: resource.id,
@@ -116,7 +120,11 @@ export class ResourceManager {
       this.namedGroups.set(name, new ManagedResourceGroup(name));
       logger.debug(`Created resource group '${name}'`);
     }
-    return this.namedGroups.get(name)!;
+    const group = this.namedGroups.get(name);
+    if (!group) {
+      throw new Error(`Resource group not found: ${name}`);
+    }
+    return group;
   }
 
   // Clean up all resources associated with a specific owner

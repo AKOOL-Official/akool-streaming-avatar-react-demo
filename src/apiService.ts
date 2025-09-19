@@ -46,14 +46,47 @@ export class ApiService {
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-    const responseBody = await response.json();
-    if (responseBody.code != 1000) {
-      if (this.notificationCallback) {
-        this.notificationCallback(responseBody.msg, 'API Error');
-      }
-      throw new Error(responseBody.msg);
+
+    // Use a type-safe JSON parser
+    const responseText = await response.text();
+    let responseData: unknown;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(`Invalid JSON response: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    return responseBody.data;
+
+    // Validate response structure
+    if (typeof responseData !== 'object' || responseData === null) {
+      throw new Error('Invalid API response: not an object');
+    }
+
+    const obj = responseData as Record<string, unknown>;
+
+    if (typeof obj.code !== 'number') {
+      throw new Error('Invalid API response: missing or invalid code');
+    }
+
+    if (typeof obj.msg !== 'string') {
+      throw new Error('Invalid API response: missing or invalid msg');
+    }
+
+    if (!('data' in obj)) {
+      throw new Error('Invalid API response: missing data');
+    }
+
+    // Create a properly typed response object
+    const code = obj.code as number;
+    const msg = obj.msg as string;
+    const data = obj.data;
+
+    if (code != 1000) {
+      if (this.notificationCallback) {
+        this.notificationCallback(msg, 'API Error');
+      }
+      throw new Error(msg);
+    }
+    return data as T;
   }
 
   public async createSession(data: SessionOptions): Promise<Session> {

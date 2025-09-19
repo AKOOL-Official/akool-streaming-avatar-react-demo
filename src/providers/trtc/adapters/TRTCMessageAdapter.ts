@@ -142,7 +142,7 @@ export class TRTCMessageAdapter implements MessageAdapter {
     logger.info('TRTC message event handlers registered');
   }
 
-  private handleCustomMessage = (event: any) => {
+  private handleCustomMessage = (event: unknown) => {
     const messageEvent = event as { userId: string; cmdId: number; seq: number; data: ArrayBuffer } | undefined;
     if (!messageEvent?.userId || !messageEvent?.data) {
       logger.warn('TRTC custom command message received with invalid data', { event: messageEvent });

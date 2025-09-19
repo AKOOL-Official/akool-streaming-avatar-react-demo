@@ -32,7 +32,7 @@ export class TRTCEventController {
       const remoteVideoElement = document.getElementById('remote-video') as HTMLElement;
       if (remoteVideoElement && this.videoController) {
         logger.info('Starting remote video playback for user', { userId });
-        this.videoController.playRemoteVideo(userId, remoteVideoElement).catch((error: any) => {
+        this.videoController.playRemoteVideo(userId, remoteVideoElement).catch((error: unknown) => {
           logger.error('Failed to start remote video playback', { error, userId });
         });
       } else if (!remoteVideoElement) {
@@ -49,7 +49,7 @@ export class TRTCEventController {
     try {
       if (this.videoController) {
         logger.info('Stopping remote video playback for user', { userId });
-        this.videoController.stopRemoteVideo(userId).catch((error: any) => {
+        this.videoController.stopRemoteVideo(userId).catch((error: unknown) => {
           logger.error('Failed to stop remote video playback', { error, userId });
         });
       } else {
@@ -172,18 +172,18 @@ export class TRTCEventController {
     // Note: Network quality events are handled by TRTCStatsController
 
     // Statistics events
-    const onStatistics = (statistics: any) => {
+    const onStatistics = (statistics: { localStatistics?: unknown; remoteStatistics?: Array<{ userId: string }> }) => {
       logger.debug('TRTC statistics update', { statistics });
 
       try {
         // Forward statistics to stats controller through participant updates
         if (statistics.localStatistics) {
           this.participantController.updateLocalParticipant({
-            statistics: statistics.localStatistics,
+            statistics: statistics.localStatistics as Record<string, unknown>,
           });
         }
 
-        statistics.remoteStatistics?.forEach((stat: any) => {
+        statistics.remoteStatistics?.forEach((stat: { userId: string }) => {
           if (stat.userId) {
             this.participantController.updateParticipant(stat.userId, {
               statistics: stat,
@@ -273,6 +273,7 @@ export class TRTCEventController {
 
       // Remove all event listeners
       this.eventHandlers.forEach((handler, eventName) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         this.client.off(eventName as any, handler);
       });
 

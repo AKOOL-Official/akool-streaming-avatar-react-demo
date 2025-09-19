@@ -13,10 +13,11 @@ import {
 import { logger } from '../../../core/Logger';
 import { BaseEventController, BaseEventControllerCallbacks } from '../../common/controllers/BaseEventController';
 import { BaseParticipantController } from '../../common/controllers/BaseParticipantController';
+import { NetworkStats } from '../../../components/NetworkQuality';
 
 // LiveKit-specific event controller callbacks
 export interface LiveKitEventControllerCallbacks extends BaseEventControllerCallbacks {
-  onNetworkStatsUpdate?: (stats: any) => void;
+  onNetworkStatsUpdate?: (stats: NetworkStats) => void;
 }
 
 export class LiveKitEventController extends BaseEventController {

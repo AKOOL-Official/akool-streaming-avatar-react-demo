@@ -29,12 +29,15 @@ export class ConsoleLogOutput implements LogOutput {
 
     switch (entry.level) {
       case LogLevel.ERROR:
+        // eslint-disable-next-line no-console
         console.error(logMessage);
         break;
       case LogLevel.WARN:
+        // eslint-disable-next-line no-console
         console.warn(logMessage);
         break;
       default:
+        // eslint-disable-next-line no-console
         console.log(logMessage);
     }
   }
@@ -180,6 +183,7 @@ export class Logger {
       } catch (error) {
         // Fallback for critical errors - only use console.error here
         if (typeof window !== 'undefined' && window.console) {
+          // eslint-disable-next-line no-console
           console.error('Logger output error:', error);
         }
       }

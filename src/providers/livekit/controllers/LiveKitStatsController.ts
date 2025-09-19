@@ -64,7 +64,15 @@ export class LiveKitStatsController extends BaseStatsController {
           const videoTrack = videoTrackPublication?.track;
           if (videoTrack) {
             // Get video track stats from the underlying MediaStreamTrack
-            const videoStats = await this.getTrackStats(videoTrack as unknown as MediaStreamTrack);
+            const videoStats = (await this.getTrackStats(videoTrack as unknown as MediaStreamTrack)) as {
+              codec?: string;
+              bitrate?: number;
+              frameRate?: number;
+              width?: number;
+              height?: number;
+              packetLoss?: number;
+              rtt?: number;
+            } | null;
             if (videoStats) {
               parsedStats.video = {
                 codec: videoStats.codec || 'unknown',
@@ -88,7 +96,12 @@ export class LiveKitStatsController extends BaseStatsController {
           const audioTrack = audioTrackPublication?.track;
           if (audioTrack) {
             // Get audio track stats from the underlying MediaStreamTrack
-            const audioStats = await this.getTrackStats(audioTrack as unknown as MediaStreamTrack);
+            const audioStats = (await this.getTrackStats(audioTrack as unknown as MediaStreamTrack)) as {
+              codec?: string;
+              bitrate?: number;
+              packetLoss?: number;
+              rtt?: number;
+            } | null;
             if (audioStats) {
               parsedStats.audio = {
                 codec: audioStats.codec || 'unknown',
@@ -123,23 +136,52 @@ export class LiveKitStatsController extends BaseStatsController {
     }
   }
 
-  private async getTrackStats(track: MediaStreamTrack): Promise<any> {
+  private async getTrackStats(track: MediaStreamTrack): Promise<{
+    codec?: string;
+    bitrate?: number;
+    frameRate?: number;
+    width?: number;
+    height?: number;
+    packetLoss?: number;
+    rtt?: number;
+  } | null> {
     try {
       // Get stats from the track's sender
-      const sender = (track as any).getSender ? (track as any).getSender() : null;
+      const trackWithSender = track as MediaStreamTrack & { getSender?: () => RTCRtpSender };
+      const sender = trackWithSender.getSender ? trackWithSender.getSender() : null;
       if (sender) {
         const stats = await sender.getStats();
-        const statsData: any = {};
+        const statsData: {
+          codec?: string;
+          bitrate?: number;
+          frameRate?: number;
+          width?: number;
+          height?: number;
+          packetLoss?: number;
+          rtt?: number;
+        } = {};
 
-        stats.forEach((report: any) => {
+        stats.forEach((report: RTCStats) => {
           if (report.type === 'outbound-rtp') {
-            statsData.bitrate = report.bytesSent * 8; // Convert to bits per second
-            statsData.frameRate = report.framesPerSecond || 0;
-            statsData.codec = report.codecId || 'unknown';
+            const rtpReport = report as RTCStats & { bytesSent?: number; framesPerSecond?: number; codecId?: string };
+            statsData.bitrate = (rtpReport.bytesSent || 0) * 8; // Convert to bits per second
+            statsData.frameRate = rtpReport.framesPerSecond || 0;
+            statsData.codec = rtpReport.codecId || 'unknown';
           }
-          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-            statsData.rtt = report.currentRoundTripTime * 1000; // Convert to milliseconds
-            statsData.packetLoss = (report.packetsLost / (report.packetsSent + report.packetsLost)) * 100;
+          if (report.type === 'candidate-pair') {
+            const candidateReport = report as RTCStats & {
+              state?: string;
+              currentRoundTripTime?: number;
+              packetsLost?: number;
+              packetsSent?: number;
+            };
+            if (candidateReport.state === 'succeeded') {
+              statsData.rtt = (candidateReport.currentRoundTripTime || 0) * 1000; // Convert to milliseconds
+              const packetsLost = candidateReport.packetsLost || 0;
+              const packetsSent = candidateReport.packetsSent || 0;
+              statsData.packetLoss =
+                packetsSent + packetsLost > 0 ? (packetsLost / (packetsSent + packetsLost)) * 100 : 0;
+            }
           }
         });
 

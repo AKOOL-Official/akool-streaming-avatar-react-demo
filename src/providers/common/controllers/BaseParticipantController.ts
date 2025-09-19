@@ -1,5 +1,5 @@
 import { logger } from '../../../core/Logger';
-import { Participant, ConnectionQuality } from '../../../types/streaming.types';
+import { Participant, ConnectionQuality, AudioTrack, VideoTrack } from '../../../types/streaming.types';
 
 // Participant controller callback interface
 export interface ParticipantControllerCallbacks {
@@ -69,11 +69,11 @@ export abstract class BaseParticipantController {
     this.updateParticipant(participantId, { isSpeaking });
   }
 
-  protected updateParticipantAudioTracks(participantId: string, audioTracks: any[]): void {
+  protected updateParticipantAudioTracks(participantId: string, audioTracks: AudioTrack[]): void {
     this.updateParticipant(participantId, { audioTracks });
   }
 
-  protected updateParticipantVideoTracks(participantId: string, videoTracks: any[]): void {
+  protected updateParticipantVideoTracks(participantId: string, videoTracks: VideoTrack[]): void {
     this.updateParticipant(participantId, { videoTracks });
   }
 

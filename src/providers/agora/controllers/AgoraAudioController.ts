@@ -268,7 +268,7 @@ export class AgoraAudioController {
       this.aiDenoiserProcessor.onoverload = (elapsedTime: number) => {
         logger.warn(`AI Denoiser overload detected: ${elapsedTime}ms processing time`);
         // Optionally switch to stationary noise reduction mode
-        this.aiDenoiserProcessor?.setMode(AIDenoiserProcessorMode.STATIONARY_NS).catch((error) => {
+        this.aiDenoiserProcessor?.setMode(AIDenoiserProcessorMode.STATIONARY_NS).catch((error: unknown) => {
           logger.error('Failed to switch to stationary mode', { error });
         });
       };

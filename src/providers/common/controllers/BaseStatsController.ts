@@ -148,7 +148,26 @@ export abstract class BaseStatsController {
       packetLoss?: number;
     };
   } {
-    const detailedStats: any = {};
+    const detailedStats: {
+      video?: {
+        codec?: string;
+        bitrate?: number;
+        frameRate?: number;
+        resolution?: { width: number; height: number };
+        rtt?: number;
+      };
+      audio?: {
+        codec?: string;
+        bitrate?: number;
+        rtt?: number;
+      };
+      network?: {
+        rtt: number;
+        packetLoss: number;
+        uplinkQuality: number;
+        downlinkQuality: number;
+      };
+    } = {};
 
     if (stats.video) {
       detailedStats.video = {
@@ -170,8 +189,10 @@ export abstract class BaseStatsController {
 
     if (stats.network || stats.rtt !== undefined || this.currentPacketLoss > 0) {
       detailedStats.network = {
-        rtt: stats.network?.rtt || stats.rtt,
+        rtt: stats.network?.rtt || stats.rtt || 0,
         packetLoss: stats.network?.packetLoss || this.currentPacketLoss,
+        uplinkQuality: 0, // Default value
+        downlinkQuality: 0, // Default value
       };
     }
 

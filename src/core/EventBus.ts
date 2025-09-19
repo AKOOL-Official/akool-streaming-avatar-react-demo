@@ -1,4 +1,5 @@
 import { EventBusInterface, EventCallback, StreamingEventMap, StreamingEventType } from '../types/event.types';
+import { logger } from './Logger';
 
 interface EventSubscription<T = unknown> {
   callback: EventCallback<T>;
@@ -30,7 +31,10 @@ export class EventBus implements EventBusInterface {
       once,
     };
 
-    const eventListeners = this.listeners.get(event)!;
+    const eventListeners = this.listeners.get(event);
+    if (!eventListeners) {
+      throw new Error(`Event listeners not found for event: ${event}`);
+    }
     eventListeners.add(subscription);
 
     // Return unsubscribe function
@@ -61,10 +65,8 @@ export class EventBus implements EventBusInterface {
           toRemove.push(subscription);
         }
       } catch (error) {
-        // Use structured logging when available, fallback to console.error
-        if (typeof window !== 'undefined' && window.console) {
-          console.error(`Error in event handler for ${event}:`, error);
-        }
+        // Use structured logging
+        logger.error(`Error in event handler for ${event}`, { error });
       }
     });
 

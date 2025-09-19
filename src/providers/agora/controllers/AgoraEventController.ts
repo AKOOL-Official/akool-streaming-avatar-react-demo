@@ -194,7 +194,7 @@ export class AgoraEventController extends BaseEventController {
     }
   }
 
-  private handleException(e: any): void {
+  private handleException(e: { code: number; msg: string; uid?: string }): void {
     try {
       // Handle audio level warnings as non-critical errors
       if (e.code === 2002 || e.code === 4002) {

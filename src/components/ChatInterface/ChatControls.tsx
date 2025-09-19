@@ -2,6 +2,7 @@ import React from 'react';
 import { IconButton } from '../shared';
 import { SystemEventType } from '../../hooks/useMessageState';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
+import { logger } from '../../core/Logger';
 
 interface ChatControlsProps {
   connected: boolean;
@@ -83,7 +84,7 @@ export const ChatControls: React.FC<ChatControlsProps> = ({
       // Toggle the camera
       await toggleCamera();
     } catch (error) {
-      console.error('Failed to toggle camera:', error);
+      logger.error('Failed to toggle camera', { error });
     }
   };
 
@@ -93,7 +94,7 @@ export const ChatControls: React.FC<ChatControlsProps> = ({
     try {
       await sendInterrupt();
     } catch (error) {
-      console.error('Failed to send interrupt:', error);
+      logger.error('Failed to send interrupt', { error });
     }
   };
 

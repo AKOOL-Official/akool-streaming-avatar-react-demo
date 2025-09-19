@@ -6,8 +6,16 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:react-hooks/recommended'
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs'],
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'vite.config.ts', 'vitest.config.ts'],
   parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: './tsconfig.json',
+    ecmaVersion: 2020,
+    sourceType: 'module',
+    ecmaFeatures: {
+      jsx: true,
+    },
+  },
   plugins: ['react-refresh'],
   rules: {
     'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
@@ -19,10 +27,17 @@ module.exports = {
         caughtErrorsIgnorePattern: '^_',
       },
     ],
-    // Allow any type in specific scenarios
-    '@typescript-eslint/no-explicit-any': 'warn',
+    // Prevent console usage in production code
+    'no-console': 'error',
+    // Strict any type restrictions
+    '@typescript-eslint/no-explicit-any': 'error',
     // Allow non-null assertions in tests
     '@typescript-eslint/no-non-null-assertion': 'warn',
+    // Additional type safety rules
+    '@typescript-eslint/no-unsafe-assignment': 'error',
+    '@typescript-eslint/no-unsafe-call': 'error',
+    '@typescript-eslint/no-unsafe-member-access': 'error',
+    '@typescript-eslint/no-unsafe-return': 'error',
   },
   overrides: [
     {

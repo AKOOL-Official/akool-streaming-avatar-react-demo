@@ -9,6 +9,7 @@ import {
   VideoConfig,
   AudioConfig,
   StreamProviderType,
+  ConnectionQuality,
 } from '../../types/streaming.types';
 import { StreamingError, ErrorCode } from '../../types/error.types';
 import { SystemMessageEvent, ChatMessageEvent, CommandEvent } from '../../types/provider.interfaces';
@@ -477,8 +478,29 @@ export class LiveKitStreamingProvider implements StreamingProvider {
       onNetworkStatsUpdate: (stats) => {
         // Store both connection quality and detailed stats
         this.updateState({
-          networkQuality: stats.connectionQuality,
-          detailedNetworkStats: stats.detailedStats,
+          networkQuality: stats.connectionQuality as ConnectionQuality,
+          detailedNetworkStats: stats.detailedStats as {
+            video?: {
+              codec?: string;
+              bitrate?: number;
+              frameRate?: number;
+              resolution?: { width: number; height: number };
+              packetLoss?: number;
+              rtt?: number;
+            };
+            audio?: {
+              codec?: string;
+              bitrate?: number;
+              packetLoss?: number;
+              rtt?: number;
+            };
+            network?: {
+              rtt: number;
+              packetLoss: number;
+              uplinkQuality: number;
+              downlinkQuality: number;
+            };
+          },
         });
       },
       onError: (error) => {

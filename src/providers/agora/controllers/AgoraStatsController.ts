@@ -47,8 +47,24 @@ export class AgoraStatsController extends BaseStatsController {
       const videoStats = this.client.getRemoteVideoStats();
       const audioStats = this.client.getRemoteAudioStats();
 
-      const firstVideoStats = (Object.values(videoStats)[0] as any) || {};
-      const firstAudioStats = (Object.values(audioStats)[0] as any) || {};
+      const firstVideoStats =
+        (Object.values(videoStats)[0] as {
+          end2EndDelay?: number;
+          packetLossRate?: number;
+          codecType?: string;
+          receiveBitrate?: number;
+          receiveFrameRate?: number;
+          receiveResolutionWidth?: number;
+          receiveResolutionHeight?: number;
+        }) || {};
+      const firstAudioStats =
+        (Object.values(audioStats)[0] as {
+          end2EndDelay?: number;
+          packetLossRate?: number;
+          codecType?: string;
+          receiveBitrate?: number;
+          receiveLevel?: number;
+        }) || {};
 
       // Calculate RTT from video/audio stats (end2EndDelay is the most accurate RTT measurement)
       const videoRtt = firstVideoStats?.end2EndDelay || 0;
@@ -89,8 +105,8 @@ export class AgoraStatsController extends BaseStatsController {
           bitrate: firstVideoStats?.receiveBitrate,
           frameRate: firstVideoStats?.receiveFrameRate,
           resolution: {
-            width: firstVideoStats?.receiveResolutionWidth,
-            height: firstVideoStats?.receiveResolutionHeight,
+            width: firstVideoStats?.receiveResolutionWidth || 0,
+            height: firstVideoStats?.receiveResolutionHeight || 0,
           },
           packetLoss: firstVideoStats?.packetLossRate,
           rtt: firstVideoStats?.end2EndDelay,

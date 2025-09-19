@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { AIDenoiserExtension, AIDenoiserProcessorMode, IAIDenoiserProcessor } from 'agora-extension-ai-denoiser';
 import AgoraRTC, { IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
+import { logger } from '../core/Logger';
 
 // Register the extension globally when the module loads
 const aiDenoiser = new AIDenoiserExtension({
@@ -27,14 +28,16 @@ export const useNoiseReduction = () => {
 
       // Set up event listeners for processor
       processor.onoverload = (elapsedTime: number) => {
-        console.warn(`AI Denoiser overload detected: ${elapsedTime}ms processing time`);
+        logger.warn(`AI Denoiser overload detected: ${elapsedTime}ms processing time`);
         // Optionally switch to stationary noise reduction mode
-        processor.setMode(AIDenoiserProcessorMode.STATIONARY_NS).catch(console.error);
+        processor.setMode(AIDenoiserProcessorMode.STATIONARY_NS).catch((error: unknown) => {
+          logger.error('Failed to switch to stationary mode', { error });
+        });
       };
 
       // Set up dump event listeners
       processor.ondump = (blob: Blob, name: string) => {
-        console.log(`Audio dump received: ${name}`);
+        logger.info(`Audio dump received: ${name}`);
         // Create download link for the audio file
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -47,7 +50,7 @@ export const useNoiseReduction = () => {
       };
 
       processor.ondumpend = () => {
-        console.log('Audio dump completed');
+        logger.info('Audio dump completed');
         setIsDumping(false);
       };
 
@@ -55,7 +58,7 @@ export const useNoiseReduction = () => {
       setIsInitialized(true);
       return processor;
     } catch (error) {
-      console.error('Failed to initialize AI Denoiser processor:', error);
+      logger.error('Failed to initialize AI Denoiser processor', { error });
       throw error;
     }
   }, []);
@@ -83,7 +86,7 @@ export const useNoiseReduction = () => {
 
         return true;
       } catch (error) {
-        console.error('Failed to apply noise reduction to audio track:', error);
+        logger.error('Failed to apply noise reduction to audio track', { error });
         return false;
       }
     },
@@ -93,7 +96,7 @@ export const useNoiseReduction = () => {
   // Toggle noise reduction on/off
   const toggleNoiseReduction = useCallback(async () => {
     if (!processorRef.current) {
-      console.warn('Noise reduction processor not initialized - please enable microphone first');
+      logger.warn('Noise reduction processor not initialized - please enable microphone first');
       return;
     }
 
@@ -108,28 +111,28 @@ export const useNoiseReduction = () => {
 
       setNoiseReductionEnabled(newState);
     } catch (error) {
-      console.error('Failed to toggle noise reduction:', error);
+      logger.error('Failed to toggle noise reduction', { error });
     }
   }, [noiseReductionEnabled]);
 
   // Dump audio data for analysis
   const dumpAudio = useCallback(async () => {
     if (!processorRef.current || !isInitialized) {
-      console.warn('Noise reduction processor not initialized');
+      logger.warn('Noise reduction processor not initialized');
       return;
     }
 
     if (isDumping) {
-      console.warn('Audio dump already in progress');
+      logger.warn('Audio dump already in progress');
       return;
     }
 
     try {
       setIsDumping(true);
       processorRef.current.dump();
-      console.log('Audio dump started - will download 9 audio files automatically');
+      logger.info('Audio dump started - will download 9 audio files automatically');
     } catch (error) {
-      console.error('Failed to start audio dump:', error);
+      logger.error('Failed to start audio dump', { error });
       setIsDumping(false);
     }
   }, [isInitialized, isDumping]);
@@ -145,7 +148,7 @@ export const useNoiseReduction = () => {
       setIsInitialized(false);
       setIsDumping(false);
     } catch (error) {
-      console.error('Failed to cleanup noise reduction processor:', error);
+      logger.error('Failed to cleanup noise reduction processor', { error });
     }
   }, []);
 

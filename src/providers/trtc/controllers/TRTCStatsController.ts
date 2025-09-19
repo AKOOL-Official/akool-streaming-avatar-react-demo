@@ -1,7 +1,66 @@
 import { logger } from '../../../core/Logger';
 import { NetworkStats } from '../../../components/NetworkQuality';
-import { TRTCNetworkQuality, TRTCLocalStatistics, TRTCRemoteStatistics, TRTCStatsControllerCallbacks } from '../types';
+import {
+  TRTCNetworkQuality,
+  TRTCLocalStatistics,
+  TRTCRemoteStatistics,
+  TRTCStatsControllerCallbacks,
+  TRTCLocalStats,
+  TRTCRemoteStats,
+} from '../types';
 import TRTC, { NetworkQuality, TRTCStatistics } from 'trtc-sdk-v5';
+
+// TRTC SDK NetworkQuality interface (based on actual SDK structure)
+interface TRTCNetworkQualityData {
+  uplinkNetworkQuality: number;
+  downlinkNetworkQuality: number;
+  downlinkRTT?: number;
+  uplinkRTT?: number;
+  downlinkLoss?: number;
+  uplinkLoss?: number;
+}
+
+// Detailed stats interface for TRTC
+interface TRTCDetailedStats {
+  localAudio?: TRTCLocalStats;
+  localVideo?: TRTCLocalStats;
+  remoteAudio?: Record<string, TRTCRemoteStats>;
+  remoteVideo?: Record<string, TRTCRemoteStats>;
+  video?: {
+    codecType?: string;
+    transportDelay?: number;
+    end2EndDelay?: number;
+    receiveDelay?: number;
+    receiveFrameRate?: number;
+    receiveResolutionWidth?: number;
+    receiveResolutionHeight?: number;
+    receiveBitrate?: number;
+    packetLossRate?: number;
+    totalFreezeTime?: number;
+    freezeRate?: number;
+    sendFrameRate?: number;
+    sendResolutionWidth?: number;
+    sendResolutionHeight?: number;
+    sendBitrate?: number;
+    jitterBufferDelay?: number;
+  };
+  audio?: {
+    codecType?: string;
+    transportDelay?: number;
+    end2EndDelay?: number;
+    receiveDelay?: number;
+    receiveBitrate?: number;
+    packetLossRate?: number;
+    sendBitrate?: number;
+    jitterBufferDelay?: number;
+  };
+  network?: {
+    rtt: number;
+    packetLoss: number;
+    uplinkQuality: number;
+    downlinkQuality: number;
+  };
+}
 
 export class TRTCStatsController {
   private client: TRTC;
@@ -102,7 +161,10 @@ export class TRTCStatsController {
           audioBitrate: stats.localStatistics.audio?.bitrate || 0,
           streamType: 0,
         };
-        this.callbacks.onLocalStatsUpdate?.(this.localStats);
+        const convertedStats = this.convertLocalStatsToTRTCLocalStats(this.localStats);
+        if (convertedStats) {
+          this.callbacks.onLocalStatsUpdate?.(convertedStats);
+        }
       }
 
       if (stats.remoteStatistics) {
@@ -125,7 +187,7 @@ export class TRTCStatsController {
             videoBlockRate: 0,
           };
           this.remoteStats.set(stat.userId, remoteStats);
-          this.callbacks.onRemoteStatsUpdate?.(stat.userId, remoteStats);
+          this.callbacks.onRemoteStatsUpdate?.(stat.userId, this.convertRemoteStatsToTRTCRemoteStats(remoteStats));
         });
       }
 
@@ -166,15 +228,16 @@ export class TRTCStatsController {
     // Network quality mapping - handle both old and new data structures
     if (networkQuality) {
       // Check if it's the new data structure from logs
-      if ('uplinkNetworkQuality' in networkQuality) {
+      if ('uplinkNetworkQuality' in networkQuality && 'downlinkNetworkQuality' in networkQuality) {
+        const qualityData = networkQuality as unknown as TRTCNetworkQualityData;
         baseStats.localNetwork = {
-          uplinkNetworkQuality: (networkQuality as any).uplinkNetworkQuality,
-          downlinkNetworkQuality: (networkQuality as any).downlinkNetworkQuality,
+          uplinkNetworkQuality: qualityData.uplinkNetworkQuality,
+          downlinkNetworkQuality: qualityData.downlinkNetworkQuality,
         };
 
         baseStats.connection = {
-          roundTripTime: (networkQuality as any).downlinkRTT || (networkQuality as any).uplinkRTT || 0,
-          packetLossRate: (networkQuality as any).downlinkLoss || (networkQuality as any).uplinkLoss || 0,
+          roundTripTime: qualityData.downlinkRTT || qualityData.uplinkRTT || 0,
+          packetLossRate: qualityData.downlinkLoss || qualityData.uplinkLoss || 0,
         };
       } else {
         // Old data structure
@@ -256,7 +319,9 @@ export class TRTCStatsController {
     }
 
     // Add detailed stats for comprehensive metrics display
-    baseStats.detailedStats = this.createDetailedStats(networkQuality, localStats, remoteStats);
+    baseStats.detailedStats = this.convertDetailedStatsToNetworkStatsFormat(
+      this.createDetailedStats(networkQuality, localStats, remoteStats),
+    );
 
     return baseStats;
   }
@@ -266,35 +331,31 @@ export class TRTCStatsController {
     localStats: TRTCLocalStatistics | null,
     remoteStats: Map<string, TRTCRemoteStatistics>,
   ) {
-    const detailedStats: any = {};
+    const detailedStats: TRTCDetailedStats = {};
 
     // Video detailed stats - prioritize remote stats for better metrics
     if (remoteStats.size > 0) {
       const primaryRemote = Array.from(remoteStats.values())[0];
       if (primaryRemote) {
         detailedStats.video = {
-          codec: 'H264', // TRTC typically uses H264
-          bitrate: primaryRemote.videoBitrate || 0,
-          frameRate: primaryRemote.frameRate || 0,
-          resolution: {
-            width: primaryRemote.width || 0,
-            height: primaryRemote.height || 0,
-          },
-          packetLoss: this.getNetworkQualityLoss(networkQuality),
-          rtt: this.getNetworkQualityRTT(networkQuality),
+          codecType: 'H264', // TRTC typically uses H264
+          receiveBitrate: primaryRemote.videoBitrate || 0,
+          receiveFrameRate: primaryRemote.frameRate || 0,
+          receiveResolutionWidth: primaryRemote.width || 0,
+          receiveResolutionHeight: primaryRemote.height || 0,
+          packetLossRate: this.getNetworkQualityLoss(networkQuality),
+          transportDelay: this.getNetworkQualityRTT(networkQuality),
         };
       }
     } else if (localStats) {
       detailedStats.video = {
-        codec: 'H264',
-        bitrate: localStats.videoBitrate || 0,
-        frameRate: localStats.frameRate || 0,
-        resolution: {
-          width: localStats.width || 0,
-          height: localStats.height || 0,
-        },
-        packetLoss: this.getNetworkQualityLoss(networkQuality),
-        rtt: this.getNetworkQualityRTT(networkQuality),
+        codecType: 'H264',
+        sendBitrate: localStats.videoBitrate || 0,
+        sendFrameRate: localStats.frameRate || 0,
+        sendResolutionWidth: localStats.width || 0,
+        sendResolutionHeight: localStats.height || 0,
+        packetLossRate: this.getNetworkQualityLoss(networkQuality),
+        transportDelay: this.getNetworkQualityRTT(networkQuality),
       };
     }
 
@@ -303,20 +364,18 @@ export class TRTCStatsController {
       const primaryRemote = Array.from(remoteStats.values())[0];
       if (primaryRemote) {
         detailedStats.audio = {
-          codec: 'OPUS', // TRTC typically uses OPUS
-          bitrate: primaryRemote.audioBitrate || 0,
-          packetLoss: this.getNetworkQualityLoss(networkQuality),
-          volume: 0, // TRTC doesn't provide volume in stats
-          rtt: this.getNetworkQualityRTT(networkQuality),
+          codecType: 'OPUS', // TRTC typically uses OPUS
+          receiveBitrate: primaryRemote.audioBitrate || 0,
+          packetLossRate: this.getNetworkQualityLoss(networkQuality),
+          transportDelay: this.getNetworkQualityRTT(networkQuality),
         };
       }
     } else if (localStats) {
       detailedStats.audio = {
-        codec: 'OPUS',
-        bitrate: localStats.audioBitrate || 0,
-        packetLoss: this.getNetworkQualityLoss(networkQuality),
-        volume: 0,
-        rtt: this.getNetworkQualityRTT(networkQuality),
+        codecType: 'OPUS',
+        sendBitrate: localStats.audioBitrate || 0,
+        packetLossRate: this.getNetworkQualityLoss(networkQuality),
+        transportDelay: this.getNetworkQualityRTT(networkQuality),
       };
     }
 
@@ -325,6 +384,8 @@ export class TRTCStatsController {
       detailedStats.network = {
         rtt: this.getNetworkQualityRTT(networkQuality),
         packetLoss: this.getNetworkQualityLoss(networkQuality),
+        uplinkQuality: networkQuality?.txQuality || 0,
+        downlinkQuality: networkQuality?.rxQuality || 0,
       };
     }
 
@@ -335,8 +396,9 @@ export class TRTCStatsController {
     if (!networkQuality) return 0;
 
     // Handle both old and new data structures
-    if ('downlinkRTT' in networkQuality) {
-      return (networkQuality as any).downlinkRTT || (networkQuality as any).uplinkRTT || 0;
+    if ('downlinkRTT' in networkQuality && 'uplinkNetworkQuality' in networkQuality) {
+      const qualityData = networkQuality as unknown as TRTCNetworkQualityData;
+      return qualityData.downlinkRTT || qualityData.uplinkRTT || 0;
     }
     return networkQuality.delay || 0;
   }
@@ -345,13 +407,131 @@ export class TRTCStatsController {
     if (!networkQuality) return 0;
 
     // Handle both old and new data structures
-    if ('downlinkLoss' in networkQuality) {
-      return (networkQuality as any).downlinkLoss || (networkQuality as any).uplinkLoss || 0;
+    if ('downlinkLoss' in networkQuality && 'uplinkNetworkQuality' in networkQuality) {
+      const qualityData = networkQuality as unknown as TRTCNetworkQualityData;
+      return qualityData.downlinkLoss || qualityData.uplinkLoss || 0;
     }
     return networkQuality.lossRate || 0;
   }
 
   // Note: mapQualityFromRTT function removed as SPEED_TEST event is not available
+
+  private convertLocalStatsToTRTCLocalStats(localStats: TRTCLocalStatistics | null): TRTCLocalStats | null {
+    if (!localStats) return null;
+
+    return {
+      audioLevel: 0, // TRTC doesn't provide audio level
+      audioEnergy: 0, // TRTC doesn't provide audio energy
+      audioVolume: 0, // TRTC doesn't provide audio volume
+      audioBitrate: localStats.audioBitrate || 0,
+      audioPacketLossRate: 0, // TRTC doesn't provide packet loss for local audio
+      videoBitrate: localStats.videoBitrate || 0,
+      videoFrameRate: localStats.frameRate || 0,
+      videoWidth: localStats.width || 0,
+      videoHeight: localStats.height || 0,
+      videoPacketLossRate: 0, // TRTC doesn't provide packet loss for local video
+      rtt: 0, // RTT is provided separately
+      cpuUsage: 0, // TRTC doesn't provide CPU usage
+      memoryUsage: 0, // TRTC doesn't provide memory usage
+    };
+  }
+
+  private convertRemoteStatsToTRTCRemoteStats(remoteStats: TRTCRemoteStatistics): TRTCRemoteStats {
+    return {
+      userId: remoteStats.userId,
+      audioLevel: 0, // TRTC doesn't provide audio level
+      audioEnergy: 0, // TRTC doesn't provide audio energy
+      audioVolume: 0, // TRTC doesn't provide audio volume
+      audioBitrate: remoteStats.audioBitrate || 0,
+      audioPacketLossRate: 0, // TRTC doesn't provide packet loss for remote audio
+      videoBitrate: remoteStats.videoBitrate || 0,
+      videoFrameRate: remoteStats.frameRate || 0,
+      videoWidth: remoteStats.width || 0,
+      videoHeight: remoteStats.height || 0,
+      videoPacketLossRate: 0, // TRTC doesn't provide packet loss for remote video
+      rtt: 0, // RTT is provided separately
+      cpuUsage: 0, // TRTC doesn't provide CPU usage
+      memoryUsage: 0, // TRTC doesn't provide memory usage
+    };
+  }
+
+  private convertDetailedStatsToNetworkStatsFormat(detailedStats: TRTCDetailedStats): {
+    video?: {
+      codec?: string;
+      bitrate?: number;
+      frameRate?: number;
+      resolution?: { width: number; height: number };
+      packetLoss?: number;
+      rtt?: number;
+    };
+    audio?: {
+      codec?: string;
+      bitrate?: number;
+      packetLoss?: number;
+      volume?: number;
+      rtt?: number;
+    };
+    network?: {
+      rtt: number;
+      packetLoss: number;
+      uplinkQuality: number;
+      downlinkQuality: number;
+    };
+  } {
+    const result: {
+      video?: {
+        codec?: string;
+        bitrate?: number;
+        frameRate?: number;
+        resolution?: { width: number; height: number };
+        packetLoss?: number;
+        rtt?: number;
+      };
+      audio?: {
+        codec?: string;
+        bitrate?: number;
+        packetLoss?: number;
+        volume?: number;
+        rtt?: number;
+      };
+      network?: {
+        rtt: number;
+        packetLoss: number;
+        uplinkQuality: number;
+        downlinkQuality: number;
+      };
+    } = {};
+
+    if (detailedStats.video) {
+      result.video = {
+        codec: detailedStats.video.codecType,
+        bitrate: detailedStats.video.receiveBitrate || detailedStats.video.sendBitrate,
+        frameRate: detailedStats.video.receiveFrameRate || detailedStats.video.sendFrameRate,
+        resolution: {
+          width: detailedStats.video.receiveResolutionWidth || detailedStats.video.sendResolutionWidth || 0,
+          height: detailedStats.video.receiveResolutionHeight || detailedStats.video.sendResolutionHeight || 0,
+        },
+        packetLoss: detailedStats.video.packetLossRate,
+        rtt: detailedStats.video.transportDelay,
+      };
+    }
+
+    if (detailedStats.audio) {
+      result.audio = {
+        codec: detailedStats.audio.codecType,
+        bitrate: detailedStats.audio.receiveBitrate || detailedStats.audio.sendBitrate,
+        packetLoss: detailedStats.audio.packetLossRate,
+        volume: 0, // TRTC doesn't provide volume
+        rtt: detailedStats.audio.transportDelay,
+      };
+    }
+
+    if (detailedStats.network) {
+      result.network = detailedStats.network;
+    }
+
+    return result;
+  }
 
   async startCollecting(): Promise<void> {
     try {

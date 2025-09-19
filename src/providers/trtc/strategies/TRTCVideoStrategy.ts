@@ -120,7 +120,7 @@ export class TRTCVideoStrategy implements VideoStrategy {
   async setVideoQuality(track: VideoTrack, quality: 'low' | 'medium' | 'high'): Promise<void> {
     try {
       const params = this.mapQualityToParams(quality);
-      await this.client.updateLocalVideo({ option: params });
+      await this.client.updateLocalVideo({ option: params as Record<string, string> });
 
       logger.info('TRTC video quality set', { trackId: track.id, quality, params });
     } catch (error) {
@@ -129,7 +129,7 @@ export class TRTCVideoStrategy implements VideoStrategy {
     }
   }
 
-  private mapQualityToParams(quality: 'low' | 'medium' | 'high'): any {
+  private mapQualityToParams(quality: 'low' | 'medium' | 'high'): Record<string, unknown> {
     switch (quality) {
       case 'low':
         return {

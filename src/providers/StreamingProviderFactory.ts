@@ -71,7 +71,11 @@ export class StreamingProviderFactory {
   private async loadProviderModule(type: StreamProviderType): Promise<ProviderModule> {
     // Check if already loaded
     if (this.loadedProviders.has(type)) {
-      return this.loadedProviders.get(type)!;
+      const provider = this.loadedProviders.get(type);
+      if (!provider) {
+        throw new Error(`Loaded provider not found for type: ${type}`);
+      }
+      return provider;
     }
 
     // Get loader

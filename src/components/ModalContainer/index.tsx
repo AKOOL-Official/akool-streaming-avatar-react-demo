@@ -1,5 +1,5 @@
 import React from 'react';
-import { useModal } from '../../contexts/ModalContext';
+import { useModal } from '../../contexts/useModal';
 import { useConfigurationStore } from '../../stores/configurationStore';
 import JsonEditorModal from '../JsonEditorModal';
 import VoiceSelectorDialog from '../VoiceSelectorDialog';

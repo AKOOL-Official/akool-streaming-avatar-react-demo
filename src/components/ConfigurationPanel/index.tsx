@@ -3,7 +3,7 @@ import { ApiService, Language, Avatar } from '../../apiService';
 import { useConfigurationStore } from '../../stores/configurationStore';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useStreamingContext } from '../../hooks/useStreamingContext';
-import { useModal } from '../../contexts/ModalContext';
+import { useModal } from '../../contexts/useModal';
 import { ProviderSelector } from '../ProviderSelector';
 import AvatarSelector from '../AvatarSelector';
 import './styles.css';
