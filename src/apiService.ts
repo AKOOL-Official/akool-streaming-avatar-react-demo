@@ -71,14 +71,8 @@ export class ApiService {
       throw new Error('Invalid API response: missing or invalid msg');
     }
 
-    if (!('data' in obj)) {
-      throw new Error('Invalid API response: missing data');
-    }
-
-    // Create a properly typed response object
     const code = obj.code as number;
     const msg = obj.msg as string;
-    const data = obj.data;
 
     if (code != 1000) {
       if (this.notificationCallback) {
@@ -86,6 +80,14 @@ export class ApiService {
       }
       throw new Error(msg);
     }
+
+    if (!('data' in obj)) {
+      throw new Error('Invalid API response: missing data');
+    }
+
+    // Create a properly typed response object
+    const data = obj.data;
+
     return data as T;
   }
 
