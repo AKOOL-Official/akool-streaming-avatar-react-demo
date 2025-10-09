@@ -8,7 +8,23 @@ A production-ready React application showcasing Akool's Streaming Avatar service
 
 ## 🏗️ Architecture Overview
 
-This application demonstrates **enterprise-grade architecture** with multi-provider support, clean architecture principles, and comprehensive design patterns.
+This application demonstrates **enterprise-grade architecture** with:
+
+- **Multi-Provider Support**: Seamless switching between Agora, LiveKit, and TRTC
+- **Clean Architecture**: Layered design with clear separation of concerns
+- **Design Patterns**: Strategy, Factory, Provider, Observer, and Controller patterns
+- **Type Safety**: Comprehensive TypeScript implementation with strict typing
+- **Event-Driven**: Reactive updates through EventBus system
+- **Resource Management**: Automatic cleanup and memory management
+- **Testing**: Comprehensive test coverage with modern testing frameworks
+
+### Key Architectural Patterns
+
+- **Strategy Pattern**: Media operations abstracted across providers
+- **Factory Pattern**: Centralized provider creation and management
+- **Provider Pattern**: Unified interface for different streaming SDKs
+- **Observer Pattern**: Event-driven communication throughout the system
+- **Controller Pattern**: Complex logic extracted into focused controllers
 
 📖 **[View Detailed Architecture Documentation →](docs/ARCHITECTURE.md)**
 
@@ -45,6 +61,12 @@ This application demonstrates **enterprise-grade architecture** with multi-provi
 - 🛡️ **Error Recovery** - Robust error handling and automatic reconnection
 - 🧠 **Smart Resource Management** - Automatic cleanup and memory optimization
 - 🔧 **Provider-Agnostic Controls** - Unified interface across different streaming SDKs
+- 🎵 **Enhanced Voice Selection** - Advanced voice preview and selection interface
+- 📝 **JSON Configuration Editor** - Visual configuration management
+- 🔔 **Real-time Notifications** - Toast notifications for system events
+- 🎨 **Draggable UI Components** - Resizable and repositionable interface elements
+- 🧪 **Comprehensive Testing** - 90%+ code coverage with Vitest
+- 📊 **Advanced Analytics** - Detailed performance and usage metrics
 
 ## 🛠 Technology Stack
 
@@ -218,6 +240,11 @@ Authorization: Bearer your_access_token_here
 ```
 src/
 ├── components/          # React UI components
+│   ├── shared/         # Reusable UI components
+│   ├── VideoDisplay/   # Video rendering components
+│   ├── ChatInterface/  # Chat functionality
+│   ├── EnhancedVoiceSelector/ # Advanced voice selection
+│   └── ...            # Other specialized components
 ├── contexts/           # React context providers  
 ├── hooks/              # Custom React hooks
 ├── providers/          # Multi-provider streaming system
@@ -228,26 +255,49 @@ src/
 ├── core/               # Core system utilities
 ├── stores/             # State management (Zustand)
 ├── types/              # TypeScript type definitions
-└── errors/             # Error handling
+├── errors/             # Error handling
+└── __tests__/          # Comprehensive test suite
 ```
 
 📖 **[View Detailed Project Structure →](docs/ARCHITECTURE.md#-project-structure)**
+
+### Enhanced UI Components
+
+The application features a modern, interactive UI with advanced components:
+
+- **Enhanced Voice Selector**: Advanced voice preview and selection with real-time audio feedback
+- **JSON Configuration Editor**: Visual configuration management with Monaco Editor
+- **Draggable Overlays**: Resizable and repositionable interface elements
+- **Real-time Notifications**: Toast notification system for user feedback
+- **Network Quality Display**: Live performance metrics and connection status
+- **Chat Interface**: Modern chat UI with message history and controls
+- **Video Display**: Optimized video rendering with overlay controls
 
 ### Available Scripts
 
 ```bash
 # Development
 pnpm dev              # Start development server
-pnpm dev:https        # Start with HTTPS
+pnpm preview          # Preview production build
 
 # Building
 pnpm build            # Build for development
 pnpm build:prod       # Build for production
-pnpm preview          # Preview production build
+pnpm build:ci         # Build for CI environment
 
 # Code Quality
 pnpm lint             # Run ESLint
 pnpm format           # Run prettier
+pnpm typecheck        # Run TypeScript type checking
+
+# Testing
+pnpm test             # Run tests once
+pnpm test:ui          # Run tests with UI
+pnpm test:coverage    # Run tests with coverage
+pnpm test:watch       # Run tests in watch mode
+
+# Git Hooks
+pnpm prepare          # Setup Husky git hooks
 ```
 
 ### Development Workflow
@@ -255,9 +305,91 @@ pnpm format           # Run prettier
 1. **Fork** the repository
 2. **Create** a feature branch: `git checkout -b feat/amazing-feature`
 3. **Make** your changes and test thoroughly
-4. **Commit** with descriptive messages: `git commit -m 'Add amazing feature'`
-5. **Push** to your branch: `git push origin feat/amazing-feature`
-6. **Create** a Pull Request
+4. **Run quality checks**:
+   ```bash
+   pnpm typecheck  # Type checking
+   pnpm lint       # ESLint checks
+   pnpm format     # Code formatting
+   pnpm test       # Run tests
+   ```
+5. **Commit** with descriptive messages: `git commit -m 'Add amazing feature'`
+6. **Push** to your branch: `git push origin feat/amazing-feature`
+7. **Create** a Pull Request
+
+### Code Quality Standards
+
+- **TypeScript**: Strict mode enabled, never use `any` (use `unknown` instead)
+- **ESLint**: Configured for React + TypeScript with strict rules
+- **Prettier**: Consistent code formatting across the project
+- **Testing**: Maintain 90%+ coverage for core modules, 75%+ for components
+- **Error Handling**: Comprehensive try-catch blocks and error boundaries
+- **No TODOs**: Never leave TODO comments or mock data in production code
+
+## 🧪 Testing
+
+### Testing Framework
+
+This project uses **Vitest** as the primary testing framework with comprehensive coverage and modern testing utilities:
+
+- **Vitest** - Fast unit testing with Vite integration
+- **React Testing Library** - Component testing utilities
+- **Jest DOM** - Custom matchers for DOM testing
+- **User Event** - User interaction simulation
+- **Coverage Reports** - Comprehensive code coverage tracking
+
+### Test Structure
+
+```
+src/__tests__/
+├── core/              # Core system tests
+├── fixtures/          # Test data and fixtures
+├── mocks/             # Mock implementations
+│   └── streamingSdks/ # Provider SDK mocks
+└── setup/             # Test configuration
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm test
+
+# Run tests with UI
+pnpm test:ui
+
+# Run tests with coverage
+pnpm test:coverage
+
+# Run tests in watch mode
+pnpm test:watch
+```
+
+### Coverage Requirements
+
+The project maintains high code coverage with different thresholds:
+
+- **Core Modules** (hooks, providers, core): 90% coverage
+- **UI Components**: 75% coverage
+- **Global Threshold**: 80% coverage
+
+### Test Categories
+
+#### Unit Tests
+- **Component Tests**: UI component behavior and rendering
+- **Hook Tests**: Custom React hooks functionality
+- **Provider Tests**: Streaming provider implementations
+- **Core Tests**: EventBus, Logger, ResourceManager
+
+#### Integration Tests
+- **Provider Switching**: Multi-provider functionality
+- **Error Scenarios**: Network failure and recovery
+- **Performance Tests**: Load and stress testing
+
+### Mock Strategy
+
+- **Provider SDKs**: Complete mock implementations for Agora, LiveKit, and TRTC
+- **Event System**: Mock EventBus for isolated testing
+- **API Services**: Mocked API responses and error scenarios
 
 ## 📊 Network Quality Monitoring
 
