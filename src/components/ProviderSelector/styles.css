@@ -1,0 +1,70 @@
+.provider-selector {
+  width: 100%;
+}
+
+.provider-select {
+  width: 100%;
+  margin-bottom: 0;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #ffffff;
+  font-size: 14px;
+  color: #111827;
+  height: 40px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.provider-select:hover:not(:disabled) {
+  border-color: #9ca3af;
+  background-color: #f9fafb;
+}
+
+.provider-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background-color: #ffffff;
+}
+
+.provider-select:disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.provider-select option:disabled {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .provider-select {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #f9fafb;
+  }
+
+  .provider-select:hover:not(:disabled) {
+    border-color: #4b5563;
+    background-color: #374151;
+  }
+
+  .provider-select:focus {
+    border-color: #3b82f6;
+    background-color: #1f2937;
+  }
+
+  .provider-select:disabled {
+    background-color: #111827;
+    color: #6b7280;
+  }
+
+  .provider-select option:disabled {
+    color: #6b7280;
+  }
+}

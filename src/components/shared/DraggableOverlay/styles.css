@@ -1,0 +1,154 @@
+/* Draggable Overlay Component */
+.draggable-overlay {
+  position: absolute;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  z-index: 10;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.3s ease;
+}
+
+.draggable-overlay:hover {
+  border-color: rgba(64, 150, 255, 0.8);
+  box-shadow: 0 4px 20px rgba(64, 150, 255, 0.3);
+}
+
+.draggable-overlay.dragging {
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+.draggable-overlay.resizing {
+  z-index: 20;
+}
+
+.draggable-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Drag Handle */
+.drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  background: rgba(64, 150, 255, 0.8);
+  border-radius: 12px 0 12px 0;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 15;
+}
+
+.drag-handle:hover {
+  background: rgba(64, 150, 255, 1);
+  transform: scale(1.1);
+}
+
+.drag-handle::before {
+  content: '⋮⋮';
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+/* Resize Handle */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 193, 7, 0.8);
+  border-radius: 0 0 12px 12px;
+  cursor: nw-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 15;
+}
+
+.resize-handle:hover {
+  background: rgba(255, 193, 7, 1);
+  transform: scale(1.1);
+}
+
+.resize-handle::before {
+  content: '⟋';
+  color: white;
+  font-size: 14px;
+  transform: rotate(90deg);
+}
+
+/* Show handles on hover */
+.draggable-overlay:hover .drag-handle,
+.draggable-overlay:hover .resize-handle {
+  opacity: 1;
+}
+
+/* Hide handles when dragging/resizing */
+.draggable-overlay.dragging .resize-handle,
+.draggable-overlay.resizing .drag-handle {
+  opacity: 0;
+}
+
+/* Tooltip */
+.overlay-tooltip {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 30;
+}
+
+.draggable-overlay:hover .overlay-tooltip {
+  opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .draggable-overlay {
+    min-width: 120px;
+    min-height: 90px;
+  }
+
+  .overlay-tooltip {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .draggable-overlay {
+    min-width: 100px;
+    min-height: 75px;
+  }
+
+  .overlay-tooltip {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}

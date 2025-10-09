@@ -1,0 +1,649 @@
+import { Room } from 'livekit-client';
+import { logger } from '../../core/Logger';
+import { globalResourceManager } from '../../core/ResourceManager';
+import { StreamingProvider, StreamingCredentials, StreamingEventHandlers } from '../../types/provider.interfaces';
+import {
+  StreamingState,
+  VideoTrack,
+  AudioTrack,
+  VideoConfig,
+  AudioConfig,
+  StreamProviderType,
+  ConnectionQuality,
+} from '../../types/streaming.types';
+import { StreamingError, ErrorCode } from '../../types/error.types';
+import { SystemMessageEvent, ChatMessageEvent, CommandEvent } from '../../types/provider.interfaces';
+import { ChatMessage, Participant } from '../../types/streaming.types';
+import { NetworkStats } from '../../components/NetworkQuality';
+
+// Import controllers
+import { LiveKitConnectionController } from './controllers/LiveKitConnectionController';
+import { LiveKitEventController, LiveKitEventControllerCallbacks } from './controllers/LiveKitEventController';
+import { LiveKitStatsController, StatsControllerCallbacks } from './controllers/LiveKitStatsController';
+import {
+  LiveKitParticipantController,
+  ParticipantControllerCallbacks,
+} from './controllers/LiveKitParticipantController';
+import { LiveKitAudioController } from './controllers/LiveKitAudioController';
+import { LiveKitVideoController } from './controllers/LiveKitVideoController';
+import { CommonMessageController } from '../common/CommonMessageController';
+import { LiveKitMessageAdapter } from './adapters/LiveKitMessageAdapter';
+import { isLiveKitCredentials, LiveKitCredentials } from './types';
+
+export interface LiveKitProviderConfig {
+  room: Room;
+}
+
+export class LiveKitStreamingProvider implements StreamingProvider {
+  public readonly providerType: StreamProviderType = 'livekit';
+
+  private _state: StreamingState = {
+    isJoined: false,
+    isConnecting: false,
+    isSpeaking: false,
+    participants: [],
+    localParticipant: null,
+    networkQuality: null,
+    error: null,
+  };
+
+  private stateSubscribers = new Set<(state: StreamingState) => void>();
+  private eventHandlers: StreamingEventHandlers = {};
+
+  // Controllers
+  private connectionController: LiveKitConnectionController;
+  private eventController: LiveKitEventController;
+  private statsController: LiveKitStatsController;
+  private participantController: LiveKitParticipantController;
+  private messageController: CommonMessageController;
+  private audioController: LiveKitAudioController;
+  private videoController: LiveKitVideoController;
+
+  private room: Room;
+
+  constructor(config: LiveKitProviderConfig) {
+    this.room = config.room;
+
+    // Initialize controllers
+    this.connectionController = new LiveKitConnectionController(this.room);
+    this.participantController = new LiveKitParticipantController(this.room);
+    this.eventController = new LiveKitEventController(this.room, this.participantController);
+    this.statsController = new LiveKitStatsController(this.room);
+    this.messageController = new CommonMessageController(new LiveKitMessageAdapter(this.room), {
+      maxEncodedSize: 960, // 960 bytes
+      bytesPerSecond: 960 * 6, // 6KB/s
+    });
+    this.audioController = new LiveKitAudioController(this.room);
+    this.videoController = new LiveKitVideoController(this.room);
+
+    this.setupControllerCallbacks();
+
+    // Register with resource manager for cleanup
+    globalResourceManager.registerGlobal({
+      cleanup: () => this.cleanup(),
+      id: `livekit-provider-${Date.now()}`,
+      type: 'LiveKitStreamingProvider',
+    });
+  }
+
+  get state(): StreamingState {
+    return { ...this._state };
+  }
+
+  async connect(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): Promise<void> {
+    try {
+      this.initializeLiveKitConnection(credentials, handlers);
+      const liveKitCredentials = this.mapCredentials(credentials);
+      await this.establishLiveKitConnection(liveKitCredentials);
+      this.finalizeLiveKitConnection();
+      logger.info('LiveKit streaming provider connected successfully');
+    } catch (error) {
+      this.handleLiveKitConnectionError(error);
+    }
+  }
+
+  private initializeLiveKitConnection(credentials: StreamingCredentials, handlers?: StreamingEventHandlers): void {
+    logger.info('Connecting LiveKit streaming provider', {
+      serverUrl: credentials.livekit_url,
+      roomName: credentials.livekit_room_name,
+    });
+
+    this.updateState({ isConnecting: true, error: null });
+    this.eventHandlers = handlers || {};
+  }
+
+  private async establishLiveKitConnection(liveKitCredentials: LiveKitCredentials): Promise<void> {
+    await this.connectionController.connect(liveKitCredentials);
+    this.startEventListening();
+  }
+
+  private finalizeLiveKitConnection(): void {
+    this.updateState({
+      isJoined: true,
+      isConnecting: false,
+      error: null,
+    });
+  }
+
+  private handleLiveKitConnectionError(error: unknown): never {
+    const streamingError =
+      error instanceof StreamingError ? error : new StreamingError(ErrorCode.CONNECTION_FAILED, 'Failed to connect');
+
+    this.updateState({
+      isConnecting: false,
+      isJoined: false,
+      error: streamingError,
+    });
+
+    logger.error('Failed to connect LiveKit streaming provider', {
+      error: streamingError.message,
+      code: streamingError.code,
+    });
+
+    throw streamingError;
+  }
+
+  async disconnect(): Promise<void> {
+    try {
+      logger.info('Disconnecting LiveKit streaming provider');
+
+      this.stopEventListening();
+      await this.connectionController.disconnect();
+
+      // Clear speaking state when disconnecting
+      this.eventHandlers.onSpeakingStateChanged?.(false);
+
+      this.updateState({
+        isJoined: false,
+        isConnecting: false,
+        participants: [],
+        localParticipant: null,
+        networkQuality: null,
+        error: null,
+      });
+
+      logger.info('LiveKit streaming provider disconnected successfully');
+    } catch (error) {
+      logger.error('Error during LiveKit provider disconnect', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Clear speaking state even on error
+      this.eventHandlers.onSpeakingStateChanged?.(false);
+
+      // Still update state to reflect disconnection
+      this.updateState({
+        isJoined: false,
+        isConnecting: false,
+        participants: [],
+        localParticipant: null,
+      });
+    }
+  }
+
+  async enableVideo(config?: VideoConfig): Promise<VideoTrack> {
+    try {
+      logger.info('Enabling video through LiveKit provider');
+      return await this.videoController.enableVideo(config);
+    } catch (error) {
+      logger.error('Failed to enable video', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableVideo(): Promise<void> {
+    try {
+      logger.info('Disabling video through LiveKit provider');
+      await this.videoController.disableVideo();
+    } catch (error) {
+      logger.error('Failed to disable video', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async playVideo(elementId: string): Promise<void> {
+    try {
+      logger.info('Playing video through LiveKit provider', { elementId });
+      await this.videoController.playVideo(elementId);
+    } catch (error) {
+      logger.error('Failed to play video', {
+        error: error instanceof Error ? error.message : String(error),
+        elementId,
+      });
+      throw error;
+    }
+  }
+
+  async stopVideo(): Promise<void> {
+    try {
+      logger.info('Stopping video through LiveKit provider');
+      await this.videoController.stopVideo();
+    } catch (error) {
+      logger.error('Failed to stop video', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async enableAudio(config?: AudioConfig): Promise<AudioTrack> {
+    try {
+      logger.info('Enabling audio through LiveKit provider');
+      return await this.audioController.enableAudio(config);
+    } catch (error) {
+      logger.error('Failed to enable audio', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableAudio(): Promise<void> {
+    try {
+      logger.info('Disabling audio through LiveKit provider');
+      await this.audioController.disableAudio();
+    } catch (error) {
+      logger.error('Failed to disable audio', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async publishVideo(track: VideoTrack): Promise<void> {
+    try {
+      logger.info('Publishing video track', { trackId: track.id });
+      await this.videoController.publishVideo(track);
+    } catch (error) {
+      logger.error('Failed to publish video track', {
+        error: error instanceof Error ? error.message : String(error),
+        trackId: track.id,
+      });
+      throw error;
+    }
+  }
+
+  async unpublishVideo(): Promise<void> {
+    try {
+      logger.info('Unpublishing video track');
+      await this.videoController.unpublishVideo();
+    } catch (error) {
+      logger.error('Failed to unpublish video track', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async publishAudio(track: AudioTrack): Promise<void> {
+    try {
+      logger.info('Publishing audio track', { trackId: track.id });
+      await this.audioController.publishAudio(track);
+    } catch (error) {
+      logger.error('Failed to publish audio track', {
+        error: error instanceof Error ? error.message : String(error),
+        trackId: track.id,
+      });
+      throw error;
+    }
+  }
+
+  async unpublishAudio(): Promise<void> {
+    try {
+      logger.info('Unpublishing audio track');
+      await this.audioController.unpublishAudio();
+    } catch (error) {
+      logger.error('Failed to unpublish audio track', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async sendMessage(content: string): Promise<void> {
+    try {
+      const messageId = `msg-${Date.now()}`;
+      logger.debug('LiveKit provider sending message', { messageId, contentLength: content.length });
+      await this.messageController.sendMessage(messageId, content);
+      logger.info('Message sent successfully via LiveKit provider', { messageId });
+    } catch (error) {
+      logger.error('Failed to send message via LiveKit provider', {
+        error: error instanceof Error ? error.message : String(error),
+        contentLength: content.length,
+        content: content.substring(0, 100), // Log first 100 chars for debugging
+      });
+      throw error;
+    }
+  }
+
+  async sendInterrupt(): Promise<void> {
+    try {
+      logger.info('Sending interrupt command');
+      await this.messageController.interruptResponse();
+    } catch (error) {
+      logger.error('Failed to send interrupt', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async setAvatarParameters(metadata: Record<string, unknown>): Promise<void> {
+    try {
+      logger.info('Setting avatar parameters', { metadata });
+      await this.messageController.setAvatarParameters(metadata);
+    } catch (error) {
+      logger.error('Failed to set avatar parameters', {
+        error: error instanceof Error ? error.message : String(error),
+        metadata,
+      });
+      throw error;
+    }
+  }
+
+  // Audio processing methods
+  async enableNoiseReduction(): Promise<void> {
+    try {
+      logger.info('Enabling noise reduction through LiveKit provider');
+      await this.audioController.enableNoiseReduction();
+    } catch (error) {
+      logger.error('Failed to enable noise reduction', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableNoiseReduction(): Promise<void> {
+    try {
+      logger.info('Disabling noise reduction through LiveKit provider');
+      await this.audioController.disableNoiseReduction();
+      logger.info('Noise reduction disabled');
+    } catch (error) {
+      logger.error('Failed to disable noise reduction', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  // Unified AI Denoiser methods
+  async enableAIDenoiser(config?: import('../../types/streaming.types').AIDenoiserConfig): Promise<void> {
+    try {
+      logger.info('Enabling AI denoiser through LiveKit provider', { config });
+      await this.audioController.enableAIDenoiser(config);
+      logger.info('AI denoiser enabled');
+    } catch (error) {
+      logger.error('Failed to enable AI denoiser', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async updateAIDenoiserMode(mode: import('../../types/streaming.types').AIDenoiserMode): Promise<void> {
+    try {
+      logger.info('Updating AI denoiser mode through LiveKit provider', { mode });
+      await this.audioController.updateAIDenoiserMode(mode);
+      logger.info('AI denoiser mode updated');
+    } catch (error) {
+      logger.error('Failed to update AI denoiser mode', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async disableAIDenoiser(): Promise<void> {
+    try {
+      logger.info('Disabling AI denoiser through LiveKit provider');
+      await this.audioController.disableAIDenoiser();
+      logger.info('AI denoiser disabled');
+    } catch (error) {
+      logger.error('Failed to disable AI denoiser', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async dumpAudio(): Promise<void> {
+    try {
+      logger.info('Starting audio dump through LiveKit provider');
+      await this.audioController.dumpAudio();
+      logger.info('Audio dump completed');
+    } catch (error) {
+      logger.error('Failed to dump audio', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  updateState(partialState: Partial<StreamingState>): void {
+    this._state = { ...this._state, ...partialState };
+
+    logger.debug('Provider state updated', {
+      changes: partialState,
+      newState: this._state,
+    });
+
+    // Notify all subscribers
+    this.stateSubscribers.forEach((callback) => {
+      try {
+        callback(this._state);
+      } catch (error) {
+        logger.error('Error in state subscriber callback', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  }
+
+  subscribe(callback: (state: StreamingState) => void): () => void {
+    this.stateSubscribers.add(callback);
+
+    // Return unsubscribe function
+    return () => {
+      this.stateSubscribers.delete(callback);
+    };
+  }
+
+  private setupControllerCallbacks(): void {
+    // Audio controller callbacks will be set here
+    // Video controller callbacks will be set here
+    // Main controller callbacks are set in startEventListening()
+  }
+
+  private startEventListening(): void {
+    // Event controller callbacks
+    const eventCallbacks: LiveKitEventControllerCallbacks = {
+      onParticipantJoined: (participant) => {
+        const participants = [...this._state.participants];
+        const existingIndex = participants.findIndex((p) => p.id === participant.id);
+
+        if (existingIndex >= 0) {
+          participants[existingIndex] = participant;
+        } else {
+          participants.push(participant);
+        }
+
+        this.updateState({ participants });
+        this.eventHandlers.onParticipantJoined?.(participant);
+      },
+      onParticipantLeft: (participantId) => {
+        const participants = this._state.participants.filter((p) => p.id !== participantId);
+        this.updateState({ participants });
+        this.eventHandlers.onParticipantLeft?.(participantId);
+      },
+      onConnectionQualityChanged: (quality) => {
+        this.updateState({ networkQuality: quality });
+        this.eventHandlers.onConnectionQualityChanged?.(quality);
+      },
+      onNetworkStatsUpdate: (stats) => {
+        // Store both connection quality and detailed stats
+        this.updateState({
+          networkQuality: stats.connectionQuality as ConnectionQuality,
+          detailedNetworkStats: stats.detailedStats as {
+            video?: {
+              codec?: string;
+              bitrate?: number;
+              frameRate?: number;
+              resolution?: { width: number; height: number };
+              packetLoss?: number;
+              rtt?: number;
+            };
+            audio?: {
+              codec?: string;
+              bitrate?: number;
+              packetLoss?: number;
+              rtt?: number;
+            };
+            network?: {
+              rtt: number;
+              packetLoss: number;
+              uplinkQuality: number;
+              downlinkQuality: number;
+            };
+          },
+        });
+      },
+      onError: (error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
+      },
+      onSpeakingStateChanged: (isSpeaking) => {
+        this.eventHandlers.onSpeakingStateChanged?.(isSpeaking);
+      },
+    };
+
+    // Stats controller callbacks
+    const statsCallbacks: StatsControllerCallbacks = {
+      onNetworkStatsUpdate: (stats: NetworkStats) => {
+        this.updateState({
+          networkQuality: stats.connectionQuality,
+          detailedNetworkStats: stats.detailedStats,
+        });
+      },
+      onError: (error: Error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
+      },
+    };
+
+    // Participant controller callbacks
+    const participantCallbacks: ParticipantControllerCallbacks = {
+      onParticipantJoined: (participant: Participant) => {
+        const participants = [...this._state.participants];
+        const existingIndex = participants.findIndex((p) => p.id === participant.id);
+
+        if (existingIndex >= 0) {
+          participants[existingIndex] = participant;
+        } else {
+          participants.push(participant);
+        }
+
+        this.updateState({ participants });
+        this.eventHandlers.onParticipantJoined?.(participant);
+      },
+      onParticipantLeft: (participantId: string) => {
+        const participants = this._state.participants.filter((p) => p.id !== participantId);
+        this.updateState({ participants });
+        this.eventHandlers.onParticipantLeft?.(participantId);
+      },
+      onError: (error: Error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
+      },
+    };
+
+    // Message controller callbacks
+    const messageCallbacks = {
+      onMessageReceived: (message: unknown) => {
+        this.eventHandlers.onMessageReceived?.(message as ChatMessage);
+      },
+      onSystemMessage: (event: unknown) => {
+        this.eventHandlers.onSystemMessage?.(event as SystemMessageEvent);
+      },
+      onChatMessage: (event: unknown) => {
+        this.eventHandlers.onChatMessage?.(event as ChatMessageEvent);
+      },
+      onCommand: (event: unknown) => {
+        this.eventHandlers.onCommand?.(event as CommandEvent);
+      },
+      onError: (error: Error) => {
+        const streamingError =
+          error instanceof StreamingError ? error : new StreamingError(ErrorCode.UNKNOWN_ERROR, error.message);
+        this.updateState({ error: streamingError });
+        this.eventHandlers.onError?.(streamingError);
+      },
+    };
+
+    // Set up all controllers
+    this.eventController.setCallbacks(eventCallbacks);
+    this.statsController.setCallbacks(statsCallbacks);
+    this.participantController.setCallbacks(participantCallbacks);
+    this.messageController.setCallbacks(messageCallbacks);
+
+    // Start event listening and stats collection
+    this.eventController.setupEventListeners();
+    this.statsController.startStatsCollection();
+  }
+
+  private stopEventListening(): void {
+    this.eventController.removeEventListeners();
+    this.statsController.stopStatsCollection();
+    this.messageController.cleanup();
+  }
+
+  private mapCredentials(credentials: StreamingCredentials): LiveKitCredentials {
+    if (!isLiveKitCredentials(credentials)) {
+      throw new StreamingError(ErrorCode.INVALID_CREDENTIALS, 'Invalid LiveKit credentials format');
+    }
+
+    return credentials;
+  }
+
+  // Participant management methods would be used by controller callbacks
+  // Currently commented out until callback system is fully implemented
+
+  async cleanup(): Promise<void> {
+    logger.info('Cleaning up LiveKit provider');
+
+    try {
+      // Stop event listening
+      this.stopEventListening();
+
+      // Cleanup controllers
+      await Promise.all([
+        this.connectionController.cleanup(),
+        this.eventController.cleanup(),
+        this.statsController.cleanup(),
+        this.participantController.cleanup(),
+        this.messageController.cleanup(),
+        this.audioController.cleanup(),
+        this.videoController.cleanup(),
+      ]);
+
+      // Clear state
+      this.stateSubscribers.clear();
+      this.eventHandlers = {};
+
+      logger.info('LiveKit provider cleanup completed');
+    } catch (error) {
+      logger.error('Error during LiveKit provider cleanup', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}

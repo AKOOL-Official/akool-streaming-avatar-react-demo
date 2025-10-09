@@ -1,0 +1,4 @@
+/* ChatInterface main styles - imports all component styles */
+@import './chat-window.css';
+@import './messages.css';
+@import './controls.css';

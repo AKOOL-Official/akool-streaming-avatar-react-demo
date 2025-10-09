@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Avatar, ApiService } from '../../apiService';
-import { log } from '../../agoraHelper';
+import { logger } from '../../core/Logger';
 import './styles.css';
 
 interface AvatarSelectorProps {
@@ -37,7 +37,7 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({
       setRefreshCooldown(true);
       setTimeout(() => setRefreshCooldown(false), 5000);
     } catch (error) {
-      console.error('Error refreshing avatar list:', error);
+      logger.error('Error refreshing avatar list', { error });
     } finally {
       setIsRefreshing(false);
     }
@@ -47,7 +47,7 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({
     setAvatarId(newAvatarId);
     const avatar = avatars.find((a) => a.avatar_id === newAvatarId);
     if (avatar) {
-      log('update avatar video url', avatar.url);
+      logger.info('Update avatar video url', { url: avatar.url });
       setAvatarVideoUrl(avatar.url);
     }
   };

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { RTCClient } from '../agoraHelper';
-import { sendMessageToAvatar } from '../agoraHelper';
+import { useStreamingContext } from './useStreamingContext';
+import { logger } from '../core/Logger';
 
 // System event types enum
 export enum SystemEventType {
@@ -54,9 +54,7 @@ export interface Message {
 }
 
 interface UseMessageStateProps {
-  client: RTCClient;
   connected: boolean;
-  onStreamMessage?: (uid: number, body: Uint8Array) => void;
 }
 
 interface UseMessageStateReturn {
@@ -109,27 +107,16 @@ const shouldShowTimeSeparator = (currentMessage: Message, previousMessage: Messa
   return currentMinute > previousMinute;
 };
 
-export const useMessageState = ({
-  client,
-  connected,
-  onStreamMessage,
-}: UseMessageStateProps): UseMessageStateReturn => {
+export const useMessageState = ({ connected }: UseMessageStateProps): UseMessageStateReturn => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Set up stream message listener
-  useEffect(() => {
-    if (connected && onStreamMessage) {
-      // Store the handler reference so we can remove only this specific listener
-      const messageHandler = onStreamMessage;
-      client.on('stream-message', messageHandler);
-      return () => {
-        // Remove only this specific listener, not all listeners
-        client.off('stream-message', messageHandler);
-      };
-    }
-  }, [client, connected, onStreamMessage]);
+  // Get provider-agnostic send function
+  const { sendMessage: sendMessageToProvider } = useStreamingContext();
+
+  // Stream message listening is now handled by the provider's event system
+  // No direct client dependency needed
 
   const sendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !connected || sending) return;
@@ -150,15 +137,15 @@ export const useMessageState = ({
     setInputMessage('');
 
     try {
-      await sendMessageToAvatar(client, messageId, inputMessage);
+      await sendMessageToProvider(inputMessage);
     } catch (error) {
-      console.error('Failed to send message:', error);
-      // Optionally remove the message from state if sending failed
+      // Remove the message from state if sending failed
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      throw error; // Re-throw so calling component can handle it
     } finally {
       setSending(false);
     }
-  }, [client, connected, inputMessage, sending]);
+  }, [sendMessageToProvider, connected, inputMessage, sending]);
 
   const addMessage = useCallback(
     (
@@ -180,9 +167,9 @@ export const useMessageState = ({
               text,
               sender,
               messageType,
-              systemType,
+              systemType: systemType,
               timestamp: currentTime,
-              metadata,
+              metadata: metadata || {},
             },
           ];
         }
@@ -192,11 +179,14 @@ export const useMessageState = ({
         if (existingMessageIndex !== -1) {
           // Update existing message
           const newMessages = [...prev];
-          newMessages[existingMessageIndex] = {
-            ...newMessages[existingMessageIndex],
-            text: newMessages[existingMessageIndex].text + text,
-            metadata,
-          };
+          const existingMessage = newMessages[existingMessageIndex];
+          if (existingMessage) {
+            newMessages[existingMessageIndex] = {
+              ...existingMessage,
+              text: existingMessage.text + text,
+              metadata: metadata || existingMessage.metadata,
+            };
+          }
           return newMessages;
         }
         // Add new message
@@ -208,7 +198,7 @@ export const useMessageState = ({
             sender,
             messageType,
             timestamp: currentTime,
-            metadata,
+            metadata: metadata || {},
           },
         ];
       });
@@ -225,6 +215,7 @@ export const useMessageState = ({
 
   const addSystemMessage = useCallback(
     (messageId: string, text: string, systemType: SystemEventType, metadata?: Message['metadata']) => {
+      logger.debug('Adding system message', { messageId, text, systemType, metadata });
       addMessage(messageId, text, MessageSender.SYSTEM, MessageType.SYSTEM, systemType, metadata);
     },
     [addMessage],

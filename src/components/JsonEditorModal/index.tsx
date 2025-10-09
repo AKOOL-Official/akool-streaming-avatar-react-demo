@@ -44,7 +44,7 @@ export default function JsonEditorModal({
   const handleSave = () => {
     if (!jsonError) {
       try {
-        const parsed = JSON.parse(editorValue);
+        const parsed = JSON.parse(editorValue) as Record<string, unknown>;
         onChange(parsed);
         setHasChanges(false);
         onClose();
@@ -64,7 +64,7 @@ export default function JsonEditorModal({
 
   const formatJson = () => {
     try {
-      const parsed = JSON.parse(editorValue);
+      const parsed = JSON.parse(editorValue) as Record<string, unknown>;
       const formatted = JSON.stringify(parsed, null, 2);
       setEditorValue(formatted);
       setJsonError('');

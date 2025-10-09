@@ -1,0 +1,328 @@
+import { IAgoraRTCClient, IAgoraRTCRemoteUser, NetworkQuality } from 'agora-rtc-sdk-ng';
+import { logger } from '../../../core/Logger';
+import { ErrorMapper } from '../../../errors/ErrorMapper';
+import { Participant, ConnectionQuality } from '../../../types/streaming.types';
+import { NetworkStats } from '../../../components/NetworkQuality';
+import { BaseEventController, BaseEventControllerCallbacks } from '../../common/controllers/BaseEventController';
+import { BaseParticipantController } from '../../common/controllers/BaseParticipantController';
+import { ErrorHandlingConfig } from '../../../types/error.types';
+
+// Agora-specific event controller callbacks
+export interface AgoraEventControllerCallbacks extends BaseEventControllerCallbacks {
+  onNetworkStatsUpdate?: (stats: NetworkStats) => void;
+}
+
+export class AgoraEventController extends BaseEventController {
+  private client: IAgoraRTCClient;
+  private participantController: BaseParticipantController;
+
+  constructor(
+    client: IAgoraRTCClient,
+    participantController: BaseParticipantController,
+    errorHandlingConfig?: ErrorHandlingConfig,
+  ) {
+    super(errorHandlingConfig);
+    this.client = client;
+    this.participantController = participantController;
+  }
+
+  setCallbacks(callbacks: AgoraEventControllerCallbacks): void {
+    super.setCallbacks(callbacks);
+  }
+
+  setupEventListeners(): void {
+    if (this.isListening) return;
+
+    // User media events
+    this.client.on('user-published', this.handleUserPublished.bind(this));
+    this.client.on('user-unpublished', this.handleUserUnpublished.bind(this));
+    this.client.on('user-joined', this.handleUserJoined.bind(this));
+    this.client.on('user-left', this.handleUserLeft.bind(this));
+
+    // Network quality events
+    this.client.on('network-quality', this.handleNetworkQuality.bind(this));
+
+    // Exception handling
+    this.client.on('exception', this.handleException.bind(this));
+
+    this.isListening = true;
+    logger.info('Started listening to Agora events');
+  }
+
+  removeEventListeners(): void {
+    if (!this.isListening) return;
+
+    this.client.removeAllListeners('user-published');
+    this.client.removeAllListeners('user-unpublished');
+    this.client.removeAllListeners('user-joined');
+    this.client.removeAllListeners('user-left');
+    this.client.removeAllListeners('network-quality');
+    this.client.removeAllListeners('exception');
+
+    this.isListening = false;
+    logger.info('Stopped listening to Agora events');
+  }
+
+  // Event handling methods
+  private async handleUserPublished(
+    user: IAgoraRTCRemoteUser,
+    mediaType: 'video' | 'audio' | 'datachannel',
+  ): Promise<void> {
+    try {
+      this.logEvent('user-published', {
+        uid: user.uid,
+        mediaType,
+      });
+
+      // Subscribe to the user's media
+      await this.client.subscribe(user, mediaType);
+
+      // Handle video tracks specifically
+      if (mediaType === 'video' && user.videoTrack) {
+        // Play the remote video track in the remote video element
+        user.videoTrack.play('remote-video');
+        logger.info('Remote video track playing', { uid: user.uid });
+      }
+
+      // Handle audio tracks specifically
+      if (mediaType === 'audio' && user.audioTrack) {
+        // Play the remote audio track
+        user.audioTrack.play();
+        logger.info('Remote audio track playing', { uid: user.uid });
+      }
+
+      // Update participant with track information
+      const participantId = String(user.uid);
+      const participant = this.participantController.getParticipant(participantId);
+      if (participant) {
+        // Update participant with new track info
+        this.participantController.updateParticipant(participantId, {
+          ...participant,
+          // Track information will be updated by audio/video controllers
+        });
+      }
+    } catch (error) {
+      this.handleEventError(error, 'handleUserPublished');
+    }
+  }
+
+  private handleUserUnpublished(user: IAgoraRTCRemoteUser, mediaType: 'video' | 'audio' | 'datachannel'): void {
+    try {
+      this.logEvent('user-unpublished', {
+        uid: user.uid,
+        mediaType,
+      });
+
+      // Handle video tracks specifically
+      if (mediaType === 'video' && user.videoTrack) {
+        // Stop the remote video track
+        user.videoTrack.stop();
+        logger.info('Remote video track stopped', { uid: user.uid });
+      }
+
+      // Handle audio tracks specifically
+      if (mediaType === 'audio' && user.audioTrack) {
+        // Stop the remote audio track
+        user.audioTrack.stop();
+        logger.info('Remote audio track stopped', { uid: user.uid });
+      }
+
+      // Unsubscribe from the user's media
+      this.client.unsubscribe(user, mediaType);
+
+      // Update participant track information
+      const participantId = String(user.uid);
+      const participant = this.participantController.getParticipant(participantId);
+      if (participant) {
+        // Track information will be updated by audio/video controllers
+        this.participantController.updateParticipant(participantId, {
+          ...participant,
+          // Track information will be cleared by audio/video controllers
+        });
+      }
+    } catch (error) {
+      this.handleEventError(error, 'handleUserUnpublished');
+    }
+  }
+
+  private handleUserJoined(user: IAgoraRTCRemoteUser): void {
+    try {
+      this.logEvent('user-joined', {
+        uid: user.uid,
+      });
+
+      const participant = this.createParticipantFromUser(user);
+      this.participantController.addParticipant(participant);
+    } catch (error) {
+      this.handleEventError(error, 'handleUserJoined');
+    }
+  }
+
+  private handleUserLeft(user: IAgoraRTCRemoteUser, reason: string): void {
+    try {
+      this.logEvent('user-left', {
+        uid: user.uid,
+        reason,
+      });
+
+      const participantId = String(user.uid);
+      this.participantController.removeParticipant(participantId);
+    } catch (error) {
+      this.handleEventError(error, 'handleUserLeft');
+    }
+  }
+
+  private handleNetworkQuality(stats: NetworkQuality): void {
+    try {
+      this.logEvent('network-quality', {
+        uplink: stats.uplinkNetworkQuality,
+        downlink: stats.downlinkNetworkQuality,
+      });
+
+      const connectionQuality = this.convertNetworkQuality(stats);
+      this.updateConnectionQuality(connectionQuality);
+
+      // Create network stats for detailed reporting
+      const networkStats: NetworkStats = {
+        connectionQuality,
+        detailedStats: {
+          network: {
+            rtt: this.estimateRTT(stats),
+            packetLoss: this.estimatePacketLoss(stats),
+          },
+        },
+      };
+
+      this.updateNetworkStats(networkStats);
+    } catch (error) {
+      this.handleEventError(error, 'handleNetworkQuality');
+    }
+  }
+
+  private handleException(e: { code: number; msg: string; uid?: string }): void {
+    try {
+      // Handle audio level warnings as non-critical errors
+      if (e.code === 2002 || e.code === 4002) {
+        // AUDIO_OUTPUT_LEVEL_TOO_LOW and AUDIO_OUTPUT_LEVEL_TOO_LOW_RECOVER
+        logger.warn('Agora audio level warning (non-critical)', {
+          code: e.code,
+          message: e.msg,
+          uid: e.uid,
+        });
+        // Don't call onError for audio level warnings
+        return;
+      }
+
+      this.logEvent('exception', {
+        error: e,
+      });
+
+      const streamingError = ErrorMapper.mapAgoraError(e);
+      this.callbacks.onError?.(streamingError);
+    } catch (error) {
+      this.handleEventError(error, 'handleException');
+    }
+  }
+
+  // Utility methods
+  private createParticipantFromUser(user: IAgoraRTCRemoteUser): Participant {
+    return {
+      id: String(user.uid),
+      displayName: `User ${user.uid}`,
+      isLocal: false,
+      audioTracks: [],
+      videoTracks: [],
+      connectionQuality: { score: 0, uplink: 'poor', downlink: 'poor', rtt: 0, packetLoss: 0 },
+      isSpeaking: false,
+    };
+  }
+
+  private convertNetworkQuality(quality: NetworkQuality): ConnectionQuality {
+    const uplinkScore = this.convertQualityScore(quality.uplinkNetworkQuality);
+    const downlinkScore = this.convertQualityScore(quality.downlinkNetworkQuality);
+    const avgScore = Math.round((uplinkScore + downlinkScore) / 2);
+
+    return {
+      score: avgScore,
+      uplink: this.getQualityLevel(uplinkScore),
+      downlink: this.getQualityLevel(downlinkScore),
+      rtt: this.estimateRTT(quality),
+      packetLoss: this.estimatePacketLoss(quality),
+    };
+  }
+
+  private convertQualityScore(quality: number): number {
+    const qualityScoreMap = new Map([
+      [1, 100], // excellent
+      [2, 75], // good
+      [3, 50], // poor
+      [4, 25], // bad
+      [5, 10], // very bad
+      [6, 0], // down
+    ]);
+
+    return qualityScoreMap.get(quality) ?? 0;
+  }
+
+  private getQualityLevel(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
+    const qualityThresholds = [
+      { min: 80, level: 'excellent' as const },
+      { min: 60, level: 'good' as const },
+      { min: 40, level: 'fair' as const },
+    ];
+
+    for (const threshold of qualityThresholds) {
+      if (score >= threshold.min) {
+        return threshold.level;
+      }
+    }
+
+    return 'poor';
+  }
+
+  private estimateRTT(quality: NetworkQuality): number {
+    const avgQuality = this.calculateAverageQuality(quality);
+    const rttThresholds = [
+      { max: 1, rtt: 30 },
+      { max: 2, rtt: 60 },
+      { max: 3, rtt: 150 },
+      { max: 4, rtt: 300 },
+    ];
+
+    for (const threshold of rttThresholds) {
+      if (avgQuality <= threshold.max) {
+        return threshold.rtt;
+      }
+    }
+
+    return 500;
+  }
+
+  private estimatePacketLoss(quality: NetworkQuality): number {
+    const avgQuality = this.calculateAverageQuality(quality);
+    const packetLossThresholds = [
+      { max: 1, loss: 0 },
+      { max: 2, loss: 1 },
+      { max: 3, loss: 5 },
+      { max: 4, loss: 10 },
+    ];
+
+    for (const threshold of packetLossThresholds) {
+      if (avgQuality <= threshold.max) {
+        return threshold.loss;
+      }
+    }
+
+    return 20;
+  }
+
+  private calculateAverageQuality(quality: NetworkQuality): number {
+    return (quality.uplinkNetworkQuality + quality.downlinkNetworkQuality) / 2;
+  }
+
+  async cleanup(): Promise<void> {
+    this.removeEventListeners();
+    this.callbacks = {};
+    logger.info('Agora event controller cleanup completed');
+  }
+}

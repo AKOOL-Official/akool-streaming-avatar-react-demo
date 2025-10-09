@@ -6,13 +6,39 @@ import ConfigurationPanel from './components/ConfigurationPanel';
 import NetworkQualityDisplay from './components/NetworkQuality';
 import VideoDisplay from './components/VideoDisplay';
 import ChatInterface from './components/ChatInterface';
-import { useAgora } from './contexts/AgoraContext';
-import { useAudioControls } from './hooks/useAudioControls';
-import { useStreaming } from './hooks/useStreaming';
-import { useVideoCamera } from './hooks/useVideoCamera';
+import { NotificationContainer } from './components/NotificationContainer';
+import ModalContainer from './components/ModalContainer';
+
+import { useStreamingContext } from './hooks/useStreamingContext';
+import { useNotifications } from './contexts/NotificationContext';
+import { useProviderAudioControls } from './hooks/useProviderAudioControls';
+import { useStreamingSession } from './hooks/useStreamingSession';
+import { useProviderVideoCamera } from './hooks/useProviderVideoCamera';
+import { useConfigurationStore } from './stores/configurationStore';
 
 const App: React.FC = () => {
-  const { client } = useAgora();
+  // Configuration from store
+  const {
+    openapiHost,
+    openapiToken,
+    avatarId,
+    knowledgeId,
+    sessionDuration,
+    voiceId,
+    voiceUrl,
+    backgroundUrl,
+    language,
+    modeType,
+    voiceParams,
+  } = useConfigurationStore();
+
+  // Provider context
+  const { providerType } = useStreamingContext();
+
+  // Notifications
+  const { showError } = useNotifications();
+
+  // Media controls (now provider-agnostic)
   const {
     micEnabled,
     setMicEnabled,
@@ -22,38 +48,42 @@ const App: React.FC = () => {
     toggleNoiseReduction,
     isDumping,
     dumpAudio,
-  } = useAudioControls();
+  } = useProviderAudioControls();
 
-  const [modeType, setModeType] = useState(Number(import.meta.env.VITE_MODE_TYPE) || 2);
-  const [language, setLanguage] = useState(import.meta.env.VITE_LANGUAGE || 'en');
-  const [voiceId, setVoiceId] = useState(import.meta.env.VITE_VOICE_ID || '');
-  const [backgroundUrl, setBackgroundUrl] = useState(import.meta.env.VITE_BACKGROUND_URL || '');
-  const [voiceUrl, setVoiceUrl] = useState(import.meta.env.VITE_VOICE_URL || '');
-  const [voiceParams, setVoiceParams] = useState<Record<string, unknown>>({});
-
-  const [openapiHost, setOpenapiHost] = useState(import.meta.env.VITE_OPENAPI_HOST || '');
-  const [avatarId, setAvatarId] = useState(import.meta.env.VITE_AVATAR_ID || '');
-  const [knowledgeId, setKnowledgeId] = useState('');
-  const [avatarVideoUrl, setAvatarVideoUrl] = useState(import.meta.env.VITE_AVATAR_VIDEO_URL || '');
-
-  const [openapiToken, setOpenapiToken] = useState(import.meta.env.VITE_OPENAPI_TOKEN || '');
-  const [sessionDuration, setSessionDuration] = useState(10);
+  // Local state for API service and video URL
   const [api, setApi] = useState<ApiService | null>(null);
+  const [avatarVideoUrl] = useState(import.meta.env.VITE_AVATAR_VIDEO_URL || '');
 
   // Ref to store the system message callback
   const systemMessageCallbackRef = useRef<
     ((messageId: string, text: string, systemType: string, metadata?: Record<string, unknown>) => void) | null
   >(null);
 
+  // Initialize API service when credentials change
   useEffect(() => {
     if (openapiHost && openapiToken) {
-      setApi(new ApiService(openapiHost, openapiToken));
+      const apiService = new ApiService(openapiHost, openapiToken);
+      // Set up notification callback for API errors
+      apiService.setNotificationCallback((message, title) => {
+        showError(message, title);
+      });
+      setApi(apiService);
+    } else {
+      setApi(null);
     }
-  }, [openapiHost, openapiToken]);
+  }, [openapiHost, openapiToken, showError]);
 
-  const { cameraEnabled, localVideoTrack, cameraError, toggleCamera, cleanup: cleanupCamera } = useVideoCamera();
+  // Camera controls (now provider-agnostic)
+  const {
+    cameraEnabled,
+    localVideoTrack,
+    cameraError,
+    toggleCamera,
+    cleanup: cleanupCamera,
+  } = useProviderVideoCamera();
 
-  const { isJoined, connected, remoteStats, startStreaming, closeStreaming } = useStreaming(
+  // Unified streaming hook - now uses store configuration
+  const { isJoined, connected, startStreaming, closeStreaming } = useStreamingSession({
     avatarId,
     knowledgeId,
     sessionDuration,
@@ -65,61 +95,42 @@ const App: React.FC = () => {
     voiceParams,
     api,
     localVideoTrack,
-    systemMessageCallbackRef.current || undefined,
-  );
+    providerType,
+  });
 
-  // Auto-cleanup media devices when streaming stops
+  // Auto-cleanup media devices when streaming stops or component unmounts
   useEffect(() => {
     if (!connected) {
       // Cleanup both audio and video when streaming stops
-      if (micEnabled) {
-        cleanupAudio();
-      }
-      if (cameraEnabled) {
-        cleanupCamera();
-      }
-    }
-  }, [connected, micEnabled, cameraEnabled, cleanupAudio, cleanupCamera]);
-
-  // Cleanup on component unmount
-  useEffect(() => {
-    return () => {
       cleanupAudio();
       cleanupCamera();
+    }
+  }, [connected, cleanupAudio, cleanupCamera]);
+
+  // Cleanup on component unmount only
+  const cleanupAudioRef = useRef(cleanupAudio);
+  const cleanupCameraRef = useRef(cleanupCamera);
+
+  // Update refs when cleanup functions change
+  cleanupAudioRef.current = cleanupAudio;
+  cleanupCameraRef.current = cleanupCamera;
+
+  useEffect(() => {
+    return () => {
+      cleanupAudioRef.current();
+      cleanupCameraRef.current();
     };
-  }, [cleanupAudio, cleanupCamera]);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   return (
     <>
       <ConfigurationPanel
-        openapiHost={openapiHost}
-        setOpenapiHost={setOpenapiHost}
-        openapiToken={openapiToken}
-        setOpenapiToken={setOpenapiToken}
-        sessionDuration={sessionDuration}
-        setSessionDuration={setSessionDuration}
-        modeType={modeType}
-        setModeType={setModeType}
-        avatarId={avatarId}
-        setAvatarId={setAvatarId}
-        voiceId={voiceId}
-        setVoiceId={setVoiceId}
-        language={language}
-        setLanguage={setLanguage}
-        backgroundUrl={backgroundUrl}
-        setBackgroundUrl={setBackgroundUrl}
-        voiceUrl={voiceUrl}
-        setVoiceUrl={setVoiceUrl}
-        knowledgeId={knowledgeId}
-        setKnowledgeId={setKnowledgeId}
-        voiceParams={voiceParams}
-        setVoiceParams={setVoiceParams}
         isJoined={isJoined}
         startStreaming={startStreaming}
         closeStreaming={closeStreaming}
         api={api}
-        setAvatarVideoUrl={setAvatarVideoUrl}
       />
+
       <div className="right-side">
         <VideoDisplay
           isJoined={isJoined}
@@ -127,8 +138,8 @@ const App: React.FC = () => {
           localVideoTrack={localVideoTrack}
           cameraEnabled={cameraEnabled}
         />
+
         <ChatInterface
-          client={client}
           connected={connected}
           micEnabled={micEnabled}
           setMicEnabled={setMicEnabled}
@@ -144,8 +155,14 @@ const App: React.FC = () => {
             systemMessageCallbackRef.current = callback;
           }}
         />
-        <div>{isJoined && remoteStats && <NetworkQualityDisplay stats={remoteStats} />}</div>
+
+        {isJoined && <NetworkQualityDisplay />}
       </div>
+
+      <NotificationContainer />
+
+      {/* Modal Container - Renders all modals at App level for proper centering */}
+      <ModalContainer api={api} />
     </>
   );
 };

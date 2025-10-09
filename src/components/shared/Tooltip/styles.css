@@ -1,0 +1,50 @@
+/* Tooltip styles */
+.tooltip {
+  pointer-events: none;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.tooltip-content {
+  background: #2c3e50;
+  color: #ecf0f1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid #34495e;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Code variant */
+.tooltip-code .tooltip-content {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  border-color: #3c3c3c;
+}
+
+.tooltip-code .tooltip-content pre {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
+  color: #bdc3c7;
+}
+
+/* Help variant */
+.tooltip-help .tooltip-content {
+  background: #4a90e2;
+  color: white;
+  border-color: #357abd;
+  max-width: 250px;
+}
+
+/* Default tooltip pre styles */
+.tooltip-content pre {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
+  color: #bdc3c7;
+}

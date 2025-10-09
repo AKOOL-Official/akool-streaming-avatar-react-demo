@@ -1,0 +1,108 @@
+/* Resizable container */
+.resizable-container {
+  display: flex;
+  flex-direction: column;
+  transition: height 0.1s ease;
+}
+
+/* Resize handle */
+.resize-handle {
+  height: 20px;
+  background: #f8f9fa;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  position: relative;
+  border-bottom: 1px solid #e9ecef;
+  z-index: 10;
+  width: 100%;
+}
+
+.resize-handle:hover {
+  background: #e9ecef;
+}
+
+.resize-indicator {
+  width: 100%;
+  height: 6px;
+  background: #b0b0b0;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.resize-handle:hover .resize-indicator {
+  background: #666;
+}
+
+.resize-dots {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 2px;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.resize-dots span {
+  font-size: 8px;
+  color: #6c757d;
+  opacity: 0.7;
+}
+
+.resize-handle:hover .resize-dots span {
+  opacity: 1;
+  color: #495057;
+}
+
+.resize-text {
+  position: absolute;
+  right: 15px;
+  font-size: 10px;
+  color: #6c757d;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 11;
+}
+
+.resize-handle:hover .resize-text {
+  opacity: 1;
+  color: #495057;
+}
+
+.resizable-container:active .resize-handle {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Resizing state */
+.resizable-container.resizing {
+  user-select: none;
+  cursor: ns-resize;
+}
+
+.resizable-container.resizing .resize-handle {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.resizable-container.resizing .resize-indicator {
+  background: #666;
+}
+
+.resizable-container.resizing .resizable-content {
+  pointer-events: none;
+}
+
+/* Content area */
+.resizable-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Ensure flex child can shrink */
+}

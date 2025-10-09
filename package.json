@@ -12,20 +12,24 @@
     "format": "prettier --write src",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:watch": "vitest --watch",
     "prepare": "husky"
   },
   "dependencies": {
+    "@livekit/krisp-noise-filter": "^0.3.4",
     "@monaco-editor/react": "^4.7.0",
     "agora-extension-ai-denoiser": "^1.1.0",
     "agora-rtc-sdk-ng": "latest",
     "chart.js": "^4.4.7",
+    "livekit-client": "^2.15.7",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "trtc-sdk-v5": "^5.12.1",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.6",
@@ -57,7 +61,11 @@
     "vitest": "^1.6.1"
   },
   "lint-staged": {
+    "*.{css,scss,sass,less,styl}": [
+      "prettier --write"
+    ],
     "*.{ts,tsx}": [
+      "bash -c 'tsc --noEmit --project tsconfig.json'",
       "prettier --write",
       "eslint --fix"
     ],

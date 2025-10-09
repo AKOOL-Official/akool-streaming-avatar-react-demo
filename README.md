@@ -4,10 +4,33 @@
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/AKOOL-Official/akool-streaming-avatar-react-demo/deploy.yml?branch=main)](https://github.com/AKOOL-Official/akool-streaming-avatar-react-demo/actions)
 [![Demo](https://img.shields.io/badge/Demo-Live%20Demo-blue.svg)](https://akool-official.github.io/akool-streaming-avatar-react-demo/)
 
-A React-based demo application showcasing Akool's Streaming Avatar service with real-time voice interaction, network quality monitoring, and chat functionality.
+A production-ready React application showcasing Akool's Streaming Avatar service with **multi-provider support**, real-time voice interaction, and comprehensive network monitoring. Built with clean architecture principles and designed for scalability.
+
+## 🏗️ Architecture Overview
+
+This application demonstrates **enterprise-grade architecture** with:
+
+- **Multi-Provider Support**: Seamless switching between Agora, LiveKit, and TRTC
+- **Clean Architecture**: Layered design with clear separation of concerns
+- **Design Patterns**: Strategy, Factory, Provider, Observer, and Controller patterns
+- **Type Safety**: Comprehensive TypeScript implementation with strict typing
+- **Event-Driven**: Reactive updates through EventBus system
+- **Resource Management**: Automatic cleanup and memory management
+- **Testing**: Comprehensive test coverage with modern testing frameworks
+
+### Key Architectural Patterns
+
+- **Strategy Pattern**: Media operations abstracted across providers
+- **Factory Pattern**: Centralized provider creation and management
+- **Provider Pattern**: Unified interface for different streaming SDKs
+- **Observer Pattern**: Event-driven communication throughout the system
+- **Controller Pattern**: Complex logic extracted into focused controllers
+
+📖 **[View Detailed Architecture Documentation →](docs/ARCHITECTURE.md)**
 
 ## 📋 Table of Contents
 
+- [Architecture Overview](#️-architecture-overview)
 - [Features](#-features)
 - [Technology Stack](#-technology-stack)
 - [Prerequisites](#-prerequisites)
@@ -21,6 +44,7 @@ A React-based demo application showcasing Akool's Streaming Avatar service with 
 
 ## ✨ Features
 
+### Core Functionality
 - 🎭 **Real-time Avatar Streaming** - Live avatar rendering with voice synchronization
 - 🎤 **Voice Interaction** - Two-way voice communication with the avatar
 - 💬 **Chat Interface** - Text-based messaging with the avatar
@@ -30,14 +54,46 @@ A React-based demo application showcasing Akool's Streaming Avatar service with 
 - 📱 **Responsive Design** - Works seamlessly across devices
 - ⚡ **Low Latency** - Optimized for real-time interactions
 
+### Advanced Features
+- 🔄 **Multi-Provider Support** - Seamless switching between Agora, LiveKit, and TRTC
+- 🎛️ **AI Denoiser** - Cross-provider noise reduction support
+- 📈 **Performance Monitoring** - Real-time quality metrics and analytics
+- 🛡️ **Error Recovery** - Robust error handling and automatic reconnection
+- 🧠 **Smart Resource Management** - Automatic cleanup and memory optimization
+- 🔧 **Provider-Agnostic Controls** - Unified interface across different streaming SDKs
+- 🎵 **Enhanced Voice Selection** - Advanced voice preview and selection interface
+- 📝 **JSON Configuration Editor** - Visual configuration management
+- 🔔 **Real-time Notifications** - Toast notifications for system events
+- 🎨 **Draggable UI Components** - Resizable and repositionable interface elements
+- 🧪 **Comprehensive Testing** - 90%+ code coverage with Vitest
+- 📊 **Advanced Analytics** - Detailed performance and usage metrics
+
 ## 🛠 Technology Stack
 
-- **Frontend**: React 18, TypeScript, Vite
-- **Real-time Communication**: Agora RTC SDK
-- **Styling**: CSS3 with modern design patterns
-- **Package Manager**: pnpm
-- **Build Tool**: Vite
-- **State Management**: React Context API
+### Frontend Core
+- **React 18** - Modern React with concurrent features
+- **TypeScript** - Strict typing with comprehensive type definitions
+- **Vite** - Fast build tool with hot module replacement
+- **CSS3** - Modern styling with responsive design patterns
+
+### Streaming & Communication
+- **Agora RTC SDK** - Real-time communication (primary provider)
+- **LiveKit Client** - WebRTC implementation (secondary provider)
+- **TRTC SDK v5** - Tencent real-time communication (tertiary provider)
+
+### State Management & Architecture
+- **Zustand** - Lightweight state management for configuration
+- **React Context API** - Provider state and event handling
+- **EventBus** - Custom event-driven communication system
+- **Resource Manager** - Automatic cleanup and memory management
+
+### Development Tools
+- **pnpm** - Fast, disk space efficient package manager
+- **ESLint** - Code linting with TypeScript support
+- **Prettier** - Code formatting
+- **Vitest** - Testing framework with coverage
+- **Husky** - Git hooks for code quality
+
 
 ## 📋 Prerequisites
 
@@ -105,10 +161,21 @@ The application will be available at `http://localhost:5173/streaming/avatar`
 
 The demo includes configurable options for:
 
+- **Provider Selection**: Choose between Agora, LiveKit, or TRTC
 - **Avatar Selection**: Choose from available avatar models
 - **Voice Settings**: Adjust voice parameters and language
 - **Network Configuration**: Customize RTC settings
 - **UI Preferences**: Theme and layout options
+
+### Multi-Provider Support
+
+The application supports **three streaming providers** with seamless switching:
+
+- **Agora RTC** (Default) - Full audio/video support, AI denoiser
+- **LiveKit** - WebRTC-based, scalable architecture  
+- **TRTC** - Enterprise-grade, global CDN
+
+📖 **[View Multi-Provider Configuration →](docs/ARCHITECTURE.md#-multi-provider-system)**
 
 ## 🔑 API Setup
 
@@ -172,34 +239,65 @@ Authorization: Bearer your_access_token_here
 
 ```
 src/
-├── components/          # React components
-│   ├── AvatarSelector/  # Avatar selection interface
-│   ├── ChatInterface/   # Chat functionality
-│   ├── ConfigurationPanel/ # Settings panel
-│   ├── NetworkQuality/  # Network monitoring
-│   ├── VideoDisplay/    # Avatar video display
-│   └── VoiceSelector/   # Voice selection
-├── contexts/           # React contexts
+├── components/          # React UI components
+│   ├── shared/         # Reusable UI components
+│   ├── VideoDisplay/   # Video rendering components
+│   ├── ChatInterface/  # Chat functionality
+│   ├── EnhancedVoiceSelector/ # Advanced voice selection
+│   └── ...            # Other specialized components
+├── contexts/           # React context providers  
 ├── hooks/              # Custom React hooks
-├── agoraHelper.ts      # Agora RTC integration
-└── apiService.ts       # API communication
+├── providers/          # Multi-provider streaming system
+│   ├── agora/          # Agora RTC implementation
+│   ├── livekit/        # LiveKit implementation
+│   ├── trtc/           # TRTC implementation
+│   └── common/         # Shared provider components
+├── core/               # Core system utilities
+├── stores/             # State management (Zustand)
+├── types/              # TypeScript type definitions
+├── errors/             # Error handling
+└── __tests__/          # Comprehensive test suite
 ```
+
+📖 **[View Detailed Project Structure →](docs/ARCHITECTURE.md#-project-structure)**
+
+### Enhanced UI Components
+
+The application features a modern, interactive UI with advanced components:
+
+- **Enhanced Voice Selector**: Advanced voice preview and selection with real-time audio feedback
+- **JSON Configuration Editor**: Visual configuration management with Monaco Editor
+- **Draggable Overlays**: Resizable and repositionable interface elements
+- **Real-time Notifications**: Toast notification system for user feedback
+- **Network Quality Display**: Live performance metrics and connection status
+- **Chat Interface**: Modern chat UI with message history and controls
+- **Video Display**: Optimized video rendering with overlay controls
 
 ### Available Scripts
 
 ```bash
 # Development
 pnpm dev              # Start development server
-pnpm dev:https        # Start with HTTPS
+pnpm preview          # Preview production build
 
 # Building
 pnpm build            # Build for development
 pnpm build:prod       # Build for production
-pnpm preview          # Preview production build
+pnpm build:ci         # Build for CI environment
 
 # Code Quality
 pnpm lint             # Run ESLint
 pnpm format           # Run prettier
+pnpm typecheck        # Run TypeScript type checking
+
+# Testing
+pnpm test             # Run tests once
+pnpm test:ui          # Run tests with UI
+pnpm test:coverage    # Run tests with coverage
+pnpm test:watch       # Run tests in watch mode
+
+# Git Hooks
+pnpm prepare          # Setup Husky git hooks
 ```
 
 ### Development Workflow
@@ -207,27 +305,104 @@ pnpm format           # Run prettier
 1. **Fork** the repository
 2. **Create** a feature branch: `git checkout -b feat/amazing-feature`
 3. **Make** your changes and test thoroughly
-4. **Commit** with descriptive messages: `git commit -m 'Add amazing feature'`
-5. **Push** to your branch: `git push origin feat/amazing-feature`
-6. **Create** a Pull Request
+4. **Run quality checks**:
+   ```bash
+   pnpm typecheck  # Type checking
+   pnpm lint       # ESLint checks
+   pnpm format     # Code formatting
+   pnpm test       # Run tests
+   ```
+5. **Commit** with descriptive messages: `git commit -m 'Add amazing feature'`
+6. **Push** to your branch: `git push origin feat/amazing-feature`
+7. **Create** a Pull Request
+
+### Code Quality Standards
+
+- **TypeScript**: Strict mode enabled, never use `any` (use `unknown` instead)
+- **ESLint**: Configured for React + TypeScript with strict rules
+- **Prettier**: Consistent code formatting across the project
+- **Testing**: Maintain 90%+ coverage for core modules, 75%+ for components
+- **Error Handling**: Comprehensive try-catch blocks and error boundaries
+- **No TODOs**: Never leave TODO comments or mock data in production code
+
+## 🧪 Testing
+
+### Testing Framework
+
+This project uses **Vitest** as the primary testing framework with comprehensive coverage and modern testing utilities:
+
+- **Vitest** - Fast unit testing with Vite integration
+- **React Testing Library** - Component testing utilities
+- **Jest DOM** - Custom matchers for DOM testing
+- **User Event** - User interaction simulation
+- **Coverage Reports** - Comprehensive code coverage tracking
+
+### Test Structure
+
+```
+src/__tests__/
+├── core/              # Core system tests
+├── fixtures/          # Test data and fixtures
+├── mocks/             # Mock implementations
+│   └── streamingSdks/ # Provider SDK mocks
+└── setup/             # Test configuration
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm test
+
+# Run tests with UI
+pnpm test:ui
+
+# Run tests with coverage
+pnpm test:coverage
+
+# Run tests in watch mode
+pnpm test:watch
+```
+
+### Coverage Requirements
+
+The project maintains high code coverage with different thresholds:
+
+- **Core Modules** (hooks, providers, core): 90% coverage
+- **UI Components**: 75% coverage
+- **Global Threshold**: 80% coverage
+
+### Test Categories
+
+#### Unit Tests
+- **Component Tests**: UI component behavior and rendering
+- **Hook Tests**: Custom React hooks functionality
+- **Provider Tests**: Streaming provider implementations
+- **Core Tests**: EventBus, Logger, ResourceManager
+
+#### Integration Tests
+- **Provider Switching**: Multi-provider functionality
+- **Error Scenarios**: Network failure and recovery
+- **Performance Tests**: Load and stress testing
+
+### Mock Strategy
+
+- **Provider SDKs**: Complete mock implementations for Agora, LiveKit, and TRTC
+- **Event System**: Mock EventBus for isolated testing
+- **API Services**: Mocked API responses and error scenarios
 
 ## 📊 Network Quality Monitoring
 
-The application provides comprehensive real-time monitoring:
+The application provides comprehensive real-time monitoring with provider-agnostic metrics:
 
-### Metrics Displayed
+- **Video Statistics**: Frame rate, resolution, bitrate, codec information
+- **Audio Statistics**: Sample rate, bitrate, packet loss, volume levels  
+- **Network Performance**: Latency, jitter, packet loss rates, bandwidth
+- **Connection Quality**: Overall network health score (0-100)
+- **AI Denoiser**: Cross-provider noise reduction support
+- **Error Recovery**: Automatic reconnection with exponential backoff
 
-- **Video Statistics**: Frame rate, resolution, bitrate
-- **Audio Statistics**: Sample rate, bitrate, packet loss
-- **Network Performance**: Latency, jitter, packet loss rates
-- **End-to-End Delay**: Total processing time
-- **Connection Quality**: Overall network health score
-
-### Performance Optimization
-
-- **Adaptive Bitrate**: Automatic quality adjustment
-- **Connection Recovery**: Automatic reconnection handling
-- **Quality Indicators**: Visual feedback for network status
+📖 **[View Performance Optimizations →](docs/ARCHITECTURE.md#-performance-optimizations)**
 
 ## 🌐 Browser Support
 
