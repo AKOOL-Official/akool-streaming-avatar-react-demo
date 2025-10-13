@@ -80,7 +80,7 @@ export class AgoraEventController extends BaseEventController {
       // Handle video tracks specifically
       if (mediaType === 'video' && user.videoTrack) {
         // Play the remote video track in the remote video element
-        user.videoTrack.play('remote-video');
+        user.videoTrack.play('remote-video', { fit: 'contain' });
         logger.info('Remote video track playing', { uid: user.uid });
       }
 

@@ -246,7 +246,12 @@ export class TRTCVideoController {
       // Remove hidden class to make the video element visible
       element.classList.remove('hidden');
 
-      await this.client.startRemoteVideo({ userId, streamType: TRTC.TYPE.STREAM_TYPE_MAIN, view: element }); // main stream
+      await this.client.startRemoteVideo({
+        userId,
+        streamType: TRTC.TYPE.STREAM_TYPE_MAIN,
+        view: element,
+        option: { fillMode: 'contain' as const },
+      }); // main stream
 
       logger.info('Remote video playback started successfully', {
         userId,

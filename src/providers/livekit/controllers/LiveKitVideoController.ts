@@ -128,7 +128,7 @@ export class LiveKitVideoController {
         videoElement.playsInline = true;
         videoElement.style.width = '100%';
         videoElement.style.height = '100%';
-        videoElement.style.objectFit = 'cover';
+        videoElement.style.objectFit = 'contain';
         containerElement.appendChild(videoElement);
       }
 
