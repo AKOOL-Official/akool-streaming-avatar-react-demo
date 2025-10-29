@@ -5,6 +5,7 @@ import { MessageAdapter } from '../../common/adapters/MessageAdapter';
 export class LiveKitMessageAdapter implements MessageAdapter {
   private room: Room;
   private messageCallback?: (data: Uint8Array) => void;
+  private listenerFunction?: (payload: Uint8Array) => void;
 
   constructor(room: Room) {
     this.room = room;
@@ -59,20 +60,32 @@ export class LiveKitMessageAdapter implements MessageAdapter {
   }
 
   setupMessageListener(callback: (data: Uint8Array) => void): void {
+    // Remove existing listener if any
+    if (this.listenerFunction) {
+      this.room.off(RoomEvent.DataReceived, this.listenerFunction);
+    }
+
+    // Store the callback and create listener function
     this.messageCallback = callback;
 
-    // Set up LiveKit's data received listener
-    this.room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+    // Create and store the listener function
+    this.listenerFunction = (payload: Uint8Array) => {
       if (this.messageCallback) {
         this.messageCallback(payload);
       }
-    });
+    };
+
+    // Set up LiveKit's data received listener
+    this.room.on(RoomEvent.DataReceived, this.listenerFunction);
 
     logger.debug('LiveKit message listener setup complete');
   }
 
   removeMessageListener(): void {
-    this.room.removeAllListeners(RoomEvent.DataReceived);
+    if (this.listenerFunction) {
+      this.room.off(RoomEvent.DataReceived, this.listenerFunction);
+      this.listenerFunction = undefined;
+    }
     this.messageCallback = undefined;
     logger.debug('LiveKit message listener removed');
   }

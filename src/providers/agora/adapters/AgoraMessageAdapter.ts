@@ -5,6 +5,7 @@ import { MessageAdapter } from '../../common/adapters/MessageAdapter';
 export class AgoraMessageAdapter implements MessageAdapter {
   private client: IAgoraRTCClient;
   private messageCallback?: (data: Uint8Array) => void;
+  private listenerFunction?: (uid: number, data: Uint8Array) => void;
 
   constructor(client: IAgoraRTCClient) {
     this.client = client;
@@ -34,21 +35,31 @@ export class AgoraMessageAdapter implements MessageAdapter {
   }
 
   setupMessageListener(callback: (data: Uint8Array) => void): void {
+    // Remove existing listener if any
+    if (this.listenerFunction) {
+      this.client.off('stream-message', this.listenerFunction);
+    }
+
+    // Store the callback and create listener function
     this.messageCallback = callback;
 
-    // Set up Agora's stream message listener
-    this.client.on('stream-message', (_uid: number, data: Uint8Array) => {
+    // Create and store the listener function
+    this.listenerFunction = (_uid: number, data: Uint8Array) => {
       if (this.messageCallback) {
         this.messageCallback(data);
       }
-    });
+    };
+
+    // Set up Agora's stream message listener
+    this.client.on('stream-message', this.listenerFunction);
 
     logger.debug('Agora message listener setup complete');
   }
 
   removeMessageListener(): void {
-    if (this.messageCallback) {
-      this.client.off('stream-message', this.messageCallback);
+    if (this.listenerFunction) {
+      this.client.off('stream-message', this.listenerFunction);
+      this.listenerFunction = undefined;
     }
     this.messageCallback = undefined;
     logger.debug('Agora message listener removed');
